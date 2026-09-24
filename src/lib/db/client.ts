@@ -2,6 +2,10 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { env } from "@/lib/env";
 
+// Columnas bigint (montos en unidad menor, tamaños) llegan como BigInt; se serializan como número.
+// Seguro hasta 2^53 (9e15): muy por encima de cualquier monto en centavos que manejemos.
+(BigInt.prototype as unknown as { toJSON: () => number }).toJSON = function () { return Number(this); };
+
 // Un solo PrismaClient por proceso (serverless reutiliza el módulo entre invocaciones calientes).
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 

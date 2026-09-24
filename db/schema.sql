@@ -1264,6 +1264,9 @@ create or replace function app.bootstrap_organization() returns trigger
 language plpgsql as $$
 declare r record; v_role_id uuid; v_membership_id uuid;
 begin
+  -- contexto RLS para la org recién creada (solo esta transacción)
+  perform set_config('app.organization_id', new.id::text, true);
+
   insert into organization_settings (organization_id) values (new.id);
 
   for r in select distinct name, description from role_templates loop
