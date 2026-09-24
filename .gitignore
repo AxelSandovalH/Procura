@@ -1,0 +1,26 @@
+# deps / build
+node_modules/
+.next/
+out/
+dist/
+coverage/
+
+# env & secrets — NUNCA al repo
+.env
+.env.*
+!.env.example
+
+# vercel / supabase local
+.vercel/
+supabase/.temp/
+supabase/.branches/
+
+# os / editor
+.DS_Store
+*.log
+.idea/
+.vscode/
+
+# next
+*.tsbuildinfo
+next-env.d.ts

@@ -1,0 +1,10 @@
+// Modelos: se generan con `npx prisma db pull` a partir de supabase/migrations (fuente de verdad).
+// No editar a mano; cambiar el SQL y volver a hacer pull.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
