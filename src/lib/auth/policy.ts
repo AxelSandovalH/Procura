@@ -49,3 +49,9 @@ export function authorize(actor: Actor, permission: Permission, resource?: Resou
   }
   throw Problem.forbidden(`Requiere el permiso ${permission}`);
 }
+
+/** Como authorize(), pero pasa si el actor tiene AL MENOS UNO de los permisos listados. */
+export function authorizeAny(actor: Actor, permissions: Permission[], resource?: Resource): void {
+  if (permissions.some((p) => can(actor, p, resource))) return;
+  throw Problem.forbidden(`Requiere alguno de estos permisos: ${permissions.join(", ")}`);
+}

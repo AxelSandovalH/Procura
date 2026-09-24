@@ -82,6 +82,21 @@ export async function requireActor(req: Request): Promise<Actor> {
   };
 }
 
+/**
+ * Igual que requireActor(), pero para una organización explícita en vez de la cookie/header —
+ * usada en flujos donde el actor especifica a qué organización actúa (ej. aceptar una invitación
+ * de relación). Lanza 403 si el usuario no tiene membership ACTIVE en esa organización.
+ */
+export async function requireActorForOrganization(organizationId: string): Promise<Actor> {
+  const user = await requireUser();
+  const membership = await withContext({ userId: user.id }, (tx) =>
+    tx.memberships.findFirst({ where: { user_id: user.id, organization_id: organizationId, status: "ACTIVE" }, select: { id: true } }),
+  );
+  if (!membership) throw Problem.forbidden("No eres miembro activo de esa organización");
+  const roles = await loadRoles({ userId: user.id, organizationId, membershipId: membership.id });
+  return { type: "USER", userId: user.id, membershipId: membership.id, apiKeyId: null, organizationId, roles, permissions: union(roles) };
+}
+
 async function actorFromApiKey(raw: string): Promise<Actor> {
   const hash = sha256(raw);
   // La RLS no permite leer api_keys sin contexto de organización, y aún no la conocemos:

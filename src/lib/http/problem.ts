@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { Prisma } from "@prisma/client";
 
 /** Error de aplicación serializable como RFC 9457 (application/problem+json). */
 export class Problem extends Error {
@@ -49,6 +50,8 @@ export function route(handler: Handler) {
           requestId,
         );
       }
+      const mapped = mapDbError(err);
+      if (mapped) return problemResponse(mapped, requestId);
       console.error(`[${requestId}]`, err);
       return problemResponse(new Problem(500, "Error interno"), requestId);
     }
@@ -56,7 +59,27 @@ export function route(handler: Handler) {
 }
 
 export async function json<T>(req: Request, parse: (data: unknown) => T): Promise<T> {
-  let body: unknown;
-  try { body = await req.json(); } catch { throw Problem.badRequest("El cuerpo debe ser JSON válido"); }
+  const text = await req.text();
+  let body: unknown = undefined;
+  if (text.trim().length > 0) {
+    try { body = JSON.parse(text); } catch { throw Problem.badRequest("El cuerpo debe ser JSON válido"); }
+  }
   return parse(body);
+}
+
+/** Traduce errores conocidos de Prisma/Postgres a Problem. Devuelve null si no reconoce el error. */
+function mapDbError(err: unknown): Problem | null {
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === "P2002") {
+      const target = (err.meta?.target as string[] | string | undefined) ?? "campo";
+      return Problem.conflict(`Ya existe un registro con ese ${Array.isArray(target) ? target.join(", ") : target}`);
+    }
+    if (err.code === "P2025" || err.code === "P2001") return Problem.notFound();
+    if (err.code === "P2003") return Problem.badRequest("Referencia a un recurso que no existe");
+  }
+  const msg = err instanceof Error ? err.message : "";
+  // RLS: la fila no pertenece a la organización activa del actor.
+  if (msg.includes("row-level security policy")) return Problem.notFound();
+  if (/violates check constraint/.test(msg)) return Problem.badRequest("El registro no cumple una regla de negocio");
+  return null;
 }
