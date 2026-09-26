@@ -20,9 +20,12 @@ export async function loadOrder(tx: Tx, id: string, orgId: string) {
 export const GET = route(async (req, params) => {
   const actor = await requireActor(req);
   if (!actor.permissions.has("order.read")) throw Problem.forbidden();
-  const o = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, (tx) => loadOrder(tx, params.id, actor.organizationId));
+  const { order: o, hasConfirmedReceipt } = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
+    const order = await loadOrder(tx, params.id, actor.organizationId);
+    const count = await tx.receipts.count({ where: { order_id: order.id, status: { in: ["CONFIRMED", "CONFIRMED_WITH_DISCREPANCIES"] } } });
+    return { order, hasConfirmedReceipt: count > 0 };
+  });
   const isBuyer = o.buyer_organization_id === actor.organizationId;
-  const hasConfirmedReceipt = false; // Fulfillment aún no implementado en este bloque
   return NextResponse.json({
     id: o.id, order_number: o.order_number, status: o.status, version: o.version, perspective: isBuyer ? "BUYER" : "SUPPLIER",
     requisition_id: isBuyer ? o.requisition_id : undefined,
