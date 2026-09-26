@@ -28,6 +28,11 @@ export const ORDER_STATUS: Record<string, { label: string; tone: Tone }> = {
   COMPLETED: { label: "Completada", tone: "ok" }, REJECTED: { label: "Rechazada", tone: "bad" }, CANCELLED: { label: "Cancelada", tone: "bad" },
 };
 
+export const RELATIONSHIP_STATUS: Record<string, { label: string; tone: Tone }> = {
+  PENDING: { label: "Pendiente", tone: "warn" }, ACTIVE: { label: "Activa", tone: "ok" }, SUSPENDED: { label: "Suspendida", tone: "warn" },
+  FINALIZED: { label: "Finalizada", tone: "muted" }, REJECTED: { label: "Rechazada", tone: "bad" },
+};
+
 export const PRIORITY: Record<string, { label: string; tone: Tone }> = {
   LOW: { label: "Baja", tone: "muted" },
   NORMAL: { label: "Normal", tone: "neutral" },

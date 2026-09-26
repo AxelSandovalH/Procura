@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ClipboardList, CheckSquare, Home, Inbox, Package, LogOut, Menu, X } from "lucide-react";
+import { ClipboardList, CheckSquare, Home, Inbox, Package, Handshake, BookOpen, LogOut, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -20,6 +20,8 @@ const NAV = [
   { href: "/aprobaciones", label: "Aprobaciones", icon: CheckSquare, perm: "requisition.approve", badge: true },
   { href: "/solicitudes", label: "Cotizaciones", icon: Inbox, perm: "rfq.read", alt: "rfq.issue" },
   { href: "/ordenes", label: "Órdenes", icon: Package, perm: "order.read" },
+  { href: "/relaciones", label: "Relaciones", icon: Handshake, perm: "relationship.read" },
+  { href: "/catalogo", label: "Catálogo", icon: BookOpen, perm: "catalog.read" },
 ] as const;
 
 function initials(name: string) { return name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join(""); }
