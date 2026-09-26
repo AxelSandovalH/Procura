@@ -8,7 +8,11 @@ Requisición → Aprobación → Proveedor → Cotización → Orden → Entrega
 
 ## Estado
 
-🚧 **Fase de diseño → esquema.** Blueprint en [`docs/`](docs/); esquema inicial de base de datos en [`db/schema.sql`](db/schema.sql) (validado, pendiente de aplicar en Supabase). Sin código de aplicación todavía.
+✅ **MVP funcional, desplegado** en Vercel + Supabase (`https://procura-theta.vercel.app`).
+
+- **Backend:** ~155 endpoints en `/api/v1` (requisiciones, aprobaciones, RFQ/cotizaciones, órdenes, entregas/recepciones, catálogo e importación, relaciones, colaboración y adjuntos, notificaciones, webhooks, API keys, portal). RLS forzado en todas las tablas.
+- **Frontend:** todas las pantallas del flujo completo (comprador y proveedor), administración, integraciones y portal público `/{slug}/solicitar`. Responsive y auditado con axe-core (WCAG AA).
+- **Pendiente antes de operar con clientes:** ver [`docs/PUESTA_EN_MARCHA.md`](docs/PUESTA_EN_MARCHA.md).
 
 ## Blueprint del MVP
 
@@ -38,8 +42,4 @@ Lista completa en [PRODUCT_OVERVIEW.md §5](docs/PRODUCT_OVERVIEW.md#5-principio
 
 ## Siguiente paso
 
-Stack decidido: **Next.js en Vercel + Supabase (PostgreSQL, Auth, Storage) + Inngest** (ORM: OD-37). Todas las decisiones que bloqueaban el esquema y la arquitectura están cerradas (ver *Estado de decisiones* en [OPEN_DECISIONS.md](docs/OPEN_DECISIONS.md)); quedan las de flujo/configuración. Secuencia:
-
-```text
-Database schema → Backend architecture → API → Authorization → Frontend → Core UI → Testing → Deployment
-```
+Puesta en marcha con clientes reales: [`docs/PUESTA_EN_MARCHA.md`](docs/PUESTA_EN_MARCHA.md) (variables de entorno, Supabase Auth, cron, datos de prueba, límites conocidos y backlog).
