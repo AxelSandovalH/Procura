@@ -1,6 +1,6 @@
 import type { Tx } from "@/lib/db/client";
 import type { Actor } from "@/lib/auth/context";
-import type { Prisma, event_perspective } from "@prisma/client";
+import type { event_perspective } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 
 export interface Recipient { organizationId: string; perspective: event_perspective; payload: Record<string, unknown> }
@@ -21,35 +21,40 @@ export interface EmitInput {
 export async function emitEvent(tx: Tx, input: EmitInput): Promise<string> {
   const eventKey = randomUUID();
   const actorPayload = { type: input.actor.type, membership_id: input.actor.membershipId, organization_id: input.actor.organizationId };
-  await tx.domain_events.createMany({
-    data: input.recipients.map((r) => ({
-      event_key: eventKey, type: input.type, aggregate_type: input.aggregateType, aggregate_id: input.aggregateId,
-      organization_id: r.organizationId, perspective: r.perspective, actor: actorPayload as Prisma.InputJsonValue, payload: r.payload as Prisma.InputJsonValue,
-    })),
-  });
+  // domain_events es INTERNAL (RLS de una sola org); un evento shared casi siempre incluye a la
+  // contraparte del actor. app.emit_domain_event_row (SECURITY DEFINER) inserta cada fila sin
+  // depender del contexto RLS de la transacción — de lo contrario el INSERT de la contraparte
+  // abortaría toda la acción de negocio que disparó el evento, no solo la notificación.
+  const actorJson = JSON.stringify(actorPayload);
+  for (const r of input.recipients) {
+    await tx.$executeRaw`select app.emit_domain_event_row(${eventKey}::uuid, ${input.type}, ${input.aggregateType}, ${input.aggregateId}::uuid, ${r.organizationId}::uuid, ${r.perspective}::event_perspective, ${actorJson}::jsonb, ${JSON.stringify(r.payload)}::jsonb)`;
+  }
   return eventKey;
 }
 
-/** Notificaciones in-app para memberships puntuales, ligadas al evento recién emitido. */
-export async function notify(tx: Tx, params: { organizationId: string; membershipIds: string[]; eventIdByOrg?: Map<string, string>; type: string; title: string; body?: string; resourceType: string; resourceId: string }) {
+/**
+ * Notificaciones in-app para memberships puntuales, ligadas al evento recién emitido.
+ * notifications es INTERNAL y estas memberships casi siempre son de la organización CONTRAPARTE
+ * del actor — mismo motivo que emitEvent: sin la función definer, el INSERT viola RLS y aborta
+ * la transacción de negocio completa, no solo la notificación.
+ */
+export async function notify(tx: Tx, params: { organizationId: string; membershipIds: string[]; eventId?: string; type: string; title: string; body?: string; resourceType: string; resourceId: string }) {
   const ids = [...new Set(params.membershipIds)].filter(Boolean);
-  if (ids.length === 0) return;
-  await tx.notifications.createMany({
-    data: ids.map((membershipId) => ({
-      organization_id: params.organizationId, membership_id: membershipId, type: params.type, title: params.title, body: params.body,
-      resource_type: params.resourceType, resource_id: params.resourceId,
-    })),
-  });
+  for (const membershipId of ids) {
+    await tx.$executeRaw`select app.create_notification_row(${params.organizationId}::uuid, ${membershipId}::uuid, ${params.eventId ?? null}::uuid, ${params.type}, ${params.title}, ${params.body ?? null}, ${params.resourceType}, ${params.resourceId}::uuid)`;
+  }
 }
 
-/** Memberships ACTIVE con un permiso dado en la organización (para notificar "a quién corresponda"). */
+/**
+ * Memberships ACTIVE con un permiso dado en la organización (para notificar "a quién corresponda").
+ * Vía función SECURITY DEFINER: esta consulta casi siempre se hace para la organización
+ * CONTRAPARTE del actor (ej. avisar a Compras del comprador cuando el proveedor cotiza), y
+ * role_assignments es INTERNAL — bajo el contexto RLS del actor, un SELECT normal devolvería 0
+ * filas en silencio (sin lanzar error) en vez de fallar de forma visible.
+ */
 export async function membershipsWithPermission(tx: Tx, organizationId: string, permissionCode: string, excludeMembershipId?: string): Promise<string[]> {
-  const rows = await tx.role_assignments.findMany({
-    where: { organization_id: organizationId, revoked_at: null, roles: { role_permissions: { some: { permission_code: permissionCode } } }, memberships_role_assignments_membership_idTomemberships: { status: "ACTIVE" } },
-    select: { membership_id: true },
-  });
-  const ids = [...new Set(rows.map((r) => r.membership_id))];
-  return excludeMembershipId ? ids.filter((id) => id !== excludeMembershipId) : ids;
+  const rows = await tx.$queryRaw<{ membership_id: string }[]>`select * from app.memberships_with_permission(${organizationId}::uuid, ${permissionCode}, ${excludeMembershipId ?? null}::uuid)`;
+  return rows.map((r) => r.membership_id);
 }
 
 /** Notifica a todos los memberships ACTIVE con un permiso dado (ej. "rfq.issue" = Compras). */
