@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ClipboardList, CheckSquare, Home, Inbox, Package, Handshake, BookOpen, LogOut, Menu, X } from "lucide-react";
+import { ClipboardList, CheckSquare, Home, Inbox, Package, Handshake, BookOpen, Settings, LogOut, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -18,10 +18,11 @@ const NAV = [
   { href: "/inicio", label: "Inicio", icon: Home, perm: null },
   { href: "/requisiciones", label: "Requisiciones", icon: ClipboardList, perm: "requisition.read" },
   { href: "/aprobaciones", label: "Aprobaciones", icon: CheckSquare, perm: "requisition.approve", badge: true },
-  { href: "/solicitudes", label: "Cotizaciones", icon: Inbox, perm: "rfq.read", alt: "rfq.issue" },
+  { href: "/solicitudes", label: "Cotizaciones", icon: Inbox, perm: "rfq.read", alt: ["rfq.issue"] },
   { href: "/ordenes", label: "Órdenes", icon: Package, perm: "order.read" },
   { href: "/relaciones", label: "Relaciones", icon: Handshake, perm: "relationship.read" },
   { href: "/catalogo", label: "Catálogo", icon: BookOpen, perm: "catalog.read" },
+  { href: "/administracion", label: "Administración", icon: Settings, perm: "member.read", alt: ["role.read", "department.manage", "location.manage", "approval_workflow.manage", "organization.update", "settings.manage"] },
 ] as const;
 
 function initials(name: string) { return name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join(""); }
@@ -46,7 +47,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const nav = (
     <nav className="space-y-0.5" aria-label="Principal">
-      {NAV.filter((i) => !i.perm || session.can(i.perm) || (("alt" in i) && session.can(i.alt))).map((i) => {
+      {NAV.filter((i) => !i.perm || session.can(i.perm) || (("alt" in i) && i.alt.some((a: string) => session.can(a)))).map((i) => {
         const active = pathname === i.href || pathname.startsWith(`${i.href}/`);
         return (
           <Link key={i.href} href={i.href} aria-current={active ? "page" : undefined}

@@ -42,7 +42,7 @@ function LoginForm() {
       </div>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <Button type="submit" size="lg" className="w-full" disabled={busy}>{busy ? "Entrando…" : "Entrar"}</Button>
-      <p className="text-center text-sm text-muted-foreground">¿No tienes cuenta? <Link href="/registro" className="font-medium text-foreground underline-offset-4 hover:underline">Regístrate</Link></p>
+      <p className="text-center text-sm text-muted-foreground">¿No tienes cuenta? <Link href={next && next.startsWith("/") && !next.startsWith("//") ? `/registro?next=${encodeURIComponent(next)}` : "/registro"} className="font-medium text-foreground underline-offset-4 hover:underline">Regístrate</Link></p>
     </form>
   );
 }
