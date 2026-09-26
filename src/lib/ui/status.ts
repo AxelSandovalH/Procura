@@ -12,6 +12,22 @@ export const REQUISITION_STATUS: Record<string, { label: string; tone: Tone }> =
   CANCELLED: { label: "Cancelada", tone: "bad" },
 };
 
+export const RFQ_STATUS: Record<string, { label: string; tone: Tone }> = {
+  SENT: { label: "Enviada", tone: "info" }, VIEWED: { label: "Vista", tone: "info" }, QUOTED: { label: "Cotizada", tone: "ok" },
+  DECLINED: { label: "Declinada", tone: "bad" }, WITHDRAWN: { label: "Retirada", tone: "muted" }, CLOSED: { label: "Cerrada", tone: "muted" },
+};
+
+export const QUOTATION_STATUS: Record<string, { label: string; tone: Tone }> = {
+  DRAFT: { label: "Borrador", tone: "muted" }, SUBMITTED: { label: "Enviada", tone: "info" }, WITHDRAWN: { label: "Retirada", tone: "muted" },
+  SUPERSEDED: { label: "Reemplazada", tone: "muted" }, ACCEPTED: { label: "Aceptada", tone: "ok" }, NOT_SELECTED: { label: "No seleccionada", tone: "muted" },
+  REJECTED: { label: "Rechazada", tone: "bad" }, EXPIRED: { label: "Vencida", tone: "warn" },
+};
+
+export const ORDER_STATUS: Record<string, { label: string; tone: Tone }> = {
+  PENDING_CONFIRMATION: { label: "Por confirmar", tone: "warn" }, CONFIRMED: { label: "Confirmada", tone: "info" }, IN_PROCESS: { label: "En proceso", tone: "info" },
+  COMPLETED: { label: "Completada", tone: "ok" }, REJECTED: { label: "Rechazada", tone: "bad" }, CANCELLED: { label: "Cancelada", tone: "bad" },
+};
+
 export const PRIORITY: Record<string, { label: string; tone: Tone }> = {
   LOW: { label: "Baja", tone: "muted" },
   NORMAL: { label: "Normal", tone: "neutral" },

@@ -7,6 +7,7 @@ import { ArrowLeft, Check, Copy, MessageSquareWarning, Send, Undo2, X, XCircle, 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { QuotationComparison } from "@/components/app/quotation-comparison";
 import { StatusBadge } from "@/components/app/status-badge";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { useSession } from "@/hooks/use-session";
@@ -111,9 +112,11 @@ export default function RequisitionDetail({ params }: { params: Promise<{ id: st
               {showPrices && <div className="flex justify-end gap-8 border-t px-4 pt-3 text-sm"><span className="text-muted-foreground">Total estimado</span><span className="font-semibold tabular-nums">{money(r.estimated_total_minor, r.currency)}</span></div>}
             </CardContent>
           </Card>
+          <QuotationComparison requisitionId={r.id} status={r.status} concepts={r.concepts} currency={r.currency} hasOrder={!!r.order_id} />
         </div>
 
         <div className="space-y-6">
+          {r.order_id && <Link href={`/ordenes/${r.order_id}`} className="flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-medium hover:bg-muted">Ver orden generada<ArrowLeft className="size-4 rotate-180" /></Link>}
           <Card>
             <CardHeader><CardTitle>Detalles</CardTitle></CardHeader>
             <CardContent><dl className="space-y-2.5 text-sm">

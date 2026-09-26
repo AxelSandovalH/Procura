@@ -165,6 +165,7 @@ Respuesta `201`: requisición con `folio`, `status` (`PENDING_APPROVAL` o `APPRO
 | POST | `/rfqs/{id}/decline` `{ reason }` | `rfq.decline` (proveedor) |
 | POST | `/rfqs/{id}/withdraw` | `rfq.issue` (comprador) |
 | POST | `/rfqs/{id}/quotations` | `quotation.submit` → DRAFT |
+| GET | `/requisitions/{id}/quotations` | comprador — cada línea trae `requisition_concept_id` para el comparativo lado a lado |
 | GET | `/quotations?status=&rfq_id=` | según lado |
 | GET / PATCH | `/quotations/{id}` (`If-Match`; PATCH solo DRAFT) | |
 | POST / PATCH / DELETE | `/quotations/{id}/lines[/{lid}]` | proveedor, DRAFT |
