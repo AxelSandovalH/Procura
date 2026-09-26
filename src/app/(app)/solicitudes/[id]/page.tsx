@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/app/status-badge";
+import { CollaborationPanel } from "@/components/app/collaboration-panel";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { useSession } from "@/hooks/use-session";
 import { api, ApiError } from "@/lib/api-client";
@@ -94,6 +95,8 @@ export default function RfqDetail({ params }: { params: Promise<{ id: string }> 
           </CardContent></Card>
         </div>
       </div>
+      <div className="mt-6"><CollaborationPanel anchorType="RFQ" anchorId={r.id} counterpartName={isSupplier ? r.buyer.display_name : r.supplier.display_name} /></div>
+
       <ActionDialog open={dlg === "decline"} onOpenChange={(o) => !o && setDlg(null)} title="Declinar solicitud" description="El comprador verá tu motivo." fieldLabel="Motivo" required destructive confirmLabel="Declinar"
         onConfirm={async (c) => { await api(`/rfqs/${id}/decline`, { method: "POST", body: { reason: c } }); await refresh(); }} />
     </>

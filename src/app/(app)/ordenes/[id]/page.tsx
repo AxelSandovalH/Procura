@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DeliveriesCard } from "@/components/app/deliveries-card";
+import { CollaborationPanel } from "@/components/app/collaboration-panel";
 import { StatusBadge } from "@/components/app/status-badge";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { api, ApiError } from "@/lib/api-client";
@@ -98,6 +99,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           </dl></CardContent>
         </Card>
         {["CONFIRMED", "IN_PROCESS", "COMPLETED", "CANCELLED"].includes(o.status) && <DeliveriesCard orderId={o.id} perspective={o.perspective} orderStatus={o.status} lines={o.lines} availableActions={o.available_actions} />}
+        <CollaborationPanel anchorType="ORDER" anchorId={o.id} counterpartName={isBuyer ? o.supplier.display_name : o.buyer.display_name} />
         </div>
 
         <div className="space-y-6">

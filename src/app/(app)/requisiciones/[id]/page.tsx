@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { QuotationComparison } from "@/components/app/quotation-comparison";
+import { CollaborationPanel } from "@/components/app/collaboration-panel";
 import { StatusBadge } from "@/components/app/status-badge";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { useSession } from "@/hooks/use-session";
@@ -113,6 +114,7 @@ export default function RequisitionDetail({ params }: { params: Promise<{ id: st
             </CardContent>
           </Card>
           <QuotationComparison requisitionId={r.id} status={r.status} concepts={r.concepts} currency={r.currency} hasOrder={!!r.order_id} />
+          <CollaborationPanel anchorType="REQUISITION" anchorId={r.id} allowShared={false} />
         </div>
 
         <div className="space-y-6">

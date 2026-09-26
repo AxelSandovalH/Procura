@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/app/status-badge";
+import { CollaborationPanel } from "@/components/app/collaboration-panel";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { api, ApiError } from "@/lib/api-client";
 import { dateShort, money, qty, toMinor } from "@/lib/format";
@@ -142,6 +143,8 @@ export default function QuotationPage({ params }: { params: Promise<{ id: string
           </CardContent>
         </Card>
       </div>
+
+      <div className="mt-6"><CollaborationPanel anchorType="QUOTATION" anchorId={q.id} counterpartName={q.perspective === "SUPPLIER" ? rfq.data?.buyer.display_name : rfq.data?.supplier.display_name} /></div>
 
       <ActionDialog open={dlg === "reject"} onOpenChange={(o) => !o && setDlg(null)} title="Rechazar cotización" description="El proveedor verá tu motivo." fieldLabel="Motivo" required destructive confirmLabel="Rechazar"
         onConfirm={async (c) => { await api(`/quotations/${id}/reject`, { method: "POST", body: { reason: c } }); await refresh(); }} />
