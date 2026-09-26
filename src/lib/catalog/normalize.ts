@@ -61,7 +61,7 @@ export function normalizeRow(
   let list_price_minor: number | null = null;
   if (rawPrice) {
     const cleaned = rawPrice.replace(/[^0-9.,-]/g, "").replace(/,(?=\d{3}(\D|$))/g, "").replace(",", ".");
-    const value = Number(cleaned);
+    const value = cleaned === "" ? NaN : Number(cleaned);
     if (Number.isFinite(value) && value >= 0) list_price_minor = Math.round(value * 100);
     else messages.push({ field: "price", level: "WARNING", message: `Precio "${rawPrice}" no es un número válido, se omitirá` });
   }

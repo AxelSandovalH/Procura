@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Search } from "lucide-react";
+import Link from "next/link";
+import { Pencil, Plus, Search, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -39,7 +40,7 @@ export default function Catalogo() {
   return (
     <>
       <PageHeader title="Catálogo" description="Lo que vendes. Es privado: solo compartes lo que decidas con cada cliente."
-        actions={canManage ? <><Button variant="outline" onClick={() => setCatDlg(true)}>Categorías</Button><Button onClick={() => setEditing("new")}><Plus />Nuevo artículo</Button></> : undefined} />
+        actions={canManage ? <>{session.can("catalog.import") && <Link href="/catalogo/importar" className="inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-sm hover:bg-muted"><Upload className="size-4" />Importar</Link>}<Button variant="outline" onClick={() => setCatDlg(true)}>Categorías</Button><Button onClick={() => setEditing("new")}><Plus />Nuevo artículo</Button></> : undefined} />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative"><Search className="pointer-events-none absolute left-2.5 top-2 size-4 text-muted-foreground" /><Input aria-label="Buscar artículo" className="w-64 pl-8" placeholder="SKU o nombre" value={q} onChange={(e) => setQ(e.target.value)} /></div>
         <Select items={catItems} value={cat} onValueChange={(v) => setCat(v ?? "ALL")}>
