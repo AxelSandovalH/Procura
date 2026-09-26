@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DeliveriesCard } from "@/components/app/deliveries-card";
 import { StatusBadge } from "@/components/app/status-badge";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { api, ApiError } from "@/lib/api-client";
@@ -75,6 +76,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       {(o.cancel_reason || o.rejected_reason) && <p className="mb-4 rounded-lg bg-muted px-3 py-2 text-sm">{o.rejected_reason ? `Motivo de rechazo: ${o.rejected_reason}` : `Motivo de cancelación: ${o.cancel_reason}`}</p>}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
+        <div className="space-y-6">
         <Card>
           <CardHeader><CardTitle>Líneas</CardTitle></CardHeader>
           <CardContent className="px-0"><div className="overflow-x-auto"><Table>
@@ -95,6 +97,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
             <div className="flex justify-between border-t pt-1 font-semibold"><dt>Total</dt><dd className="tabular-nums">{money(o.total_minor, o.currency)}</dd></div>
           </dl></CardContent>
         </Card>
+        {["CONFIRMED", "IN_PROCESS", "COMPLETED", "CANCELLED"].includes(o.status) && <DeliveriesCard orderId={o.id} perspective={o.perspective} orderStatus={o.status} lines={o.lines} availableActions={o.available_actions} />}
+        </div>
 
         <div className="space-y-6">
           <Card><CardHeader><CardTitle>Detalles</CardTitle></CardHeader><CardContent><dl className="space-y-2.5 text-sm">
