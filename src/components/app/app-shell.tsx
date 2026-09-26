@@ -62,7 +62,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[15rem_1fr]">
+    <div className="min-h-screen lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
+      <a href="#contenido" className="sr-only z-50 rounded-lg bg-background px-3 py-2 text-sm focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:ring-3 focus:ring-ring/50">Saltar al contenido</a>
       <aside className={cn("fixed inset-y-0 left-0 z-40 flex w-60 flex-col gap-4 border-r border-sidebar-border bg-sidebar p-3 transition-transform lg:static lg:translate-x-0", open ? "translate-x-0" : "-translate-x-full")}>
         <div className="flex items-center justify-between px-1 pt-1"><span className="text-lg font-semibold tracking-tight">Procura</span><Button variant="ghost" size="icon-sm" className="lg:hidden" onClick={() => setOpen(false)} aria-label="Cerrar menú"><X /></Button></div>
         <OrgSwitcher />
@@ -85,7 +86,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 p-4 md:p-6">{children}</main>
+        <main id="contenido" tabIndex={-1} className="mx-auto outline-none w-full max-w-6xl flex-1 p-4 md:p-6">{children}</main>
       </div>
     </div>
   );

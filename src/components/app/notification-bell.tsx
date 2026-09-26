@@ -43,7 +43,7 @@ export function NotificationBell() {
             return (
               <li key={n.id}>
                 <button
-                  className={`w-full border-b px-3 py-2.5 text-left last:border-b-0 hover:bg-muted ${n.read_at ? "opacity-60" : ""}`}
+                  className={`w-full border-b px-3 py-2.5 text-left last:border-b-0 hover:bg-muted ${n.read_at ? "text-muted-foreground" : ""}`}
                   onClick={() => { if (!n.read_at) markRead.mutate(n.id); if (href) router.push(href); }}
                 >
                   <div className="flex items-start gap-2">

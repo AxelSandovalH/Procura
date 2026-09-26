@@ -64,7 +64,7 @@ export default function Miembros() {
         <CardContent className="px-0">
           {members.isLoading ? <div className="mx-4 h-24 animate-pulse rounded bg-muted" /> : (
             <div className="overflow-x-auto"><Table>
-              <TableHeader><TableRow><TableHead>Persona</TableHead><TableHead>Roles</TableHead><TableHead>Estado</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Persona</TableHead><TableHead>Roles</TableHead><TableHead>Estado</TableHead><TableHead className="w-10"><span className="sr-only">Acciones</span></TableHead></TableRow></TableHeader>
               <TableBody>{rows.map((m) => {
                 const st = MEMBER_STATUS[m.status] ?? { label: m.status, tone: "neutral" as const };
                 const isMe = m.id === session.me?.memberships.find((x) => x.organization.id === session.org?.id)?.id;
@@ -97,7 +97,7 @@ export default function Miembros() {
         <Card><CardHeader><CardTitle>Invitaciones</CardTitle></CardHeader><CardContent className="px-0">
           {(invites.data?.data.length ?? 0) === 0 ? <p className="px-4 text-sm text-muted-foreground">Sin invitaciones.</p> : (
             <div className="overflow-x-auto"><Table>
-              <TableHeader><TableRow><TableHead>Tipo</TableHead><TableHead>Para</TableHead><TableHead>Usos</TableHead><TableHead>Vence</TableHead><TableHead>Estado</TableHead><TableHead className="w-10" /></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Tipo</TableHead><TableHead>Para</TableHead><TableHead>Usos</TableHead><TableHead>Vence</TableHead><TableHead>Estado</TableHead><TableHead className="w-10"><span className="sr-only">Acciones</span></TableHead></TableRow></TableHeader>
               <TableBody>{invites.data!.data.map((i) => (
                 <TableRow key={i.id}>
                   <TableCell>{i.kind === "MEMBERSHIP" ? "Miembro" : i.relationship_position === "SUPPLIER" ? "Proveedor" : "Cliente"}</TableCell>

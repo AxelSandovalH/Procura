@@ -33,7 +33,7 @@ export default function Integraciones() {
       {s.can("webhook.manage") && <Webhooks />}
       <Card><CardHeader><CardTitle>Feed de eventos (alternativa sin endpoint)</CardTitle></CardHeader><CardContent className="space-y-2 text-sm text-muted-foreground">
         <p>Si tu sistema no puede recibir webhooks, consulta los eventos con una API key:</p>
-        <pre className="overflow-x-auto rounded-lg bg-muted px-3 py-2 text-xs text-foreground">GET /api/v1/events?since=&lt;cursor&gt;&amp;types=order.created,order.confirmed{"\n"}Authorization: Bearer pk_live_…</pre>
+        <pre tabIndex={0} className="overflow-x-auto rounded-lg bg-muted px-3 py-2 text-xs text-foreground">GET /api/v1/events?since=&lt;cursor&gt;&amp;types=order.created,order.confirmed{"\n"}Authorization: Bearer pk_live_…</pre>
         <p>Cada respuesta trae <code>next_cursor</code>; úsalo como <code>since</code> en la siguiente consulta.</p>
       </CardContent></Card>
     </div>
@@ -72,11 +72,11 @@ function ApiKeys() {
         {error && <p role="alert" className="mx-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
         {(keys.data?.data.length ?? 0) === 0 ? <p className="px-4 text-sm text-muted-foreground">Sin llaves.</p> : (
           <div className="overflow-x-auto"><Table>
-            <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Llave</TableHead><TableHead>Roles</TableHead><TableHead>Último uso</TableHead><TableHead>Estado</TableHead><TableHead /></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Llave</TableHead><TableHead>Roles</TableHead><TableHead>Último uso</TableHead><TableHead>Estado</TableHead><TableHead><span className="sr-only">Acciones</span></TableHead></TableRow></TableHeader>
             <TableBody>{keys.data!.data.map((k) => {
               const revoked = !!k.revoked_at; const expired = !!k.expires_at && new Date(k.expires_at) <= new Date();
               return (
-                <TableRow key={k.id} className={revoked ? "opacity-60" : ""}>
+                <TableRow key={k.id} className={revoked ? "text-muted-foreground" : ""}>
                   <TableCell className="font-medium">{k.name}</TableCell><TableCell className="font-mono text-xs">{k.key_prefix}…</TableCell>
                   <TableCell className="text-muted-foreground">{k.roles.map((r) => r.name).join(", ")}</TableCell>
                   <TableCell className="text-muted-foreground">{k.last_used_at ? dateTime(k.last_used_at) : "Nunca"}</TableCell>
@@ -188,7 +188,7 @@ function DeliveriesDialog({ endpoint, onClose }: { endpoint: Endpoint; onClose: 
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {q.isLoading ? <div className="h-16 animate-pulse rounded bg-muted" /> : (q.data?.data.length ?? 0) === 0 ? <p className="text-sm text-muted-foreground">Aún no hay entregas. Envía una prueba.</p> : (
         <Table>
-          <TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Intento</TableHead><TableHead>Estado</TableHead><TableHead>Respuesta</TableHead><TableHead /></TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Intento</TableHead><TableHead>Estado</TableHead><TableHead>Respuesta</TableHead><TableHead><span className="sr-only">Acciones</span></TableHead></TableRow></TableHeader>
           <TableBody>{q.data!.data.map((d) => (
             <TableRow key={d.id}>
               <TableCell>{dateTime(d.created_at)}</TableCell><TableCell>{d.attempt}</TableCell>

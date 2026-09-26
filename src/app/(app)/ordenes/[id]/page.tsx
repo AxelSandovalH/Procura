@@ -76,8 +76,8 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
       {error && <p role="alert" className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
       {(o.cancel_reason || o.rejected_reason) && <p className="mb-4 rounded-lg bg-muted px-3 py-2 text-sm">{o.rejected_reason ? `Motivo de rechazo: ${o.rejected_reason}` : `Motivo de cancelación: ${o.cancel_reason}`}</p>}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
-        <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0 space-y-6">
         <Card>
           <CardHeader><CardTitle>Líneas</CardTitle></CardHeader>
           <CardContent className="px-0"><div className="overflow-x-auto"><Table>
@@ -102,7 +102,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
         <CollaborationPanel anchorType="ORDER" anchorId={o.id} counterpartName={isBuyer ? o.supplier.display_name : o.buyer.display_name} />
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card><CardHeader><CardTitle>Detalles</CardTitle></CardHeader><CardContent><dl className="space-y-2.5 text-sm">
             <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Comprador</dt><dd>{o.buyer.display_name}</dd></div>
             <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Proveedor</dt><dd>{o.supplier.display_name}</dd></div>

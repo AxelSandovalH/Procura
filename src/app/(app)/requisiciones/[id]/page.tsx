@@ -95,8 +95,8 @@ export default function RequisitionDetail({ params }: { params: Promise<{ id: st
       {actionError && <p role="alert" className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{actionError}</p>}
       {r.status === "CANCELLED" && r.cancel_reason && <p className="mb-4 rounded-lg bg-muted px-3 py-2 text-sm">Motivo de cancelación: {r.cancel_reason}</p>}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
-        <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0 space-y-6">
           <Card>
             <CardHeader><CardTitle>Conceptos</CardTitle></CardHeader>
             <CardContent className="px-0">
@@ -117,7 +117,7 @@ export default function RequisitionDetail({ params }: { params: Promise<{ id: st
           <CollaborationPanel anchorType="REQUISITION" anchorId={r.id} allowShared={false} />
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {r.order_id && <Link href={`/ordenes/${r.order_id}`} className="flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-medium hover:bg-muted">Ver orden generada<ArrowLeft className="size-4 rotate-180" /></Link>}
           <Card>
             <CardHeader><CardTitle>Detalles</CardTitle></CardHeader>

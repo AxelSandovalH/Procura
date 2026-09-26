@@ -25,7 +25,7 @@ export default function Roles() {
         {canManage && <Button onClick={() => setEditing("new")}><Plus />Nuevo rol</Button>}</div>
       {roles.isLoading ? <div className="h-32 animate-pulse rounded-xl bg-muted" /> : (
         <div className="grid gap-3 sm:grid-cols-2">{(roles.data?.data ?? []).map((r) => (
-          <Card key={r.id} className={r.is_active ? "" : "opacity-60"}>
+          <Card key={r.id} className={r.is_active ? "" : "text-muted-foreground"}>
             <CardHeader><div className="flex items-start justify-between gap-2"><CardTitle>{r.name}</CardTitle>
               <div className="flex items-center gap-1.5">{r.is_system && <StatusBadge label="Base" tone="muted" />}{!r.is_active && <StatusBadge label="Inactivo" tone="warn" />}{canManage && <Button size="icon-sm" variant="ghost" aria-label={`Editar ${r.name}`} onClick={() => setEditing(r)}><Pencil /></Button>}</div></div></CardHeader>
             <CardContent className="space-y-1 text-sm">{r.description && <p className="text-muted-foreground">{r.description}</p>}<p className="text-xs text-muted-foreground">{r.permission_codes.length} permisos</p></CardContent>

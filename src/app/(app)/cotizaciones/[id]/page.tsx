@@ -94,7 +94,7 @@ export default function QuotationPage({ params }: { params: Promise<{ id: string
       </div>
       {error && <p role="alert" className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <Card>
           <CardHeader><div className="flex items-center justify-between gap-2"><CardTitle>Líneas</CardTitle>{editing && missing.length > 0 && <Button size="sm" variant="outline" onClick={addMissing} disabled={busy}><Plus />Cargar {missing.length} de la solicitud</Button>}</div></CardHeader>
           <CardContent className="px-0"><div className="overflow-x-auto"><Table>

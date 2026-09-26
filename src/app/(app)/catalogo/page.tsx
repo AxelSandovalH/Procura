@@ -52,9 +52,9 @@ export default function Catalogo() {
         <div className="rounded-xl border border-dashed p-12 text-center text-sm text-muted-foreground">{term || cat !== "ALL" ? "Sin coincidencias." : "Tu catálogo está vacío."}</div>
       ) : (
         <div className="overflow-x-auto rounded-xl border"><Table>
-          <TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>Nombre</TableHead><TableHead>Tipo</TableHead><TableHead>Categoría</TableHead><TableHead>Unidad</TableHead><TableHead className="text-right">Precio de lista</TableHead>{canManage && <TableHead className="w-10" />}</TableRow></TableHeader>
+          <TableHeader><TableRow><TableHead>SKU</TableHead><TableHead>Nombre</TableHead><TableHead>Tipo</TableHead><TableHead>Categoría</TableHead><TableHead>Unidad</TableHead><TableHead className="text-right">Precio de lista</TableHead>{canManage && <TableHead className="w-10"><span className="sr-only">Acciones</span></TableHead>}</TableRow></TableHeader>
           <TableBody>{rows.map((i) => (
-            <TableRow key={i.id} className={i.is_active ? "" : "opacity-60"}>
+            <TableRow key={i.id} className={i.is_active ? "" : "text-muted-foreground"}>
               <TableCell className="font-mono text-xs">{i.sku}</TableCell>
               <TableCell className="font-medium">{i.name}{!i.is_active && <StatusBadge className="ml-2" label="Inactivo" tone="muted" />}</TableCell>
               <TableCell className="text-muted-foreground">{i.item_type === "GOOD" ? "Bien" : "Servicio"}</TableCell>

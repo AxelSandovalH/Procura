@@ -76,11 +76,11 @@ export default function RelationshipPage({ params }: { params: Promise<{ id: str
       {r.status === "PENDING" && iInitiated && <p className="mb-4 rounded-lg bg-muted px-3 py-2 text-sm">Esperando que {other.display_name} acepte la solicitud.</p>}
       {reason && <p className="mb-4 rounded-lg bg-muted px-3 py-2 text-sm">Motivo: {reason}</p>}
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-        <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="min-w-0 space-y-6">
           {r.position === "SUPPLIER" ? <SharesCard relId={id} active={r.status === "ACTIVE"} /> : <SharedCatalogCard relId={id} active={r.status === "ACTIVE"} />}
         </div>
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card><CardHeader><CardTitle>Detalles</CardTitle></CardHeader><CardContent><dl className="space-y-2.5 text-sm">
             <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Comprador</dt><dd>{r.buyer.display_name}</dd></div>
             <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Proveedor</dt><dd>{r.supplier.display_name}</dd></div>
