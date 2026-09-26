@@ -5,6 +5,7 @@ import { requireActor } from "@/lib/auth/context";
 import { withContext, type Tx } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { emitEvent, notifyPermissionHolders } from "@/lib/events/emit";
+import { publicMessage } from "@/lib/collaboration/public";
 
 function requiredPermission(visibility: "INTERNAL" | "SHARED", action: "read" | "post") {
   if (visibility === "SHARED") return action === "read" ? "conversation.shared.read" : "conversation.shared.post";
@@ -28,7 +29,7 @@ export const GET = route(async (req, params) => {
     if (!actor.permissions.has(requiredPermission(thread.visibility, "read"))) throw Problem.forbidden();
     return tx.messages.findMany({ where: { thread_id: thread.id, ...(since ? { id: { gt: since } } : {}) }, orderBy: { created_at: "asc" }, take: 200 });
   });
-  return NextResponse.json({ data: messages });
+  return NextResponse.json({ data: messages.map((m) => publicMessage(m, actor.organizationId)) });
 });
 
 const Create = z.object({ body: z.string().trim().min(1).max(10000) });

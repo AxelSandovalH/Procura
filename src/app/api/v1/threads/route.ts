@@ -5,6 +5,7 @@ import { requireActor } from "@/lib/auth/context";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { emitEvent, notifyPermissionHolders } from "@/lib/events/emit";
+import { publicMessage } from "@/lib/collaboration/public";
 import { resolveAnchor, type AnchorType } from "@/lib/collaboration/anchor";
 import type { thread_anchor_type, visibility as Visibility } from "@prisma/client";
 
@@ -36,7 +37,7 @@ export const GET = route(async (req) => {
     return thread;
   });
   if (!result) return NextResponse.json({ thread: null, messages: [] });
-  return NextResponse.json({ thread: { id: result.id, anchor_type: result.anchor_type, anchor_id: result.anchor_id, visibility: result.visibility, created_at: result.created_at }, messages: result.messages });
+  return NextResponse.json({ thread: { id: result.id, anchor_type: result.anchor_type, anchor_id: result.anchor_id, visibility: result.visibility, created_at: result.created_at }, messages: result.messages.map((m) => publicMessage(m, actor.organizationId)) });
 });
 
 const Create = z.object({
@@ -59,19 +60,26 @@ export const POST = route(async (req) => {
     const anchor = await resolveAnchor(tx, body.anchor_type, body.anchor_id, actor.organizationId);
     if (body.visibility === "SHARED" && !anchor.allowsShared) throw Problem.badRequest("Este ancla no admite conversación compartida");
 
-    const thread = await tx.threads.upsert({
-      where: body.visibility === "INTERNAL"
-        ? { anchor_type_anchor_id_organization_id: { anchor_type: body.anchor_type, anchor_id: body.anchor_id, organization_id: actor.organizationId } }
-        : { anchor_type_anchor_id: { anchor_type: body.anchor_type, anchor_id: body.anchor_id } },
-      create: {
-        anchor_type: body.anchor_type, anchor_id: body.anchor_id, visibility: body.visibility,
-        organization_id: body.visibility === "INTERNAL" ? actor.organizationId : null,
-        relationship_id: body.visibility === "SHARED" ? anchor.relationshipId : null,
-        buyer_organization_id: body.visibility === "SHARED" ? anchor.buyerOrganizationId : null,
-        supplier_organization_id: body.visibility === "SHARED" ? anchor.supplierOrganizationId : null,
-      },
-      update: {},
-    });
+    // No se usa upsert: la clave única compuesta de Prisma no incluye `visibility` (los índices únicos
+    // son parciales), así que para un ancla con hilo INTERNAL y SHARED a la vez el lookup encontraba
+    // dos filas y fallaba (500). Se busca filtrando por visibilidad y se crea con ON CONFLICT DO NOTHING.
+    const threadWhere = body.visibility === "INTERNAL"
+      ? { anchor_type: body.anchor_type, anchor_id: body.anchor_id, visibility: "INTERNAL" as const, organization_id: actor.organizationId }
+      : { anchor_type: body.anchor_type, anchor_id: body.anchor_id, visibility: "SHARED" as const };
+    let thread = await tx.threads.findFirst({ where: threadWhere });
+    if (!thread) {
+      await tx.threads.createMany({
+        data: [{
+          anchor_type: body.anchor_type, anchor_id: body.anchor_id, visibility: body.visibility,
+          organization_id: body.visibility === "INTERNAL" ? actor.organizationId : null,
+          relationship_id: body.visibility === "SHARED" ? anchor.relationshipId : null,
+          buyer_organization_id: body.visibility === "SHARED" ? anchor.buyerOrganizationId : null,
+          supplier_organization_id: body.visibility === "SHARED" ? anchor.supplierOrganizationId : null,
+        }],
+        skipDuplicates: true,
+      });
+      thread = await tx.threads.findFirstOrThrow({ where: threadWhere });
+    }
 
     const message = await tx.messages.create({
       data: {
