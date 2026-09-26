@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,8 +19,11 @@ import { PRIORITY } from "@/lib/ui/status";
 interface Line { name: string; type: "GOOD" | "SERVICE"; quantity: string; unit: string; price: string }
 const blank = (): Line => ({ name: "", type: "GOOD", quantity: "1", unit: "PZA", price: "" });
 
-export default function NuevaRequisicion() {
+function NuevaRequisicionForm() {
   const router = useRouter();
+  const sp = useSearchParams();
+  const directedTo = /^[0-9a-f-]{36}$/i.test(sp.get("proveedor") ?? "") ? sp.get("proveedor") : null;
+  const directedName = sp.get("nombre") ?? "el proveedor";
   const qc = useQueryClient();
   const { org, can } = useSession();
   const units = useQuery({ queryKey: ["units"], queryFn: () => api<{ data: { id: string; code: string; name: string }[] }>("/catalog/units"), staleTime: 300_000 });
@@ -39,7 +42,7 @@ export default function NuevaRequisicion() {
     try {
       const created = await api<{ id: string }>("/requisitions", { body: {
         title: f.title.trim(), description: f.description.trim() || undefined, priority: f.priority, currency,
-        required_date: f.required_date || undefined, submit,
+        required_date: f.required_date || undefined, submit, directed_supplier_organization_id: directedTo ?? undefined,
         concepts: lines.map((l) => ({ concept_type: l.type, source: "FREE", name: l.name.trim(), quantity: Number(l.quantity), unit_label: l.unit.trim(), estimated_unit_price_minor: l.price ? toMinor(l.price) : undefined })),
       } });
       await qc.invalidateQueries({ queryKey: ["requisitions"] });
@@ -55,6 +58,7 @@ export default function NuevaRequisicion() {
   return (
     <>
       <Link href="/requisiciones" className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />Requisiciones</Link>
+      {directedTo && <p className="mb-4 rounded-lg border bg-muted px-3 py-2 text-sm">Requisición dirigida a <b>{directedName}</b>: al aprobarse, se le envía la solicitud de cotización automáticamente.</p>}
       <PageHeader title="Nueva requisición" description="Describe lo que necesitas. Después se envía a aprobación y, aprobada, Compras pide cotizaciones." />
       <form onSubmit={(e) => { e.preventDefault(); if (valid) save(true); }} className="space-y-6">
         <Card>
@@ -99,4 +103,8 @@ export default function NuevaRequisicion() {
       </form>
     </>
   );
+}
+
+export default function NuevaRequisicion() {
+  return <Suspense><NuevaRequisicionForm /></Suspense>;
 }

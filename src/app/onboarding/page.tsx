@@ -23,7 +23,8 @@ export default function OnboardingPage() {
     setBusy(true); setError(null);
     try {
       await api("/organizations", { body: { display_name: name, legal_name: legal || name, slug } });
-      window.location.assign("/inicio");
+      const n = new URLSearchParams(window.location.search).get("next");
+      window.location.assign(n && n.startsWith("/") && !n.startsWith("//") ? n : "/inicio");
     } catch (err) {
       setError(err instanceof ApiError ? (err.fieldErrors[0]?.message ?? err.detail ?? err.title) : "No se pudo crear la organización.");
       setBusy(false);

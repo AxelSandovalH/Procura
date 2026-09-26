@@ -6,12 +6,15 @@ import { NextResponse, type NextRequest } from "next/server";
  * mostrar el shell a quien no tiene sesión y saltarse el login a quien ya la tiene.
  */
 const PUBLIC = ["/login", "/registro"];
+/** Portal público de un proveedor: /{slug}/solicitar. Lo ven tanto anónimos como con sesión (la API decide el siguiente paso). */
+const PORTAL = /^\/[^/]+\/solicitar\/?$/;
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const hasSession = req.cookies.getAll().some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
 
   if (pathname === "/") return hasSession ? NextResponse.redirect(new URL("/inicio", req.url)) : NextResponse.next();
+  if (PORTAL.test(pathname)) return NextResponse.next();
   const isPublic = PUBLIC.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   if (!hasSession && !isPublic) {
     const url = new URL("/login", req.url);

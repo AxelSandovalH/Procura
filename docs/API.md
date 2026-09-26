@@ -258,7 +258,7 @@ No en MVP: editar requisiciones vía API, aprobar vía API, actuar como proveedo
 
 ## 12. Portal
 
-Estado: **backend implementado**. La página `procura.app/{slug}/solicitar` (UI) llegará con el frontend; este contrato es lo que consumirá.
+Estado: **backend y UI implementados**. La página pública `/{slug}/solicitar` consume este contrato: sin sesión ofrece login/registro (conserva `?next`); con sesión guía por organización → relación → requisición dirigida (`/requisiciones/nueva?proveedor=…`).
 
 | Método | Ruta | Auth |
 |---|---|---|
