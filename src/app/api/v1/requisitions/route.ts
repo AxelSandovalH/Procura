@@ -73,13 +73,23 @@ export const GET = route(async (req) => {
     ...(sp.get("location_id") ? { location_id: sp.get("location_id") } : {}),
     ...(sp.get("requester_id") ? { requester_membership_id: sp.get("requester_id") } : {}),
     ...(sp.get("supplier_organization_id") ? { OR: [{ suggested_supplier_organization_id: sp.get("supplier_organization_id") }, { directed_supplier_organization_id: sp.get("supplier_organization_id") }] } : {}),
-    ...(q ? { search_vector: { search: q.split(/\s+/).join(" & ") } } : {}),
   };
 
-  const requisitions = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, (tx) =>
-    tx.requisitions.findMany({ where, orderBy: { created_at: "desc" }, take: 100 }),
-  );
-  return NextResponse.json({ data: requisitions });
+  // Búsqueda de texto: search_vector es tsvector (Unsupported en Prisma) → se resuelve a ids con SQL.
+  // Solo letras/dígitos por token (sin operadores de tsquery del usuario), prefijo en cada uno.
+  const tokens = (q ?? "").toLowerCase().split(/\s+/).map((t) => t.replace(/[^\p{L}\p{N}]/gu, "")).filter(Boolean).slice(0, 8);
+
+  const canSeePrivate = actor.permissions.has("requisition.read_private");
+  const requisitions = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
+    if (tokens.length > 0) {
+      const tsquery = tokens.map((t) => `${t}:*`).join(" & ");
+      const hits = await tx.$queryRaw<{ id: string }[]>`select id from requisitions where search_vector @@ to_tsquery('spanish', ${tsquery}) limit 500`;
+      where.AND = [{ id: { in: hits.map((h) => h.id) } }]; // AND: nunca pisar el filtro de visibilidad
+    }
+    return tx.requisitions.findMany({ where, orderBy: { created_at: "desc" }, take: 100 });
+  });
+  // Mismos campos privados que oculta el detalle: presupuesto y total estimado requieren requisition.read_private.
+  return NextResponse.json({ data: requisitions.map(({ budget_max_minor, estimated_total_minor, ...r }) => canSeePrivate ? { ...r, budget_max_minor, estimated_total_minor } : r) });
 });
 
 export const POST = route(async (req) => {
