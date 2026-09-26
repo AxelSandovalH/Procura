@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { route, Problem } from "@/lib/http/problem";
 import { requireActor } from "@/lib/auth/context";
 import { withContext } from "@/lib/db/client";
-import { audit, auditBase } from "@/lib/audit";
+import { audit } from "@/lib/audit";
 import { emitEvent, notifyPermissionHolders } from "@/lib/events/emit";
 
 /** El proveedor que la abre por primera vez la marca VIEWED (WORKFLOWS.md §3). requisition_id solo perspectiva BUYER. */

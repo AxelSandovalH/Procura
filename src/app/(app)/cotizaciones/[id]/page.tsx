@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { use, useEffect, useState } from "react";
+import { use, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, CalendarPlus, Check, FilePen, Plus, Send, Undo2, X } from "lucide-react";
@@ -17,10 +17,11 @@ import { ActionDialog } from "@/components/app/action-dialog";
 import { api, ApiError } from "@/lib/api-client";
 import { dateShort, money, qty, toMinor } from "@/lib/format";
 import { QUOTATION_STATUS } from "@/lib/ui/status";
+import { useSyncedState } from "@/hooks/use-synced-state";
 
 interface QLine { id: string; rfq_line_id: string | null; line_kind: string; name: string; quantity: string; unit_label: string; unit_price_minor: number | string; line_total_minor: number | string; lead_time_days: number | null; notes: string | null }
 interface Quotation {
-  id: string; rfq_id: string; quotation_number: string; version: number; status: string; currency: string; perspective: "BUYER" | "SUPPLIER";
+  id: string; rfq_id: string; quotation_number: string; version: number; status: string; updated_at?: string; currency: string; perspective: "BUYER" | "SUPPLIER";
   subtotal_minor: number | string; tax_minor: number | string; total_minor: number | string; valid_until: string | null; lead_time_days: number | null;
   delivery_terms: string | null; payment_terms: string | null; notes: string | null; quotation_lines: QLine[]; available_actions: string[];
 }
@@ -43,11 +44,7 @@ export default function QuotationPage({ params }: { params: Promise<{ id: string
   const fail = (e: unknown) => setError(e instanceof ApiError ? (e.fieldErrors[0]?.message ?? e.detail ?? e.title) : "No se pudo completar la acción.");
 
   const q = quote.data;
-  const [head, setHead] = useState({ valid_until: "", lead_time_days: "", tax: "0.00", payment_terms: "", delivery_terms: "", notes: "" });
-  useEffect(() => {
-    if (!q) return;
-    setHead({ valid_until: q.valid_until?.slice(0, 10) ?? "", lead_time_days: q.lead_time_days?.toString() ?? "", tax: minorToInput(q.tax_minor), payment_terms: q.payment_terms ?? "", delivery_terms: q.delivery_terms ?? "", notes: q.notes ?? "" });
-  }, [q?.id, q?.version, q?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [head, setHead] = useSyncedState(() => ({ valid_until: q?.valid_until?.slice(0, 10) ?? "", lead_time_days: q?.lead_time_days?.toString() ?? "", tax: q ? minorToInput(q.tax_minor) : "0.00", payment_terms: q?.payment_terms ?? "", delivery_terms: q?.delivery_terms ?? "", notes: q?.notes ?? "" }), q ? `${q.id}:${q.version}:${q.status}:${q.updated_at ?? ""}` : "");
 
   if (quote.isLoading) return <div className="h-40 animate-pulse rounded-xl bg-muted" />;
   if (!q) return <div className="rounded-xl border border-dashed p-12 text-center"><p className="font-medium">Cotización no encontrada</p><Link href="/solicitudes" className="mt-2 inline-block text-sm underline">Volver</Link></div>;
@@ -156,10 +153,10 @@ export default function QuotationPage({ params }: { params: Promise<{ id: string
 /** Cada línea se guarda al salir del campo; los totales los recalcula el servidor. */
 function EditableLine({ quotationId, line, onSaved, onError }: { quotationId: string; line: QLine; onSaved: () => unknown; onError: (e: unknown) => void }) {
   const declined = line.line_kind === "DECLINED";
-  const [price, setPrice] = useState(minorToInput(line.unit_price_minor));
-  const [quantity, setQuantity] = useState(String(Number(line.quantity)));
-  const [lead, setLead] = useState(line.lead_time_days?.toString() ?? "");
-  useEffect(() => { setPrice(minorToInput(line.unit_price_minor)); setQuantity(String(Number(line.quantity))); setLead(line.lead_time_days?.toString() ?? ""); }, [line]);
+  const key = `${line.id}:${line.unit_price_minor}:${line.quantity}:${line.lead_time_days}`;
+  const [price, setPrice] = useSyncedState(() => minorToInput(line.unit_price_minor), key);
+  const [quantity, setQuantity] = useSyncedState(() => String(Number(line.quantity)), key);
+  const [lead, setLead] = useSyncedState(() => line.lead_time_days?.toString() ?? "", key);
 
   async function patch(body: Record<string, unknown>) {
     try { await api(`/quotations/${quotationId}/lines/${line.id}`, { method: "PATCH", body }); await onSaved(); } catch (e) { onError(e); }

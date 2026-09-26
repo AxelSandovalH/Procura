@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { useSyncedState } from "@/hooks/use-synced-state";
 import { useSession } from "@/hooks/use-session";
 import { api, ApiError } from "@/lib/api-client";
 
@@ -59,8 +60,7 @@ function General({ org }: { org: OrgResp["organization"] }) {
 }
 
 function SettingsCard({ s }: { s: Settings }) {
-  const [f, setF] = useState({ ...s, auto_close: s.auto_close_days_after_resolved?.toString() ?? "", welcome: s.portal_welcome_text ?? "" });
-  useEffect(() => setF({ ...s, auto_close: s.auto_close_days_after_resolved?.toString() ?? "", welcome: s.portal_welcome_text ?? "" }), [s]);
+  const [f, setF] = useSyncedState(() => ({ ...s, auto_close: s.auto_close_days_after_resolved?.toString() ?? "", welcome: s.portal_welcome_text ?? "" }), JSON.stringify(s));
   const { busy, msg, save } = useSave(() => api("/organization/settings", { method: "PATCH", body: {
     requisition_folio_prefix: f.requisition_folio_prefix.trim(), allow_free_concepts: f.allow_free_concepts, require_estimated_price: f.require_estimated_price,
     membership_join_policy: f.membership_join_policy, relationship_request_policy: f.relationship_request_policy, requester_can_self_approve: f.requester_can_self_approve,

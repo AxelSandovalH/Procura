@@ -19,6 +19,7 @@ export async function api<T = unknown>(path: string, opts: Options = {}): Promis
   if (!res.ok) {
     const err = new ApiError(res.status, data?.title ?? "Error", data?.detail, data?.errors, data?.request_id);
     if (res.status === 401 && typeof window !== "undefined" && !location.pathname.startsWith("/login")) {
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga completa a propósito (limpia caché)
       location.href = `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
     }
     throw err;

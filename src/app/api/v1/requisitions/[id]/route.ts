@@ -5,7 +5,6 @@ import { requireActor, type Actor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext, type Tx } from "@/lib/db/client";
 import { audit, auditBase, diff } from "@/lib/audit";
-import { recomputeRequisitionTotals } from "@/lib/requisitions/totals";
 import { maybeTriggerReapproval } from "@/lib/requisitions/approval-engine";
 import type { Prisma, requisitions } from "@prisma/client";
 import { isoDateNullableOptional } from "@/lib/validation";

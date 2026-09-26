@@ -6,7 +6,6 @@ import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { normalizeRow, rowLevel, type ColumnMapping } from "@/lib/catalog/normalize";
-import { previewRows } from "@/lib/catalog/parse";
 import type { Prisma } from "@prisma/client";
 
 const Body = z.object({

@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Plus, Search } from "lucide-react";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/app/page-header";
 import { RequisitionTable, type RequisitionRow } from "@/components/app/requisition-table";
+import { useSyncedState } from "@/hooks/use-synced-state";
 import { useSession } from "@/hooks/use-session";
 import { api } from "@/lib/api-client";
 import { REQUISITION_STATUS } from "@/lib/ui/status";
@@ -22,8 +23,7 @@ function List() {
   const session = useSession();
   const status = params.get("status") ?? ALL;
   const q = params.get("q") ?? "";
-  const [text, setText] = useState(q);
-  useEffect(() => setText(q), [q]);
+  const [text, setText] = useSyncedState(() => q, q);
 
   const setParam = (k: string, v: string | null) => {
     const next = new URLSearchParams(params.toString());

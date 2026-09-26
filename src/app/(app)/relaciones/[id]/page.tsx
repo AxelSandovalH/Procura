@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/app/status-badge";
 import { ActionDialog } from "@/components/app/action-dialog";
+import { useSyncedState } from "@/hooks/use-synced-state";
 import { useSession } from "@/hooks/use-session";
 import { api, ApiError } from "@/lib/api-client";
 import { dateShort, money } from "@/lib/format";
@@ -99,9 +100,8 @@ export default function RelationshipPage({ params }: { params: Promise<{ id: str
 }
 
 function TermsCard({ relId, terms, editable, onSaved }: { relId: string; terms: Terms | null; editable: boolean; onSaved: () => unknown }) {
-  const [f, setF] = useState({ currency: "", payment_terms: "", quotation_instructions: "", lead_time_days: "" });
+  const [f, setF] = useSyncedState(() => ({ currency: terms?.currency ?? "", payment_terms: terms?.payment_terms ?? "", quotation_instructions: terms?.quotation_instructions ?? "", lead_time_days: terms?.lead_time_days?.toString() ?? "" }), JSON.stringify(terms));
   const [busy, setBusy] = useState(false); const [msg, setMsg] = useState<string | null>(null);
-  useEffect(() => setF({ currency: terms?.currency ?? "", payment_terms: terms?.payment_terms ?? "", quotation_instructions: terms?.quotation_instructions ?? "", lead_time_days: terms?.lead_time_days?.toString() ?? "" }), [terms]);
   async function save(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setMsg(null);
     try {

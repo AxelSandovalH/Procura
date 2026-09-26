@@ -50,7 +50,7 @@ export function normalizeRow(
 
   const rawUnit = get(mapping.unit);
   let unit_id: string | null = null;
-  let unit_label: string | null = rawUnit || null;
+  const unit_label: string | null = rawUnit || null;
   if (rawUnit) {
     const match = lookups.unitByCode.get(rawUnit.toLowerCase());
     if (match) unit_id = match;

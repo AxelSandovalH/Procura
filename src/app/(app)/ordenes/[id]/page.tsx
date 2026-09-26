@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { use, useEffect, useState } from "react";
+import { use, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Check, Lock, Play, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DeliveriesCard } from "@/components/app/deliveries-card";
 import { CollaborationPanel } from "@/components/app/collaboration-panel";
+import { useSyncedState } from "@/hooks/use-synced-state";
 import { StatusBadge } from "@/components/app/status-badge";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { api, ApiError } from "@/lib/api-client";
@@ -30,11 +31,10 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const [dlg, setDlg] = useState<Dlg>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [ref, setRef] = useState("");
 
   const order = useQuery({ queryKey: ["order", id], queryFn: () => api<Order>(`/orders/${id}`) });
   const o = order.data;
-  useEffect(() => { if (o) setRef(o.my_reference ?? ""); }, [o?.id, o?.my_reference]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [ref, setRef] = useSyncedState(() => o?.my_reference ?? "", `${o?.id}:${o?.my_reference}`);
   const refresh = () => Promise.all(["order", "orders", "requisition", "req-quotations"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
 
   if (order.isLoading) return <div className="h-40 animate-pulse rounded-xl bg-muted" />;

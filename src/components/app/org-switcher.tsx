@@ -10,6 +10,7 @@ export function OrgSwitcher() {
   async function switchTo(id: string) {
     if (id === org?.id) return;
     await api("/me/active-organization", { body: { organization_id: id } });
+// eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga completa a propósito (limpia caché)
     window.location.assign("/inicio"); // contexto nuevo = estado limpio: nada de caché de otra organización
   }
   return (

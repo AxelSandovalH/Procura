@@ -31,15 +31,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const session = useSession();
-  const [open, setOpen] = useState(false);
-  useEffect(() => setOpen(false), [pathname]);
+  const [openAt, setOpenAt] = useState<string | null>(null);
+  const open = openAt === pathname; // el menú móvil se cierra solo al cambiar de ruta
+  const setOpen = (v: boolean) => setOpenAt(v ? pathname : null);
   useEffect(() => { if (session.noOrganization) router.replace("/onboarding"); }, [session.noOrganization, router]);
 
   const canApprove = session.can("requisition.approve");
   const pending = useQuery({ queryKey: ["approvals-pending"], queryFn: () => api<{ data: unknown[] }>("/approvals/pending"), enabled: canApprove, refetchInterval: 60_000 });
   const pendingCount = pending.data?.data.length ?? 0;
 
-  async function logout() { await api("/auth/logout", { method: "POST" }); window.location.assign("/login"); }
+  async function logout() {
+    await api("/auth/logout", { method: "POST" });
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- recarga completa: descarta toda la caché de la sesión
+    window.location.assign("/login");
+  }
 
   if (session.loading || session.noOrganization) {
     return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Cargando…</div>;
