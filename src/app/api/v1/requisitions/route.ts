@@ -10,6 +10,7 @@ import { recomputeRequisitionTotals } from "@/lib/requisitions/totals";
 import { requisitionVisibilityWhere } from "@/lib/requisitions/visibility";
 import { startApprovalRequest } from "@/lib/requisitions/approval-engine";
 import type { Prisma, requisition_status, requisition_priority, requisition_type } from "@prisma/client";
+import { isoDateOptional } from "@/lib/validation";
 
 const ConceptInput = z.object({
   concept_type: z.enum(["GOOD", "SERVICE"]),
@@ -24,7 +25,7 @@ const ConceptInput = z.object({
   unit_label: z.string().trim().min(1).max(40),
   estimated_unit_price_minor: z.number().int().min(0).optional(),
   budget_minor: z.number().int().min(0).optional(),
-  required_date: z.iso.date().optional(),
+  required_date: isoDateOptional,
   location_id: z.uuid().optional(),
 }).refine((c) => (c.source === "CATALOG") === !!c.catalog_item_id, { message: "catalog_item_id requerido cuando source=CATALOG" })
   .refine((c) => (c.source === "SUPPLIER_CATALOG") === !!c.supplier_catalog_item_id, { message: "supplier_catalog_item_id requerido cuando source=SUPPLIER_CATALOG" });
@@ -33,7 +34,7 @@ const Create = z.object({
   title: z.string().trim().min(1).max(200),
   description: z.string().trim().max(2000).optional(),
   priority: z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]).default("NORMAL"),
-  required_date: z.iso.date().optional(),
+  required_date: isoDateOptional,
   department_id: z.uuid().optional(),
   location_id: z.uuid().optional(),
   suggested_supplier_organization_id: z.uuid().optional(),

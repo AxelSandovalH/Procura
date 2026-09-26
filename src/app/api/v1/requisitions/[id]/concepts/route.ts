@@ -7,6 +7,7 @@ import { audit, auditBase } from "@/lib/audit";
 import { recomputeRequisitionTotals } from "@/lib/requisitions/totals";
 import { maybeTriggerReapproval } from "@/lib/requisitions/approval-engine";
 import type { Prisma } from "@prisma/client";
+import { isoDateOptional } from "@/lib/validation";
 
 const Create = z.object({
   concept_type: z.enum(["GOOD", "SERVICE"]),
@@ -21,7 +22,7 @@ const Create = z.object({
   unit_label: z.string().trim().min(1).max(40),
   estimated_unit_price_minor: z.number().int().min(0).optional(),
   budget_minor: z.number().int().min(0).optional(),
-  required_date: z.iso.date().optional(),
+  required_date: isoDateOptional,
   location_id: z.uuid().optional(),
 });
 

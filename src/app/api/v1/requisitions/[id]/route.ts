@@ -8,6 +8,7 @@ import { audit, auditBase, diff } from "@/lib/audit";
 import { recomputeRequisitionTotals } from "@/lib/requisitions/totals";
 import { maybeTriggerReapproval } from "@/lib/requisitions/approval-engine";
 import type { Prisma, requisitions } from "@prisma/client";
+import { isoDateNullableOptional } from "@/lib/validation";
 
 const MATERIAL_FIELDS = ["budget_max_minor"] as const;
 
@@ -63,7 +64,7 @@ const Update = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   description: z.string().trim().max(2000).nullable().optional(),
   priority: z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]).optional(),
-  required_date: z.iso.date().nullable().optional(),
+  required_date: isoDateNullableOptional,
   department_id: z.uuid().nullable().optional(),
   location_id: z.uuid().nullable().optional(),
   suggested_supplier_organization_id: z.uuid().nullable().optional(),

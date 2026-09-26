@@ -7,6 +7,7 @@ import { audit, auditBase, diff } from "@/lib/audit";
 import { recomputeRequisitionTotals } from "@/lib/requisitions/totals";
 import { maybeTriggerReapproval } from "@/lib/requisitions/approval-engine";
 import type { Prisma, requisitions } from "@prisma/client";
+import { isoDateNullableOptional } from "@/lib/validation";
 
 async function checkEditable(tx: Tx, requisitionId: string, actor: { membershipId: string | null; permissions: Set<string> }): Promise<requisitions> {
   const r = await tx.requisitions.findFirstOrThrow({ where: { id: requisitionId } }).catch(() => { throw Problem.notFound(); });
@@ -26,7 +27,7 @@ const Update = z.object({
   unit_label: z.string().trim().min(1).max(40).optional(),
   estimated_unit_price_minor: z.number().int().min(0).nullable().optional(),
   budget_minor: z.number().int().min(0).nullable().optional(),
-  required_date: z.iso.date().nullable().optional(),
+  required_date: isoDateNullableOptional,
   location_id: z.uuid().nullable().optional(),
 });
 
