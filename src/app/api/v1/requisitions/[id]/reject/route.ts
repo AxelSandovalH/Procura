@@ -5,6 +5,7 @@ import { requireActor } from "@/lib/auth/context";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { recordDecision } from "@/lib/requisitions/approval-engine";
+import { emitEvent, notify } from "@/lib/events/emit";
 
 const Body = z.object({ comment: z.string().trim().min(1).max(1000) });
 
@@ -18,6 +19,8 @@ export const POST = route(async (req, params) => {
     if (!r) throw Problem.notFound();
     const outcome = await recordDecision(tx, r.id, actor.membershipId!, "REJECT", comment, undefined);
     await audit(tx, { ...auditBase(actor), action: "requisition.rejected", resourceType: "requisition", resourceId: r.id, resourceLabel: r.folio, reason: comment });
+    await emitEvent(tx, { type: "requisition.rejected", aggregateType: "requisition", aggregateId: r.id, actor, recipients: [{ organizationId: actor.organizationId, perspective: "OWNER", payload: { requisition: { id: r.id, folio: r.folio }, reason: comment } }] });
+    if (r.requester_membership_id) await notify(tx, { organizationId: actor.organizationId, membershipIds: [r.requester_membership_id], type: "requisition.rejected", title: `${r.folio} fue rechazada`, body: comment, resourceType: "requisition", resourceId: r.id });
     return outcome;
   });
   return NextResponse.json(result);

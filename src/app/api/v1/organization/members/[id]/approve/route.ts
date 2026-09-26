@@ -4,6 +4,7 @@ import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { emitEvent, notify } from "@/lib/events/emit";
 
 export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
@@ -18,6 +19,8 @@ export const POST = route(async (req, params) => {
       data: { status: "ACTIVE", activated_at: new Date(), approved_by_membership_id: actor.membershipId },
     });
     await audit(tx, { ...auditBase(actor), action: "membership.approved", resourceType: "membership", resourceId: updated.id, resourceLabel: target.users.email });
+    await emitEvent(tx, { type: "membership.approved", aggregateType: "membership", aggregateId: updated.id, actor, recipients: [{ organizationId: actor.organizationId, perspective: "OWNER", payload: { membership: { id: updated.id, status: updated.status } } }] });
+    await notify(tx, { organizationId: actor.organizationId, membershipIds: [target.id], type: "membership.approved", title: "Tu membresía fue aprobada", resourceType: "membership", resourceId: updated.id });
     return updated;
   });
   return NextResponse.json(membership);

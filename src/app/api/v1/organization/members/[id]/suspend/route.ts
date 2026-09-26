@@ -5,6 +5,7 @@ import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { emitEvent, notify } from "@/lib/events/emit";
 
 const Body = z.object({ reason: z.string().trim().max(500).optional() });
 
@@ -20,6 +21,8 @@ export const POST = route(async (req, params) => {
     if (target.status !== "ACTIVE") throw Problem.conflict(`La membresía está en estado ${target.status}, no ACTIVE`);
     const updated = await tx.memberships.update({ where: { id: target.id }, data: { status: "SUSPENDED", suspended_at: new Date() } });
     await audit(tx, { ...auditBase(actor), action: "membership.suspended", resourceType: "membership", resourceId: updated.id, resourceLabel: target.users.email, reason });
+    await emitEvent(tx, { type: "membership.suspended", aggregateType: "membership", aggregateId: updated.id, actor, recipients: [{ organizationId: actor.organizationId, perspective: "OWNER", payload: { membership: { id: updated.id, status: updated.status } } }] });
+    await notify(tx, { organizationId: actor.organizationId, membershipIds: [target.id], type: "membership.suspended", title: "Tu membresía fue suspendida", resourceType: "membership", resourceId: updated.id });
     return updated;
   });
   return NextResponse.json(membership);

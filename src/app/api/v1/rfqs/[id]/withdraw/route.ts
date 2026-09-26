@@ -4,6 +4,7 @@ import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { emitEvent, notifyPermissionHolders } from "@/lib/events/emit";
 
 export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
@@ -16,6 +17,8 @@ export const POST = route(async (req, params) => {
     await tx.quotations.updateMany({ where: { rfq_id: r.id, status: "SUBMITTED" }, data: { status: "REJECTED", rejected_at: new Date(), rejected_reason: "RFQ retirada por el comprador" } });
     const updated = await tx.quotation_requests.update({ where: { id: r.id }, data: { status: "WITHDRAWN", withdrawn_at: new Date() } });
     await audit(tx, { ...auditBase(actor), visibleTo: [r.buyer_organization_id, r.supplier_organization_id], action: "rfq.withdrawn", resourceType: "quotation_request", resourceId: r.id, resourceLabel: r.rfq_number });
+    await emitEvent(tx, { type: "rfq.withdrawn", aggregateType: "quotation_request", aggregateId: r.id, actor, recipients: [{ organizationId: r.supplier_organization_id, perspective: "SUPPLIER", payload: { rfq: { id: r.id, rfq_number: r.rfq_number } } }] });
+    await notifyPermissionHolders(tx, { organizationId: r.supplier_organization_id, permission: "rfq.read", type: "rfq.withdrawn", title: `${r.rfq_number} fue retirada por el comprador`, resourceType: "quotation_request", resourceId: r.id });
     return updated;
   });
   return NextResponse.json(rfq);

@@ -36,7 +36,9 @@ export function availableActions(r: requisitions, actor: Actor): string[] {
 
 async function loadRequisition(tx: Tx, id: string, actor: Actor) {
   const r = await tx.requisitions.findFirst({
-    where: actor.permissions.has("requisition.read_all") ? { id } : { id, OR: [{ requester_membership_id: actor.membershipId ?? "__none__" }, { organization_id: actor.organizationId }] },
+    where: actor.permissions.has("requisition.read_all")
+      ? { id }
+      : { id, OR: [...(actor.membershipId ? [{ requester_membership_id: actor.membershipId }] : []), { organization_id: actor.organizationId }] },
     include: { requisition_concepts: { orderBy: { line_number: "asc" } } },
   });
   if (!r) throw Problem.notFound();

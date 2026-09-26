@@ -4,6 +4,7 @@ import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { emitEvent, notify } from "@/lib/events/emit";
 
 /** Solo el administrador principal actual puede transferir el rol (no basta con el permiso). */
 export const POST = route(async (req, params) => {
@@ -28,6 +29,8 @@ export const POST = route(async (req, params) => {
     }
 
     await audit(tx, { ...auditBase(actor), action: "admin.transferred_primary", resourceType: "membership", resourceId: updated.id, resourceLabel: target.users.email, changes: { from: current.id, to: target.id } });
+    await emitEvent(tx, { type: "membership.primary_admin_transferred", aggregateType: "membership", aggregateId: updated.id, actor, recipients: [{ organizationId: actor.organizationId, perspective: "OWNER", payload: { membership: { id: updated.id, status: updated.status } } }] });
+    await notify(tx, { organizationId: actor.organizationId, membershipIds: [target.id], type: "membership.primary_admin_transferred", title: "Ahora eres el administrador principal", resourceType: "membership", resourceId: updated.id });
     return updated;
   });
   return NextResponse.json(result);

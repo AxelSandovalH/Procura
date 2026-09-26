@@ -5,6 +5,7 @@ import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { emitEvent, notifyPermissionHolders } from "@/lib/events/emit";
 import type { relationship_status } from "@prisma/client";
 
 const Create = z.object({
@@ -63,6 +64,15 @@ export const POST = route(async (req) => {
       data: { buyer_organization_id: buyerId, supplier_organization_id: supplierId, status: "PENDING", initiated_by_organization_id: actor.organizationId, initiated_via: "SEARCH", request_message: body.message },
     });
     await audit(tx, { ...auditBase(actor), visibleTo: [buyerId, supplierId], action: "relationship.requested", resourceType: "relationship", resourceId: created.id, resourceLabel: counterpart.display_name });
+    const counterpartOrgId = body.counterpart_organization_id;
+    await emitEvent(tx, {
+      type: "relationship.requested", aggregateType: "relationship", aggregateId: created.id, actor,
+      recipients: [
+        { organizationId: actor.organizationId, perspective: buyerId === actor.organizationId ? "BUYER" : "SUPPLIER", payload: { relationship: { id: created.id, status: "PENDING" } } },
+        { organizationId: counterpartOrgId, perspective: buyerId === counterpartOrgId ? "BUYER" : "SUPPLIER", payload: { relationship: { id: created.id, status: "PENDING" } } },
+      ],
+    });
+    await notifyPermissionHolders(tx, { organizationId: counterpartOrgId, permission: "relationship.accept", type: "relationship.requested", title: "Nueva solicitud de relación comercial", resourceType: "relationship", resourceId: created.id });
     return created;
   });
   return NextResponse.json(relationship, { status: 201 });

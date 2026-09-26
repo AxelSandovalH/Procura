@@ -4,6 +4,7 @@ import { route, json, Problem } from "@/lib/http/problem";
 import { requireActor } from "@/lib/auth/context";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { emitEvent } from "@/lib/events/emit";
 
 const Body = z.object({ reason: z.string().trim().min(1).max(500) });
 
@@ -21,6 +22,7 @@ export const POST = route(async (req, params) => {
     const updated = await tx.orders.update({ where: { id: o.id }, data: { status: "COMPLETED", completed_at: new Date(), completion_mode: "CLOSED_SHORT", completion_reason: reason } });
     await tx.requisitions.update({ where: { id: o.requisition_id }, data: { status: "RESOLVED", resolved_at: new Date() } });
     await audit(tx, { ...auditBase(actor), visibleTo: [o.buyer_organization_id, o.supplier_organization_id], action: "order.completed", resourceType: "order", resourceId: o.id, resourceLabel: o.order_number, reason, metadata: { completion_mode: "CLOSED_SHORT" } });
+    await emitEvent(tx, { type: "order.completed", aggregateType: "order", aggregateId: o.id, actor, recipients: [{ organizationId: o.buyer_organization_id, perspective: "BUYER" as const, payload: { order: { id: o.id, order_number: o.order_number } } }, { organizationId: o.supplier_organization_id, perspective: "SUPPLIER" as const, payload: { order: { id: o.id, order_number: o.order_number } } }] });
     return updated;
   });
   return NextResponse.json(order);

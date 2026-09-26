@@ -4,6 +4,7 @@ import { requireActor } from "@/lib/auth/context";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { startApprovalRequest } from "@/lib/requisitions/approval-engine";
+import { emitEvent, notifyPermissionHolders, notify } from "@/lib/events/emit";
 
 export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
@@ -27,7 +28,15 @@ export const POST = route(async (req, params) => {
         : { status: "PENDING_APPROVAL", submitted_at: new Date() },
     });
     await audit(tx, { ...auditBase(actor), action: "requisition.submitted", resourceType: "requisition", resourceId: r.id, resourceLabel: r.folio });
-    if (outcome.status === "APPROVED") await audit(tx, { ...auditBase(actor), action: "requisition.approved", resourceType: "requisition", resourceId: r.id, resourceLabel: r.folio, metadata: { auto: true } });
+    await emitEvent(tx, { type: "requisition.submitted", aggregateType: "requisition", aggregateId: r.id, actor, recipients: [{ organizationId: actor.organizationId, perspective: "OWNER", payload: { requisition: { id: r.id, folio: r.folio, status: updated.status } } }] });
+
+    if (outcome.status === "APPROVED") {
+      await audit(tx, { ...auditBase(actor), action: "requisition.approved", resourceType: "requisition", resourceId: r.id, resourceLabel: r.folio, metadata: { auto: true } });
+      await emitEvent(tx, { type: "requisition.approved", aggregateType: "requisition", aggregateId: r.id, actor, recipients: [{ organizationId: actor.organizationId, perspective: "OWNER", payload: { requisition: { id: r.id, folio: r.folio } } }] });
+      if (r.requester_membership_id) await notify(tx, { organizationId: actor.organizationId, membershipIds: [r.requester_membership_id], type: "requisition.approved", title: `${r.folio} fue aprobada`, resourceType: "requisition", resourceId: r.id });
+    } else {
+      await notifyPermissionHolders(tx, { organizationId: actor.organizationId, permission: "requisition.approve", excludeMembershipId: actor.membershipId ?? undefined, type: "requisition.submitted", title: `${r.folio} espera tu aprobación`, resourceType: "requisition", resourceId: r.id });
+    }
     return updated;
   });
   return NextResponse.json(requisition);

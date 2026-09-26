@@ -3,6 +3,7 @@ import { route, Problem } from "@/lib/http/problem";
 import { requireActor } from "@/lib/auth/context";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { emitEvent } from "@/lib/events/emit";
 
 export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
@@ -13,6 +14,7 @@ export const POST = route(async (req, params) => {
     if (o.status !== "CONFIRMED") throw Problem.conflict(`No se puede iniciar en estado ${o.status}`);
     const updated = await tx.orders.update({ where: { id: o.id }, data: { status: "IN_PROCESS", started_at: new Date(), started_by_membership_id: actor.membershipId } });
     await audit(tx, { ...auditBase(actor), visibleTo: [o.buyer_organization_id, o.supplier_organization_id], action: "order.started", resourceType: "order", resourceId: o.id, resourceLabel: o.order_number });
+    await emitEvent(tx, { type: "order.started", aggregateType: "order", aggregateId: o.id, actor, recipients: [{ organizationId: o.buyer_organization_id, perspective: "BUYER" as const, payload: { order: { id: o.id, order_number: o.order_number } } }, { organizationId: o.supplier_organization_id, perspective: "SUPPLIER" as const, payload: { order: { id: o.id, order_number: o.order_number } } }] });
     return updated;
   });
   return NextResponse.json(order);

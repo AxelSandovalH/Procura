@@ -3,6 +3,7 @@ import { route, Problem } from "@/lib/http/problem";
 import { requireActor } from "@/lib/auth/context";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { emitEvent, notifyPermissionHolders } from "@/lib/events/emit";
 
 /** El proveedor que la abre por primera vez la marca VIEWED (WORKFLOWS.md §3). requisition_id solo perspectiva BUYER. */
 export const GET = route(async (req, params) => {
@@ -22,6 +23,8 @@ export const GET = route(async (req, params) => {
       const viewedAt = new Date();
       await tx.quotation_requests.update({ where: { id: r.id }, data: { status: "VIEWED", viewed_at: viewedAt } });
       await audit(tx, { actorType: actor.type, actorId: actor.userId ?? actor.apiKeyId, membershipId: actor.membershipId, organizationId: actor.organizationId, visibleTo: [r.buyer_organization_id, r.supplier_organization_id], action: "rfq.viewed", resourceType: "quotation_request", resourceId: r.id, resourceLabel: r.rfq_number });
+      await emitEvent(tx, { type: "rfq.viewed", aggregateType: "quotation_request", aggregateId: r.id, actor, recipients: [{ organizationId: r.buyer_organization_id, perspective: "BUYER", payload: { rfq: { id: r.id, rfq_number: r.rfq_number } } }] });
+      await notifyPermissionHolders(tx, { organizationId: r.buyer_organization_id, permission: "rfq.issue", type: "rfq.viewed", title: `${r.rfq_number} fue vista por el proveedor`, resourceType: "quotation_request", resourceId: r.id });
       r.status = "VIEWED";
       r.viewed_at = viewedAt;
     }

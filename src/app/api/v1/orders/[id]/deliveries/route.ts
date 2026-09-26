@@ -4,6 +4,7 @@ import { route, json, Problem } from "@/lib/http/problem";
 import { requireActor } from "@/lib/auth/context";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { emitEvent, notifyPermissionHolders } from "@/lib/events/emit";
 import { registerDelivery } from "@/lib/fulfillment/register-delivery";
 
 const Body = z.object({
@@ -37,6 +38,14 @@ export const POST = route(async (req, params) => {
     // bloquearía la lectura cruzada). Se acepta tal cual: es metadato, no un límite de seguridad.
     const created = await registerDelivery(tx, o.id, body, actor.membershipId);
     await audit(tx, { ...auditBase(actor), visibleTo: [o.buyer_organization_id, o.supplier_organization_id], action: "delivery.created", resourceType: "delivery", resourceId: created.id, resourceLabel: `#${created.delivery_number}` });
+    await emitEvent(tx, {
+      type: "delivery.created", aggregateType: "delivery", aggregateId: created.id, actor,
+      recipients: [
+        { organizationId: o.buyer_organization_id, perspective: "BUYER" as const, payload: { delivery: { id: created.id, delivery_number: created.delivery_number, order_id: o.id } } },
+        { organizationId: o.supplier_organization_id, perspective: "SUPPLIER" as const, payload: { delivery: { id: created.id, delivery_number: created.delivery_number } } },
+      ],
+    });
+    await notifyPermissionHolders(tx, { organizationId: o.buyer_organization_id, permission: "receipt.confirm", type: "delivery.created", title: `Nueva entrega #${created.delivery_number} de ${o.order_number}`, resourceType: "delivery", resourceId: created.id });
     return created;
   });
   return NextResponse.json(delivery, { status: 201 });

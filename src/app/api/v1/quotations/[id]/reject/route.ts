@@ -4,6 +4,7 @@ import { route, json, Problem } from "@/lib/http/problem";
 import { requireActor } from "@/lib/auth/context";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { emitEvent, notifyPermissionHolders } from "@/lib/events/emit";
 
 const Body = z.object({ reason: z.string().trim().min(1).max(500) });
 
@@ -17,6 +18,8 @@ export const POST = route(async (req, params) => {
     if (q.status !== "SUBMITTED" && q.status !== "NOT_SELECTED") throw Problem.conflict(`No se puede rechazar en estado ${q.status}`);
     const updated = await tx.quotations.update({ where: { id: q.id }, data: { status: "REJECTED", rejected_at: new Date(), rejected_reason: reason } });
     await audit(tx, { ...auditBase(actor), visibleTo: [q.buyer_organization_id, q.supplier_organization_id], action: "quotation.rejected", resourceType: "quotation", resourceId: q.id, resourceLabel: q.quotation_number, reason });
+    await emitEvent(tx, { type: "quotation.rejected", aggregateType: "quotation", aggregateId: q.id, actor, recipients: [{ organizationId: q.supplier_organization_id, perspective: "SUPPLIER", payload: { quotation: { id: q.id, quotation_number: q.quotation_number }, reason } }] });
+    await notifyPermissionHolders(tx, { organizationId: q.supplier_organization_id, permission: "quotation.submit", type: "quotation.rejected", title: `${q.quotation_number} fue rechazada`, body: reason, resourceType: "quotation", resourceId: q.id });
     return updated;
   });
   return NextResponse.json(quotation);

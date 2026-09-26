@@ -17,7 +17,7 @@
 | OD-12 | ✅ **a** | Relación direccional `unique(buyer, supplier)`. Caso real: Papillon (yates) compra a Avocabo (frutas y verduras); la dirección inversa es posible pero atípica. |
 | OD-16 | ✅ **a** | Número global Procura + `buyer_reference` / `supplier_reference` libres. |
 | OD-22 | ✅ **a** | API key con roles del mismo RBAC. ERP: crear/consultar/cancelar requisiciones, consultar órdenes/entregas/recepciones, recibir eventos. No edita ni aprueba. |
-| OD-34 | ✅ **c** | Cola gestionada **Inngest**: dispatcher del outbox, webhooks con reintentos/backoff, emails. Jobs programados (expiración, auto-cierre) como funciones cron de Inngest. |
+| OD-34 | ✅ **revisado (2026-09-26)** | **Vercel Cron**, no Inngest: un endpoint interno protegido por secreto (`CRON_SECRET`), invocado cada minuto, despacha el outbox (`domain_events` → `webhook_deliveries`) con reintentos vía `next_retry_at`. Cero cuentas externas nuevas. Inngest queda como opción futura si el volumen lo justifica. |
 | OD-35 | ✅ **a** | **Supabase Auth**. `users` de Procura = perfil 1:1 con `auth.users`; membership activo en el token/cookie. |
 | OD-36 | ✅ **a** | Backend en **Route Handlers de Next.js** con policy engine en aplicación; la UI nunca consulta tablas con el JWT del usuario; **RLS como segunda barrera**; ORM **Drizzle**; migraciones con Drizzle Kit. |
 | OD-04 … OD-33 | ★ aplicadas (2026-09-24) | Sin respuesta explícita; el esquema usa la recomendación ★ de cada una. Todas son reversibles con una migración pequeña. Ver DATABASE_SCHEMA.md §2. |
@@ -250,7 +250,7 @@ Cada una: **contexto · opciones · recomendación · qué bloquea**. Marcadas �
 Si aceptas (c) en OD-03: ¿la requisición hija hereda la aprobación o vuelve a aprobarse? Recomiendo heredar (mismos conceptos ya aprobados), auditado.
 
 ### 🔴 OD-34 — Trabajos asíncronos en Vercel + Supabase (derivada de OD-01)
-> ✅ **DECIDIDO (2026-09-23):** opción **c** — Inngest.
+> ✅ **DECIDIDO (2026-09-23), REVISADO (2026-09-26):** Inngest requería una cuenta externa que aún no existe; se optó por **Vercel Cron** (endpoint interno + `CRON_SECRET`) para no bloquear la entrega. Sin dependencias nuevas.
 
 **Contexto**: el diseño usa un outbox de eventos y workers (notificaciones, email, webhooks con reintentos, expiración de cotizaciones, auto-cierre). Vercel es serverless: no hay procesos largos residentes.
 **Opciones**: (a) **Supabase `pg_cron` + `pg_net`**: un job cada minuto despacha el outbox desde la BD y llama a un Route Handler de Next.js (`/api/internal/dispatch`) protegido con secreto; los webhooks salientes se envían desde ese handler; (b) **Vercel Cron** invocando el mismo handler; (c) cola gestionada (Inngest / Trigger.dev / Upstash QStash) con reintentos y observabilidad incluidos; (d) Supabase Edge Functions disparadas por Database Webhooks.

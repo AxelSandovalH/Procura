@@ -3,6 +3,7 @@ import { route, Problem } from "@/lib/http/problem";
 import { requireActor } from "@/lib/auth/context";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { emitEvent, notifyPermissionHolders } from "@/lib/events/emit";
 
 export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
@@ -22,6 +23,14 @@ export const POST = route(async (req, params) => {
     const updated = await tx.quotations.update({ where: { id: q.id }, data: { status: "SUBMITTED", submitted_at: new Date(), submitted_by_membership_id: actor.membershipId } });
     await tx.quotation_requests.update({ where: { id: q.rfq_id }, data: { status: "QUOTED" } });
     await audit(tx, { ...auditBase(actor), visibleTo: [q.buyer_organization_id, q.supplier_organization_id], action: "quotation.submitted", resourceType: "quotation", resourceId: q.id, resourceLabel: q.quotation_number });
+    await emitEvent(tx, {
+      type: "quotation.submitted", aggregateType: "quotation", aggregateId: q.id, actor,
+      recipients: [
+        { organizationId: q.buyer_organization_id, perspective: "BUYER", payload: { quotation: { id: q.id, quotation_number: q.quotation_number, requisition_id: q.rfq_id, total_minor: q.total_minor, currency: q.currency } } },
+        { organizationId: q.supplier_organization_id, perspective: "SUPPLIER", payload: { quotation: { id: q.id, quotation_number: q.quotation_number } } },
+      ],
+    });
+    await notifyPermissionHolders(tx, { organizationId: q.buyer_organization_id, permission: "quotation.accept", type: "quotation.submitted", title: `Nueva cotización ${q.quotation_number}`, resourceType: "quotation", resourceId: q.id });
     return updated;
   });
   return NextResponse.json(quotation);

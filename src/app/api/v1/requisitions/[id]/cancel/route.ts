@@ -4,6 +4,7 @@ import { route, json, Problem } from "@/lib/http/problem";
 import { requireActor } from "@/lib/auth/context";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { emitEvent } from "@/lib/events/emit";
 
 const Body = z.object({ reason: z.string().trim().min(1).max(500) });
 const CANCELLABLE: readonly string[] = ["DRAFT", "PENDING_APPROVAL", "APPROVED", "SENT"];
@@ -27,6 +28,7 @@ export const POST = route(async (req, params) => {
     await tx.approval_requests.updateMany({ where: { requisition_id: r.id, status: "PENDING" }, data: { status: "CANCELLED", completed_at: new Date() } });
     const updated = await tx.requisitions.update({ where: { id: r.id }, data: { status: "CANCELLED", cancelled_at: new Date(), cancelled_by_membership_id: actor.membershipId, cancel_reason: reason } });
     await audit(tx, { ...auditBase(actor), action: "requisition.cancelled", resourceType: "requisition", resourceId: r.id, resourceLabel: r.folio, reason });
+    await emitEvent(tx, { type: "requisition.cancelled", aggregateType: "requisition", aggregateId: r.id, actor, recipients: [{ organizationId: actor.organizationId, perspective: "OWNER", payload: { requisition: { id: r.id, folio: r.folio }, reason } }] });
     return updated;
   });
   return NextResponse.json(requisition);

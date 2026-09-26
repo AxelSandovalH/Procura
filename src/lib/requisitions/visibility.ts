@@ -21,5 +21,7 @@ export function requisitionVisibilityWhere(actor: Actor): Prisma.requisitionsWhe
   if (actor.membershipId) or.push({ requester_membership_id: actor.membershipId });
   if (deptIds.size > 0) or.push({ department_id: { in: [...deptIds] } });
   if (locIds.size > 0) or.push({ location_id: { in: [...locIds] } });
-  return or.length > 0 ? { OR: or } : { id: "__none__" };
+  // Sin ningún criterio de visibilidad (posible para una API key sin scope): no debe ver ninguna.
+  // "id" es uuid — un UUID nil es sintácticamente válido pero jamás lo genera app.uuid_v7().
+  return or.length > 0 ? { OR: or } : { id: "00000000-0000-0000-0000-000000000000" };
 }

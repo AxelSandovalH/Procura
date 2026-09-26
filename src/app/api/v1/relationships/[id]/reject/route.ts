@@ -5,6 +5,7 @@ import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { emitEvent } from "@/lib/events/emit";
 
 const Body = z.object({ reason: z.string().trim().max(500).optional() });
 
@@ -20,6 +21,7 @@ export const POST = route(async (req, params) => {
     if (r.initiated_by_organization_id === actor.organizationId) throw Problem.forbidden("Quien inicia la relación no puede rechazarla");
     const updated = await tx.relationships.update({ where: { id: r.id }, data: { status: "REJECTED", rejected_at: new Date(), rejected_reason: reason } });
     await audit(tx, { ...auditBase(actor), visibleTo: [r.buyer_organization_id, r.supplier_organization_id], action: "relationship.rejected", resourceType: "relationship", resourceId: r.id, reason });
+    await emitEvent(tx, { type: "relationship.rejected", aggregateType: "relationship", aggregateId: r.id, actor, recipients: [{ organizationId: r.buyer_organization_id, perspective: "BUYER" as const, payload: { relationship: { id: r.id, status: updated.status } } }, { organizationId: r.supplier_organization_id, perspective: "SUPPLIER" as const, payload: { relationship: { id: r.id, status: updated.status } } }] });
     return updated;
   });
   return NextResponse.json(relationship);

@@ -5,6 +5,7 @@ import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { emitEvent, notifyPermissionHolders } from "@/lib/events/emit";
 import type { Prisma } from "@prisma/client";
 import { isoDateOptional } from "@/lib/validation";
 
@@ -67,6 +68,14 @@ export const POST = route(async (req, params) => {
         })),
       });
       await audit(tx, { ...auditBase(actor), visibleTo: [actor.organizationId, supplierOrgId], action: "rfq.issued", resourceType: "quotation_request", resourceId: rfq.id, resourceLabel: rfq.rfq_number });
+      await emitEvent(tx, {
+        type: "rfq.issued", aggregateType: "quotation_request", aggregateId: rfq.id, actor,
+        recipients: [
+          { organizationId: actor.organizationId, perspective: "BUYER", payload: { rfq: { id: rfq.id, rfq_number: rfq.rfq_number, requisition_id: r.id } } },
+          { organizationId: supplierOrgId, perspective: "SUPPLIER", payload: { rfq: { id: rfq.id, rfq_number: rfq.rfq_number } } },
+        ],
+      });
+      await notifyPermissionHolders(tx, { organizationId: supplierOrgId, permission: "rfq.read", type: "rfq.issued", title: `Nueva RFQ ${rfq.rfq_number}`, resourceType: "quotation_request", resourceId: rfq.id });
       rfqs.push(rfq);
     }
 

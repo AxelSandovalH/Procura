@@ -4,6 +4,7 @@ import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { emitEvent } from "@/lib/events/emit";
 
 /** Solo la contraparte de quien inició puede aceptar (quien inició ya expresó su aceptación al crearla). */
 export const POST = route(async (req, params) => {
@@ -17,6 +18,7 @@ export const POST = route(async (req, params) => {
     if (r.initiated_by_organization_id === actor.organizationId) throw Problem.forbidden("Quien inicia la relación no puede aceptarla; debe hacerlo la contraparte");
     const updated = await tx.relationships.update({ where: { id: r.id }, data: { status: "ACTIVE", accepted_at: new Date(), accepted_by_membership_id: actor.membershipId } });
     await audit(tx, { ...auditBase(actor), visibleTo: [r.buyer_organization_id, r.supplier_organization_id], action: "relationship.accepted", resourceType: "relationship", resourceId: r.id });
+    await emitEvent(tx, { type: "relationship.accepted", aggregateType: "relationship", aggregateId: r.id, actor, recipients: [{ organizationId: r.buyer_organization_id, perspective: "BUYER" as const, payload: { relationship: { id: r.id, status: updated.status } } }, { organizationId: r.supplier_organization_id, perspective: "SUPPLIER" as const, payload: { relationship: { id: r.id, status: updated.status } } }] });
     return updated;
   });
   return NextResponse.json(relationship);
