@@ -6,6 +6,7 @@ import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { recordDecision } from "@/lib/requisitions/approval-engine";
 import { emitEvent, notify } from "@/lib/events/emit";
+import { autoIssueDirectedRfq } from "@/lib/sourcing/issue-rfq";
 
 const Body = z.object({ comment: z.string().trim().max(1000).optional(), concept_id: z.uuid().optional() });
 
@@ -24,7 +25,8 @@ export const POST = route(async (req, params) => {
     if (r.requester_membership_id && r.requester_membership_id !== actor.membershipId) {
       await notify(tx, { organizationId: actor.organizationId, membershipIds: [r.requester_membership_id], type: eventType, title: outcome.requisitionStatus === "APPROVED" ? `${r.folio} fue aprobada` : `${r.folio} avanzó de nivel de aprobación`, resourceType: "requisition", resourceId: r.id });
     }
-    return outcome;
+    const autoRfq = outcome.requisitionStatus === "APPROVED" ? await autoIssueDirectedRfq(tx, actor, r.id) : "SKIPPED";
+    return autoRfq === "ISSUED" ? { ...outcome, requisitionStatus: "SENT" as const, auto_rfq_issued: true } : outcome;
   });
   return NextResponse.json(result);
 });

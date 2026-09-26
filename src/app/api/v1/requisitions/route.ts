@@ -10,6 +10,7 @@ import { recomputeRequisitionTotals } from "@/lib/requisitions/totals";
 import { requisitionVisibilityWhere } from "@/lib/requisitions/visibility";
 import { startApprovalRequest } from "@/lib/requisitions/approval-engine";
 import { emitEvent, notifyPermissionHolders, notify } from "@/lib/events/emit";
+import { autoIssueDirectedRfq } from "@/lib/sourcing/issue-rfq";
 import type { Prisma, requisition_status, requisition_priority, requisition_type } from "@prisma/client";
 import { isoDateOptional } from "@/lib/validation";
 
@@ -101,6 +102,12 @@ export const POST = route(async (req) => {
       }
     }
 
+    if (body.directed_supplier_organization_id) {
+      if (body.directed_supplier_organization_id === actor.organizationId) throw Problem.badRequest("No puedes dirigir una requisición a tu propia organización");
+      const rel = await tx.relationships.findFirst({ where: { buyer_organization_id: actor.organizationId, supplier_organization_id: body.directed_supplier_organization_id, status: "ACTIVE" }, select: { id: true } });
+      if (!rel) throw Problem.badRequest("Para dirigir la requisición necesitas una relación ACTIVE con ese proveedor (solicítala primero en el portal del proveedor)");
+    }
+
     const folio = await nextFolio(tx, actor.organizationId);
     const { concepts, submit, external_reference, ...header } = body;
 
@@ -108,7 +115,7 @@ export const POST = route(async (req) => {
       data: {
         organization_id: actor.organizationId, folio, ...header,
         requester_membership_id: actor.type === "USER" ? actor.membershipId : null,
-        origin_type: actor.type === "API_KEY" ? "API" : "MANUAL",
+        origin_type: actor.type === "API_KEY" ? "API" : header.directed_supplier_organization_id ? "PORTAL" : "MANUAL",
         origin_api_key_id: actor.type === "API_KEY" ? actor.apiKeyId : null,
         external_reference,
       },
@@ -138,6 +145,7 @@ export const POST = route(async (req) => {
         await audit(tx, { ...auditBase(actor), action: "requisition.approved", resourceType: "requisition", resourceId: requisition.id, resourceLabel: requisition.folio, metadata: { auto: true } });
         await emitEvent(tx, { type: "requisition.approved", aggregateType: "requisition", aggregateId: requisition.id, actor, recipients: [{ organizationId: actor.organizationId, perspective: "OWNER", payload: { requisition: { id: requisition.id, folio: requisition.folio } } }] });
         if (requisition.requester_membership_id) await notify(tx, { organizationId: actor.organizationId, membershipIds: [requisition.requester_membership_id], type: "requisition.approved", title: `${requisition.folio} fue aprobada`, resourceType: "requisition", resourceId: requisition.id });
+        if ((await autoIssueDirectedRfq(tx, actor, requisition.id)) === "ISSUED") return tx.requisitions.findUniqueOrThrow({ where: { id: requisition.id } });
       } else {
         await notifyPermissionHolders(tx, { organizationId: actor.organizationId, permission: "requisition.approve", excludeMembershipId: actor.membershipId ?? undefined, type: "requisition.submitted", title: `${requisition.folio} espera tu aprobación`, resourceType: "requisition", resourceId: requisition.id });
       }

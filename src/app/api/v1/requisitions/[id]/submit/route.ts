@@ -5,6 +5,7 @@ import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { startApprovalRequest } from "@/lib/requisitions/approval-engine";
 import { emitEvent, notifyPermissionHolders, notify } from "@/lib/events/emit";
+import { autoIssueDirectedRfq } from "@/lib/sourcing/issue-rfq";
 
 export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
@@ -34,6 +35,7 @@ export const POST = route(async (req, params) => {
       await audit(tx, { ...auditBase(actor), action: "requisition.approved", resourceType: "requisition", resourceId: r.id, resourceLabel: r.folio, metadata: { auto: true } });
       await emitEvent(tx, { type: "requisition.approved", aggregateType: "requisition", aggregateId: r.id, actor, recipients: [{ organizationId: actor.organizationId, perspective: "OWNER", payload: { requisition: { id: r.id, folio: r.folio } } }] });
       if (r.requester_membership_id) await notify(tx, { organizationId: actor.organizationId, membershipIds: [r.requester_membership_id], type: "requisition.approved", title: `${r.folio} fue aprobada`, resourceType: "requisition", resourceId: r.id });
+      if ((await autoIssueDirectedRfq(tx, actor, r.id)) === "ISSUED") return tx.requisitions.findUniqueOrThrow({ where: { id: r.id } });
     } else {
       await notifyPermissionHolders(tx, { organizationId: actor.organizationId, permission: "requisition.approve", excludeMembershipId: actor.membershipId ?? undefined, type: "requisition.submitted", title: `${r.folio} espera tu aprobación`, resourceType: "requisition", resourceId: r.id });
     }

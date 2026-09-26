@@ -257,13 +257,19 @@ No en MVP: editar requisiciones vía API, aprobar vía API, actuar como proveedo
 
 ## 12. Portal
 
+Estado: **backend implementado**. La página `procura.app/{slug}/solicitar` (UI) llegará con el frontend; este contrato es lo que consumirá.
+
 | Método | Ruta | Auth |
 |---|---|---|
-| GET | `/portal/{slug}` | pública — nombre, logo, `portal_welcome_text`, si acepta solicitudes |
-| POST | `/portal/{slug}/join` | autenticado + org activa → crea relación (`PENDING` o `ACTIVE` según política / invitación) |
-| → | después: `POST /requisitions` con `directed_supplier_organization_id = org del portal` | flujo normal (OD-02) |
+| GET | `/portal/{slug}` | pública. 404 si el slug no existe **o** el portal está apagado (indistinguible: no se enumeran organizaciones). Devuelve nombre y `welcome_text`; con sesión añade `viewer` (organización activa, estado de la relación, `can_join`, `can_request`) para que la UI sepa el siguiente paso |
+| POST | `/portal/{slug}/join` `{ message? }` | sesión + organización activa + `relationship.request`. Crea relación `PENDING` (`initiated_via=PORTAL`) con el actor como **comprador**; el proveedor la aprueba (`POST /relationships/{id}/accept`). Idempotente: si ya hay una relación viva devuelve `200 created:false`. Con invitación de relación `auto_accept` se usa `POST /invitations/{token}/accept` |
+| POST | `/requisitions` con `directed_supplier_organization_id` | flujo normal. Exige relación `ACTIVE` con ese proveedor (400 si no); `origin_type=PORTAL` |
 
-Si el usuario no tiene organización, la UI le lleva a `POST /organizations` primero (OD-20).
+**Requisición dirigida (OD-02, implementado):** al pasar a `APPROVED` — por aprobación explícita, o automáticamente si no hay workflow — se emite sola la RFQ al proveedor dirigido y la requisición pasa a `SENT`. Nunca bloquea la aprobación: si la relación dejó de estar `ACTIVE` o ya hay RFQ viva, queda `APPROVED`, se audita `rfq.auto_issue_skipped` y Compras decide.
+
+Flujo del usuario: Portal → login/registro → crear organización (`POST /organizations`) → `join` → aprobación del proveedor → requisición dirigida. Nunca hay requisiciones anónimas.
+
+**Pendiente (fuera de este bloque):** rate limiting en el GET público y en el registro (sin infraestructura de límites todavía).
 
 ---
 
