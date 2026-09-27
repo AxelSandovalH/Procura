@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Logo } from "@/components/brand/logo";
+import { Splash } from "@/components/brand/splash";
 import { OrgSwitcher } from "@/components/app/org-switcher";
 import { NotificationBell } from "@/components/app/notification-bell";
 import { useSession } from "@/hooks/use-session";
@@ -48,7 +49,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   if (session.loading || session.noOrganization) {
-    return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Cargando…</div>;
+    return <Splash />;
   }
 
   const nav = (
