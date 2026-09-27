@@ -16,7 +16,7 @@ export default function OlvideContrasena() {
     e.preventDefault();
     setBusy(true); setError(null);
     try { await api("/auth/password/forgot", { body: { email: email.trim() } }); setSent(true); }
-    catch (err) { setError(err instanceof ApiError && err.status === 400 ? "Escribe un correo válido." : "No se pudo enviar. Intenta de nuevo en unos minutos."); }
+    catch (err) { setError(err instanceof ApiError && err.status === 400 ? "Escribe un correo válido." : err instanceof ApiError && err.status === 429 ? "Ya pediste varios enlaces. Espera un rato antes de pedir otro; revisa también tu carpeta de spam." : "No se pudo enviar. Intenta de nuevo en unos minutos."); }
     finally { setBusy(false); }
   }
 

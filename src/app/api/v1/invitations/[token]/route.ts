@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit, clientIp } from "@/lib/http/rate-limit";
 import { route, Problem } from "@/lib/http/problem";
 import { requireUser } from "@/lib/auth/context";
 import { withContext } from "@/lib/db/client";
@@ -12,7 +13,8 @@ interface LookupRow {
 }
 
 /** Previsualiza una invitación por su token. Requiere sesión (nunca hay requisiciones/relaciones anónimas). */
-export const GET = route(async (_req, params) => {
+export const GET = route(async (req, params) => {
+  await rateLimit("invitation-preview", clientIp(req), { windowSeconds: 600, max: 60 });
   await requireUser();
   const hash = hashToken(params.token);
   const [row] = await withContext({}, (tx) => tx.$queryRaw<LookupRow[]>`select * from app.lookup_invitation_by_hash(${hash})`);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { Prisma } from "@prisma/client";
+import * as Sentry from "@sentry/nextjs";
 
 /** Error de aplicación serializable como RFC 9457 (application/problem+json). */
 export class Problem extends Error {
@@ -25,9 +26,11 @@ export class Problem extends Error {
 }
 
 export function problemResponse(p: Problem, requestId: string) {
+  const headers: Record<string, string> = { "content-type": "application/problem+json" };
+  if (typeof p.extra.retry_after === "number") headers["retry-after"] = String(p.extra.retry_after);
   return NextResponse.json(
     { type: `https://procura.app/problems/${p.status}`, title: p.title, status: p.status, detail: p.detail, request_id: requestId, ...p.extra },
-    { status: p.status, headers: { "content-type": "application/problem+json" } },
+    { status: p.status, headers },
   );
 }
 
@@ -43,7 +46,11 @@ export function route(handler: Handler) {
       res.headers.set("x-request-id", requestId);
       return res;
     } catch (err) {
-      if (err instanceof Problem) return problemResponse(err, requestId);
+      if (err instanceof Problem) {
+        // 5xx conocidos (p. ej. Storage caído = 502) también son incidentes; 4xx son flujo normal.
+        if (err.status >= 500) Sentry.captureException(err, { tags: { request_id: requestId, route: new URL(req.url).pathname } });
+        return problemResponse(err, requestId);
+      }
       if (err instanceof ZodError) {
         return problemResponse(
           Problem.validation(err.issues.map((i) => ({ field: i.path.join("."), code: i.code, message: i.message }))),
@@ -53,6 +60,8 @@ export function route(handler: Handler) {
       const mapped = mapDbError(err);
       if (mapped) return problemResponse(mapped, requestId);
       console.error(`[${requestId}]`, err);
+      // El request_id del problem+json que ve el usuario es la clave para encontrar este evento en Sentry.
+      Sentry.captureException(err, { tags: { request_id: requestId, route: new URL(req.url).pathname } });
       return problemResponse(new Problem(500, "Error interno"), requestId);
     }
   };

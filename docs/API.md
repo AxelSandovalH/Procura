@@ -36,6 +36,8 @@
 
 ## 2. Identidad y sesión
 
+> **Límites (`429`)**: login, registro, recuperar contraseña, portal público, invitaciones, adjuntos y unirse a un portal están limitados por ventana; la respuesta lleva `Retry-After` (segundos) y `retry_after` en el cuerpo problem+json.
+
 | Método | Ruta | Descripción |
 |---|---|---|
 | POST | `/auth/register` | Crear usuario (email verificado antes de operar) |

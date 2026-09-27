@@ -27,7 +27,7 @@ function LoginForm() {
       qc.clear();
       router.replace(next && next.startsWith("/") && !next.startsWith("//") ? next : "/inicio");
     } catch (err) {
-      setError(err instanceof ApiError && err.status === 401 ? "Correo o contraseña incorrectos, o el correo aún no está confirmado." : "No se pudo iniciar sesión. Intenta de nuevo.");
+      setError(err instanceof ApiError && err.status === 401 ? "Correo o contraseña incorrectos, o el correo aún no está confirmado." : err instanceof ApiError && err.status === 429 ? "Demasiados intentos. Espera unos minutos antes de volver a intentarlo." : "No se pudo iniciar sesión. Intenta de nuevo.");
       setBusy(false);
     }
   }

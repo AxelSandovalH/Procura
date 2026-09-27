@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { rateLimit, clientIp } from "@/lib/http/rate-limit";
 import { route, json, Problem } from "@/lib/http/problem";
 import { requireUser, requireActorForOrganization } from "@/lib/auth/context";
 import { withContext } from "@/lib/db/client";
@@ -19,6 +20,7 @@ interface LookupRow {
 }
 
 export const POST = route(async (req, params) => {
+  await rateLimit("invitation-accept", clientIp(req), { windowSeconds: 3600, max: 30 });
   const user = await requireUser();
   const body = await json(req, (d) => Body.parse(d ?? {}));
   const hash = hashToken(params.token);

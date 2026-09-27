@@ -1,8 +1,11 @@
 "use client";
+import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { Button } from "@/components/ui/button";
 
 /** Un fallo de render en una pantalla no debe tumbar el shell ni dejar la página en blanco. */
 export default function AppError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => { Sentry.captureException(error); }, [error]);
   return (
     <div className="mx-auto max-w-md rounded-xl border border-dashed p-10 text-center">
       <p className="font-medium">Algo salió mal en esta pantalla</p>

@@ -23,7 +23,8 @@ Estado revisado el 2026-09-26 (commit `abbf70b`). Producción: `https://procura-
 2. **Plan de Vercel:** `vercel.json` programa el cron cada minuto; el plan Hobby solo permite diario. Con Hobby, los webhooks y sus reintentos se despachan una vez al día.
 3. **Correo de Supabase Auth (configurado):** el SMTP por defecto de Supabase tiene un límite muy bajo (pocos correos por hora). Configura un SMTP propio (p. ej. Resend) en *Authentication → SMTP* antes de invitar gente. En *URL Configuration* pon el dominio de producción como Site URL y agrega `https://<dominio>/**` a las Redirect URLs.
 4. **Dominio propio** (opcional pero recomendable): al cambiarlo, actualiza `APP_URL` (los enlaces de invitación se generan con él).
-5. **Límite de solicitudes (rate limiting):** no existe en el GET público del portal, en el registro ni en el login propio. Supabase Auth aplica sus propios límites al login, pero conviene poner un límite (Vercel WAF o Upstash) antes de abrir el portal a internet.
+5. **Límite de solicitudes (implementado):** ventana fija en Postgres (`rate_limits`, `app.rate_limit_hit`), respuesta `429` con `Retry-After`. Login: 30/10 min por IP y 10/15 min por correo; registro 10/h por IP; recuperar contraseña 10/h por IP y 3/h por correo; portal público 120/min por IP; unirse al portal 10/h por usuario; invitaciones 60/10 min (vista) y 30/h (aceptar) por IP; cambiar contraseña 10/h; adjuntos 100/h por usuario. No guarda IPs ni correos en claro (hash). Si la base falla, deja pasar. Para ataques de volumen (DDoS) sigue siendo recomendable el WAF de Vercel.
+6. **Monitoreo (implementado, falta el DSN):** Sentry captura errores 5xx de la API (con el `request_id` que ve el usuario), errores de pantalla y avisos del cron (correos que fallan). Sin `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` queda apagado. Depurado: sin cookies, cabeceras de autorización, cuerpos de petición, migas de consola, cadenas de conexión ni claves `pk_live_`/`re_`/`whsec_`. Para monitoreo de disponibilidad apunta un servicio (UptimeRobot, Better Stack) a `https://www.procuraos.app/api/v1/health?db=1` (responde 503 si la base falla).
 
 ## 3. Datos de prueba
 
@@ -47,5 +48,5 @@ Quedan **Papillon** (comprador: yates) y **Avocabo** (proveedor: frutas y verdur
 - **No implementado:** dividir requisición (`split`), reorden desde orden, devoluciones/incidencias, edición de entregas y de niveles de flujo en la UI, editar/eliminar endpoints de webhook en la UI, contactos de relación en la UI, invitaciones de relación creadas desde la UI.
 - **Decisiones abiertas** `OD-04…OD-33` operan con la opción recomendada (★) de `OPEN_DECISIONS.md`.
 - **Importación de catálogo:** probada con CSV; XLSX soportado por la API pero sin prueba end-to-end.
-- **Monitoreo:** no hay error tracking ni alertas. Recomendado: Sentry + revisar `domain_events`/`webhook_deliveries` con estado `FAILED`/`EXHAUSTED`.
+- **Monitoreo:** falta crear el proyecto de Sentry y poner el DSN (ver arriba); sin source maps (subirlos requiere `SENTRY_AUTH_TOKEN` y envolver `next.config` con `withSentryConfig`). Revisar `webhook_deliveries` con estado `FAILED`/`EXHAUSTED`.
 - **Respaldos:** confirmar en Supabase el plan de backups (PITR solo en planes de pago).

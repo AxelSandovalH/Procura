@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
+import { rateLimit } from "@/lib/http/rate-limit";
 import { route, Problem } from "@/lib/http/problem";
 import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
@@ -37,6 +38,7 @@ export const GET = route(async (req) => {
 
 export const POST = route(async (req) => {
   const actor = await requireActor(req);
+  await rateLimit("attachment-upload", actor.userId ?? actor.organizationId, { windowSeconds: 3600, max: 100 });
   authorize(actor, "attachment.upload");
 
   const form = await req.formData();

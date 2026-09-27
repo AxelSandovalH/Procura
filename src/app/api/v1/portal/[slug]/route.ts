@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit, clientIp } from "@/lib/http/rate-limit";
 import { route } from "@/lib/http/problem";
 import { currentUser, requireActor } from "@/lib/auth/context";
 import { withContext } from "@/lib/db/client";
@@ -10,6 +11,7 @@ import { findPortal } from "@/lib/portal/lookup";
  * relación → solicitar).
  */
 export const GET = route(async (req, params) => {
+  await rateLimit("portal-ip", clientIp(req), { windowSeconds: 60, max: 120 });
   const portal = await findPortal(params.slug);
 
   let viewer: Record<string, unknown> = { authenticated: false };

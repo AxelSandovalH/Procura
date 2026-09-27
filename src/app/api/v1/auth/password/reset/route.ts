@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { rateLimit } from "@/lib/http/rate-limit";
 import { route, json, Problem } from "@/lib/http/problem";
 import { requireUser } from "@/lib/auth/context";
 import { supabaseServer } from "@/lib/supabase/server";
@@ -8,7 +9,8 @@ const Body = z.object({ password: z.string().min(10, "Mínimo 10 caracteres").ma
 
 /** Cambia la contraseña de la sesión actual (la de recuperación abierta desde el correo, o una sesión normal). */
 export const POST = route(async (req) => {
-  await requireUser();
+  const user = await requireUser();
+  await rateLimit("pw-reset", user.id, { windowSeconds: 3600, max: 10 });
   const { password } = await json(req, (d) => Body.parse(d));
   const supabase = await supabaseServer();
   const { error } = await supabase.auth.updateUser({ password });

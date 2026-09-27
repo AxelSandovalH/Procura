@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { env } from "@/lib/env";
+import { rateLimit, clientIp } from "@/lib/http/rate-limit";
 import { route, json, Problem } from "@/lib/http/problem";
 import { supabaseServer } from "@/lib/supabase/server";
 
@@ -13,6 +14,7 @@ const Body = z.object({
 
 export const POST = route(async (req) => {
   const body = await json(req, (d) => Body.parse(d));
+  await rateLimit("register-ip", clientIp(req), { windowSeconds: 3600, max: 10 });
   const supabase = await supabaseServer();
   const { data, error } = await supabase.auth.signUp({
     email: body.email,

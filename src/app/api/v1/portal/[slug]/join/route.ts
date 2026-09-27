@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { rateLimit } from "@/lib/http/rate-limit";
 import { route, json, Problem } from "@/lib/http/problem";
 import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
@@ -17,6 +18,7 @@ const Body = z.object({ message: z.string().trim().max(1000).optional() });
  */
 export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
+  await rateLimit("portal-join", actor.userId ?? actor.organizationId, { windowSeconds: 3600, max: 10 });
   authorize(actor, "relationship.request");
   const { message } = await json(req, (d) => Body.parse(d ?? {}));
   const portal = await findPortal(params.slug);
