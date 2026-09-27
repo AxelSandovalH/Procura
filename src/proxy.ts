@@ -7,7 +7,7 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 const PUBLIC = ["/login", "/registro", "/olvide-contrasena"];
 /** Rutas que funcionan con o sin sesión: el callback de los correos y el restablecimiento (que necesita la sesión de recuperación). */
-const NEUTRAL = ["/auth/callback", "/restablecer"];
+const NEUTRAL = ["/auth/callback", "/restablecer", "/opengraph-image"];
 /** Portal público de un proveedor: /{slug}/solicitar. Lo ven tanto anónimos como con sesión (la API decide el siguiente paso). */
 const SESSION_COOKIE = /^sb-[a-z0-9]+-auth-token(\.\d+)?$/;
 const PORTAL = /^\/[^/]+\/solicitar\/?$/;
