@@ -7,6 +7,8 @@ const schema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
   APP_URL: z.string().url().default("http://localhost:3000"),
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
 });
 
 let cached: z.infer<typeof schema> | null = null;

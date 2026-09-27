@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, ApiError } from "@/lib/api-client";
 
 export interface Membership { id: string; status: string; is_primary_admin: boolean; title: string | null; organization: { id: string; slug: string; display_name: string }; is_active: boolean }
-export interface Me { user: { id: string; email: string; full_name: string }; memberships: Membership[] }
+export interface Me { user: { id: string; email: string; full_name: string; email_notifications?: boolean }; memberships: Membership[] }
 export interface OrgContext {
   organization: { id: string; slug: string; display_name: string; base_currency: string; timezone: string };
   actor: { type: string; membership_id: string | null; permissions: string[] };

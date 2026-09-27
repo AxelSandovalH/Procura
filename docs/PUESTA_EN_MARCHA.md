@@ -21,7 +21,7 @@ Estado revisado el 2026-09-26 (commit `abbf70b`). Producción: `https://procura-
    - `SUPABASE_SERVICE_ROLE_KEY` — sin ella fallan los **adjuntos** (Storage).
    - `CRON_SECRET` — sin ella el cron de webhooks no despacha (responde 401).
 2. **Plan de Vercel:** `vercel.json` programa el cron cada minuto; el plan Hobby solo permite diario. Con Hobby, los webhooks y sus reintentos se despachan una vez al día.
-3. **Correo de Supabase Auth:** el SMTP por defecto de Supabase tiene un límite muy bajo (pocos correos por hora). Configura un SMTP propio (p. ej. Resend) en *Authentication → SMTP* antes de invitar gente. En *URL Configuration* pon el dominio de producción como Site URL y agrega `https://<dominio>/**` a las Redirect URLs.
+3. **Correo de Supabase Auth (configurado):** el SMTP por defecto de Supabase tiene un límite muy bajo (pocos correos por hora). Configura un SMTP propio (p. ej. Resend) en *Authentication → SMTP* antes de invitar gente. En *URL Configuration* pon el dominio de producción como Site URL y agrega `https://<dominio>/**` a las Redirect URLs.
 4. **Dominio propio** (opcional pero recomendable): al cambiarlo, actualiza `APP_URL` (los enlaces de invitación se generan con él).
 5. **Límite de solicitudes (rate limiting):** no existe en el GET público del portal, en el registro ni en el login propio. Supabase Auth aplica sus propios límites al login, pero conviene poner un límite (Vercel WAF o Upstash) antes de abrir el portal a internet.
 
@@ -46,7 +46,7 @@ Antes de cualquiera: `supabase db dump` o un backup desde el dashboard (Database
 
 ## 5. Límites conocidos y backlog
 
-- **Sin correos transaccionales de Procura:** las notificaciones son dentro de la app (campana) y por webhook. Falta email para aprobaciones/cotizaciones.
+- **Correos de aviso (implementados):** cada notificación de la campana se envía también por correo con Resend desde el cron (cada minuto). Requiere `RESEND_API_KEY` y `EMAIL_FROM` en Vercel; sin ellas queda apagado. Cada persona puede desactivarlos en *Mi cuenta*. Los mensajes de conversación se agrupan (uno por conversación cada 10 min); las fallas se reintentan 3 veces.
 - **Secreto de webhooks** guardado sin cifrar en BD (documentado; conviene cifrarlo con pgsodium/Vault).
 - **No implementado:** dividir requisición (`split`), reorden desde orden, devoluciones/incidencias, edición de entregas y de niveles de flujo en la UI, editar/eliminar endpoints de webhook en la UI, contactos de relación en la UI, invitaciones de relación creadas desde la UI.
 - **Decisiones abiertas** `OD-04…OD-33` operan con la opción recomendada (★) de `OPEN_DECISIONS.md`.

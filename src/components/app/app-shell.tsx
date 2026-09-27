@@ -87,6 +87,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuGroup><DropdownMenuLabel className="font-normal"><p className="text-sm font-medium">{session.me?.user.full_name}</p><p className="truncate text-xs text-muted-foreground">{session.me?.user.email}</p></DropdownMenuLabel></DropdownMenuGroup>
               <DropdownMenuSeparator />
+              <DropdownMenuItem render={<Link href="/cuenta" />}>Mi cuenta</DropdownMenuItem>
               <DropdownMenuItem render={<Link href="/restablecer" />}>Cambiar contraseña</DropdownMenuItem>
               <DropdownMenuItem onClick={logout}><LogOut className="size-4" />Cerrar sesión</DropdownMenuItem>
             </DropdownMenuContent>

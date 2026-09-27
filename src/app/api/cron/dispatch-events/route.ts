@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { runDispatchCycle } from "@/lib/events/dispatch";
+import { sendPendingEmails } from "@/lib/email/outbox";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -11,5 +12,7 @@ export async function GET(req: Request) {
   if (!secret || auth !== `Bearer ${secret}`) return new NextResponse("Unauthorized", { status: 401 });
 
   const result = await runDispatchCycle();
-  return NextResponse.json({ ok: true, ...result });
+  // Los correos no deben tumbar el despacho de webhooks: si fallan, se reportan y el ciclo sigue.
+  const emails = await sendPendingEmails().catch((e) => ({ enabled: true, sent: 0, failed: -1, error: e instanceof Error ? e.message : String(e) }));
+  return NextResponse.json({ ok: true, ...result, emails });
 }
