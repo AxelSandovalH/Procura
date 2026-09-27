@@ -1,8 +1,9 @@
 "use client";
+import Link from "next/link";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/app/status-badge";
 import { api, ApiError } from "@/lib/api-client";
 import { money, toMinor } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 interface Rule { id: string; level: number; condition: { min_amount_minor?: number; max_amount_minor?: number }; approver_type: string; approver_role_id: string | null; approver_membership_id: string | null; decision_mode: string }
 interface Workflow { id: string; name: string; is_default: boolean; is_active: boolean; approval_rules: Rule[] }
@@ -19,7 +21,6 @@ interface Member { id: string; status: string; user: { full_name: string } }
 
 export default function Flujos() {
   const qc = useQueryClient();
-  const [newOpen, setNewOpen] = useState(false);
   const [ruleFor, setRuleFor] = useState<Workflow | null>(null);
   const wf = useQuery({ queryKey: ["workflows"], queryFn: () => api<{ data: Workflow[] }>("/organization/approval-workflows") });
   const roles = useQuery({ queryKey: ["roles"], queryFn: () => api<{ data: Role[] }>("/organization/roles") });
@@ -29,8 +30,8 @@ export default function Flujos() {
   const range = (r: Rule) => { const a = r.condition.min_amount_minor, b = r.condition.max_amount_minor; return a == null && b == null ? "Cualquier monto" : `${a != null ? `desde ${money(a)}` : ""}${a != null && b != null ? " " : ""}${b != null ? `hasta ${money(b)}` : ""}`; };
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2"><p className="text-sm text-muted-foreground">Define quién aprueba una requisición según su monto. Sin flujo aplicable, se aprueba automáticamente.</p><Button onClick={() => setNewOpen(true)}><Plus />Nuevo flujo</Button></div>
-      {wf.isLoading ? <div className="h-32 animate-pulse rounded-xl bg-muted" /> : (wf.data?.data.length ?? 0) === 0 ? <div className="rounded-xl border border-dashed p-12 text-center text-sm text-muted-foreground">Aún no hay flujos de aprobación.</div> : wf.data!.data.map((w) => (
+      <div className="flex items-center justify-between gap-2"><p className="text-sm text-muted-foreground">Define quién aprueba una requisición según su monto. Sin flujo aplicable, se aprueba automáticamente.</p><Link href="/administracion/flujos/nuevo" className={cn(buttonVariants())}><Plus />Nuevo flujo</Link></div>
+      {wf.isLoading ? <div className="h-32 animate-pulse rounded-xl bg-muted" /> : (wf.data?.data.length ?? 0) === 0 ? <div className="rounded-xl border border-dashed p-12 text-center text-sm text-muted-foreground">Aún no hay flujos de aprobación. <Link href="/administracion/flujos/nuevo" className="font-medium text-foreground underline underline-offset-4">Crea el primero con el asistente</Link>.</div> : wf.data!.data.map((w) => (
         <Card key={w.id}>
           <CardHeader><div className="flex items-center justify-between gap-2"><CardTitle>{w.name}</CardTitle><div className="flex items-center gap-2">{w.is_default && <StatusBadge label="Predeterminado" tone="info" />}{!w.is_active && <StatusBadge label="Inactivo" tone="muted" />}
             {!w.is_default && w.is_active && <Button size="sm" variant="ghost" onClick={async () => { await api(`/organization/approval-workflows/${w.id}`, { method: "PATCH", body: { is_default: true } }); await refresh(); }}>Hacer predeterminado</Button>}
@@ -38,29 +39,8 @@ export default function Flujos() {
           <CardContent>{w.approval_rules.length === 0 ? <p className="text-sm text-muted-foreground">Sin niveles: las requisiciones que use este flujo se aprobarán solas.</p> : (
             <ol className="space-y-2 text-sm">{w.approval_rules.map((r) => <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-3 py-2"><span className="font-medium">Nivel {r.level}</span><span>{approver(r)}</span><span className="text-muted-foreground">{range(r)}</span><span className="text-xs text-muted-foreground">{r.decision_mode === "ALL" ? "todos deben aprobar" : "basta uno"}</span></li>)}</ol>)}</CardContent>
         </Card>))}
-      <NewWorkflow open={newOpen} onOpenChange={setNewOpen} onDone={refresh} />
       {ruleFor && <RuleDialog workflow={ruleFor} roles={(roles.data?.data ?? []).filter((r) => r.is_active)} members={(members.data?.data ?? []).filter((m) => m.status === "ACTIVE")} onClose={() => setRuleFor(null)} onDone={refresh} />}
     </div>
-  );
-}
-
-function NewWorkflow({ open, onOpenChange, onDone }: { open: boolean; onOpenChange: (o: boolean) => void; onDone: () => unknown }) {
-  const [name, setName] = useState(""); const [def, setDef] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
-  async function go(e: React.FormEvent) {
-    e.preventDefault(); setBusy(true); setError(null);
-    try { await api("/organization/approval-workflows", { method: "POST", body: { name: name.trim(), is_default: def } }); await onDone(); setName(""); setDef(false); onOpenChange(false); }
-    catch (er) { setError(er instanceof ApiError ? (er.fieldErrors[0]?.message ?? er.detail ?? er.title) : "No se pudo crear."); } finally { setBusy(false); }
-  }
-  return (
-    <Dialog open={open} onOpenChange={(o) => { if (!busy) onOpenChange(o); }}><DialogContent>
-      <DialogHeader><DialogTitle>Nuevo flujo de aprobación</DialogTitle><DialogDescription>Después agrega los niveles de aprobación.</DialogDescription></DialogHeader>
-      <form className="space-y-3" onSubmit={go}>
-        <div className="space-y-1.5"><Label htmlFor="w-name">Nombre *</Label><Input id="w-name" value={name} onChange={(e) => setName(e.target.value)} /></div>
-        <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={def} onChange={(e) => setDef(e.target.checked)} />Usar como predeterminado</label>
-        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-        <DialogFooter><Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancelar</Button><Button type="submit" disabled={busy || !name.trim()}>Crear</Button></DialogFooter>
-      </form>
-    </DialogContent></Dialog>
   );
 }
 

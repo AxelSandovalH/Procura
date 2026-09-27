@@ -14,7 +14,7 @@ interface Item { id: string; title: string; hint: string; href: string; perm: st
 
 const ITEMS: Item[] = [
   { id: "areas", title: "Define tus áreas", hint: "Departamentos y lugares de entrega.", href: "/administracion/estructura", perm: "department.manage", done: (s) => s.departments > 0, for: "buy" },
-  { id: "aprobacion", title: "Configura quién aprueba", hint: "Reglas de aprobación por monto.", href: "/administracion/flujos", perm: "approval_workflow.manage", done: (s) => s.approval_workflows > 0, for: "buy" },
+  { id: "aprobacion", title: "Configura quién aprueba", hint: "Reglas de aprobación por monto.", href: "/administracion/flujos/nuevo", perm: "approval_workflow.manage", done: (s) => s.approval_workflows > 0, for: "buy" },
   { id: "equipo", title: "Invita a tu equipo", hint: "Comparte el acceso con quien trabaja contigo.", href: "/administracion/miembros", perm: "member.invite", done: (s) => s.members > 1 || s.invitations > 0, for: "both" },
   { id: "proveedor", title: "Conecta con un proveedor", hint: "Búscalo o invítalo con un enlace.", href: "/relaciones/conectar?tipo=proveedor", perm: "relationship.request", done: (s) => s.suppliers > 0, for: "buy" },
   { id: "requisicion", title: "Haz tu primera requisición", hint: "Pide lo que necesitas y envíala a aprobación.", href: "/requisiciones/nueva", perm: "requisition.create", done: (s) => s.requisitions > 0, for: "buy" },
