@@ -38,7 +38,7 @@ export function renderNotificationEmail(n: EmailNotification, appUrl: string): {
   const html = `<!doctype html><html lang="es"><body style="margin:0;background:#f5f5f5;font-family:Helvetica,Arial,sans-serif;color:#171717">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:12px;padding:28px">
-<tr><td style="font-size:18px;font-weight:600;letter-spacing:-0.01em">Procura</td></tr>
+<tr><td style="font-size:18px;font-weight:600;letter-spacing:-0.01em"><img src="${esc(base)}/brand/logo-mark-black.png" width="17" height="23" alt="" style="vertical-align:middle;border:0;margin-right:8px"><span style="vertical-align:middle">Procura</span></td></tr>
 <tr><td style="padding-top:20px;font-size:13px;color:#525252">${first ? `Hola ${esc(first)},` : "Hola,"}</td></tr>
 <tr><td style="padding-top:8px;font-size:18px;font-weight:600;line-height:1.35">${esc(n.title)}</td></tr>
 ${n.body ? `<tr><td style="padding-top:8px;font-size:14px;line-height:1.5;color:#404040">${esc(n.body)}</td></tr>` : ""}

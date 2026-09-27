@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { use, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api, ApiError } from "@/lib/api-client";
@@ -27,7 +28,8 @@ export default function InvitationPage({ params }: { params: Promise<{ token: st
   }
   const p = inv.data;
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-4">
+      <Logo size={24} textClassName="text-lg" />
       <Card className="w-full max-w-md">
         <CardHeader><CardTitle>Invitación a Procura</CardTitle></CardHeader>
         <CardContent className="space-y-4 text-sm">

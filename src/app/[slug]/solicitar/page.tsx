@@ -3,6 +3,7 @@ import Link from "next/link";
 import { use, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, Check, Circle } from "lucide-react";
+import { Logo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,7 +37,7 @@ export default function PortalPage({ params }: { params: Promise<{ slug: string 
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center gap-6 p-4">
-      <Link href="/" className="text-lg font-semibold tracking-tight">Procura</Link>
+      <Link href="/" aria-label="Procura"><Logo size={22} textClassName="text-lg" /></Link>
       {q.isLoading ? <div className="h-48 animate-pulse rounded-xl bg-muted" /> : !p ? (
         <Card><CardHeader><CardTitle>Portal no disponible</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">Este enlace no existe o el portal está desactivado. Verifica la dirección con tu proveedor.</CardContent></Card>
       ) : (
