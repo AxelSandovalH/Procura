@@ -27,13 +27,9 @@ Estado revisado el 2026-09-26 (commit `abbf70b`). Producción: `https://procura-
 
 ## 3. Datos de prueba
 
-La base contiene solo datos de prueba (1 usuario, 3 organizaciones —Papillon, Avocabo, TestCo—, ~34 requisiciones, 7 órdenes, catálogo de prueba, 3 endpoints de webhook de prueba, llaves de API revocadas). **No se borró nada**: es irreversible y comparte base con producción.
+Limpieza hecha el 2026-09-27 (opción A), con respaldo previo de las 54 tablas públicas (1 582 filas) fuera del repositorio. Se eliminó: la organización TestCo con todo lo suyo, artículos/categorías de prueba de Avocabo, webhooks, llaves de API, invitaciones e importaciones de prueba, y departamentos, ubicaciones, flujos y roles de prueba con sufijo numérico de Papillon.
 
-Opciones para arrancar limpio (dime cuál y lo hago, con respaldo previo):
-- **A.** Conservar Papillon y Avocabo como organizaciones de demostración y borrar solo TestCo, webhooks, llaves, invitaciones e importaciones de prueba.
-- **B.** Vaciar toda la data operativa y dejar solo tu usuario para crear tu organización real desde el onboarding.
-
-Antes de cualquiera: `supabase db dump` o un backup desde el dashboard (Database → Backups).
+Quedan **Papillon** (comprador: yates) y **Avocabo** (proveedor: frutas y verduras) con su historial como demostración: 33 requisiciones, 7 órdenes, relación activa en ambos sentidos y el catálogo base `AVO-*`. Para arrancar sin demo, vaciar esas dos organizaciones y dejar solo el usuario (opción B).
 
 ## 4. Primer cliente: guía rápida
 
