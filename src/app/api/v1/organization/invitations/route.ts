@@ -9,7 +9,7 @@ import { generateToken } from "@/lib/auth/token";
 import { env } from "@/lib/env";
 import { rateLimit } from "@/lib/http/rate-limit";
 import { sendEmailNow } from "@/lib/email/outbox";
-import { renderInvitationEmail } from "@/lib/email/templates";
+import { renderInvitationEmail, renderRelationshipInvitationEmail } from "@/lib/email/templates";
 
 const Base = z.object({
   auto_accept: z.boolean().default(false),
@@ -25,7 +25,9 @@ const MembershipInvite = Base.extend({
 });
 const RelationshipInvite = Base.extend({
   kind: z.literal("RELATIONSHIP"),
+  // Posición que tomará QUIEN ACEPTA: SUPPLIER = invitas a tu proveedor; BUYER = invitas a tu cliente.
   relationship_position: z.enum(["BUYER", "SUPPLIER"]),
+  email: z.email().optional(),
 });
 const Create = z.discriminatedUnion("kind", [MembershipInvite, RelationshipInvite]);
 
@@ -65,7 +67,7 @@ export const POST = route(async (req) => {
         organization_id: actor.organizationId,
         kind: body.kind,
         token_hash: hash,
-        email: body.kind === "MEMBERSHIP" ? body.email : undefined,
+        email: body.email,
         relationship_position: body.kind === "RELATIONSHIP" ? body.relationship_position : undefined,
         auto_accept: body.auto_accept,
         expires_at: expiresAt,
@@ -80,17 +82,20 @@ export const POST = route(async (req) => {
 
   const url = `${env().APP_URL}/invitations/${token}`;
   let emailSent = false;
-  if (body.send_email && body.kind === "MEMBERSHIP" && body.email) {
+  if (body.send_email && body.email) {
     await rateLimit("invitation-email", actor.userId ?? actor.organizationId, { windowSeconds: 3600, max: 60 });
     const ctx = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
       const [org, inviter, roles] = await Promise.all([
         tx.organizations.findUniqueOrThrow({ where: { id: actor.organizationId }, select: { display_name: true } }),
         actor.userId ? tx.$queryRaw<{ full_name: string }[]>`select full_name from users where id = ${actor.userId}::uuid` : Promise.resolve([]),
-        tx.roles.findMany({ where: { organization_id: actor.organizationId, id: { in: body.role_ids } }, select: { name: true } }),
+        tx.roles.findMany({ where: { organization_id: actor.organizationId, id: { in: body.kind === "MEMBERSHIP" ? body.role_ids : [] } }, select: { name: true } }),
       ]);
       return { org: org.display_name, inviter: inviter[0]?.full_name || org.display_name, roles: roles.map((r) => r.name) };
     });
-    emailSent = await sendEmailNow(body.email, renderInvitationEmail({ inviter: ctx.inviter, orgName: ctx.org, roleNames: ctx.roles, url, expiresAt }, env().APP_URL));
+    const msg = body.kind === "MEMBERSHIP"
+      ? renderInvitationEmail({ inviter: ctx.inviter, orgName: ctx.org, roleNames: ctx.roles, url, expiresAt }, env().APP_URL)
+      : renderRelationshipInvitationEmail({ inviter: ctx.inviter, orgName: ctx.org, inviteeIsSupplier: body.relationship_position === "SUPPLIER", url, expiresAt }, env().APP_URL);
+    emailSent = await sendEmailNow(body.email, msg);
   }
   return NextResponse.json({ ...invitation, token, url, email_sent: emailSent }, { status: 201 });
 });

@@ -16,11 +16,11 @@ const ITEMS: Item[] = [
   { id: "areas", title: "Define tus áreas", hint: "Departamentos y lugares de entrega.", href: "/administracion/estructura", perm: "department.manage", done: (s) => s.departments > 0, for: "buy" },
   { id: "aprobacion", title: "Configura quién aprueba", hint: "Reglas de aprobación por monto.", href: "/administracion/flujos", perm: "approval_workflow.manage", done: (s) => s.approval_workflows > 0, for: "buy" },
   { id: "equipo", title: "Invita a tu equipo", hint: "Comparte el acceso con quien trabaja contigo.", href: "/administracion/miembros", perm: "member.invite", done: (s) => s.members > 1 || s.invitations > 0, for: "both" },
-  { id: "proveedor", title: "Conecta con un proveedor", hint: "Búscalo o invítalo con un enlace.", href: "/relaciones", perm: "relationship.request", done: (s) => s.suppliers > 0, for: "buy" },
+  { id: "proveedor", title: "Conecta con un proveedor", hint: "Búscalo o invítalo con un enlace.", href: "/relaciones/conectar?tipo=proveedor", perm: "relationship.request", done: (s) => s.suppliers > 0, for: "buy" },
   { id: "requisicion", title: "Haz tu primera requisición", hint: "Pide lo que necesitas y envíala a aprobación.", href: "/requisiciones/nueva", perm: "requisition.create", done: (s) => s.requisitions > 0, for: "buy" },
   { id: "catalogo", title: "Carga tu catálogo", hint: "Importa desde Excel o CSV. Es privado.", href: "/catalogo/importar", perm: "catalog.import", done: (s) => s.catalog_items > 0, for: "sell" },
   { id: "portal", title: "Activa tu portal", hint: "Un enlace donde tus clientes te piden cotización.", href: "/administracion/organizacion", perm: "settings.manage", done: (s) => s.portal_enabled, for: "sell" },
-  { id: "cliente", title: "Conecta con un cliente", hint: "Comparte tu portal o invítalo.", href: "/relaciones", perm: "relationship.request", done: (s) => s.clients > 0, for: "sell" },
+  { id: "cliente", title: "Conecta con un cliente", hint: "Comparte tu portal o invítalo.", href: "/relaciones/conectar?tipo=cliente", perm: "relationship.request", done: (s) => s.clients > 0, for: "sell" },
 ];
 
 const read = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };

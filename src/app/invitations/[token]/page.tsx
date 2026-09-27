@@ -34,7 +34,7 @@ export default function InvitationPage({ params }: { params: Promise<{ token: st
         <CardHeader><CardTitle>Invitación a Procura</CardTitle></CardHeader>
         <CardContent className="space-y-4 text-sm">
           {inv.isLoading ? <div className="h-20 animate-pulse rounded bg-muted" /> : !p ? <p>Esta invitación no es válida.</p> : (<>
-            <p>{p.kind === "MEMBERSHIP" ? <>Te invitaron a unirte a <b>{p.organization.display_name}</b>{p.role_names.length > 0 && <> con el rol {p.role_names.join(", ")}</>}.</> : <><b>{p.organization.display_name}</b> quiere establecer una relación contigo como {p.relationship_position === "BUYER" ? "su proveedor" : "su cliente"}.</>}</p>
+            <p>{p.kind === "MEMBERSHIP" ? <>Te invitaron a unirte a <b>{p.organization.display_name}</b>{p.role_names.length > 0 && <> con el rol {p.role_names.join(", ")}</>}.</> : <><b>{p.organization.display_name}</b> quiere trabajar contigo en Procura: {p.relationship_position === "BUYER" ? "sería tu proveedor y tú su cliente" : "sería tu cliente y tú su proveedor"}.</>}</p>
             {!p.usable && <p role="alert" className="rounded-lg bg-muted px-3 py-2">{REASON[p.reason ?? ""] ?? "La invitación ya no está disponible."}</p>}
             {p.usable && p.kind === "RELATIONSHIP" && session.memberships.length > 1 && (
               <label className="block space-y-1.5"><span className="text-muted-foreground">Aceptar con la organización</span>
