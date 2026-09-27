@@ -40,8 +40,8 @@
 |---|---|---|
 | POST | `/auth/register` | Crear usuario (email verificado antes de operar) |
 | POST | `/auth/login` · `/auth/logout` · `/auth/refresh` | |
-| POST | `/auth/password/forgot` · `/auth/password/reset` | |
-| POST | `/auth/email/verify` | |
+| POST | `/auth/password/forgot` `{ email }` → siempre `202` (no revela si existe la cuenta) · `/auth/password/reset` `{ password }` (requiere sesión, la de recuperación o una normal) | |
+| GET | `/auth/callback?code=…&next=/ruta` (página, no API) | Destino de los enlaces de correo (confirmar cuenta, recuperar contraseña): canjea el código por sesión y redirige a `next` (solo rutas internas) |
 | GET | `/me` | Usuario + memberships (`[{organization, status, roles[]}]`) |
 | PATCH | `/me` | Nombre, locale, timezone |
 | GET | `/me/permissions` | Permisos efectivos en la org activa + scopes → la UI pinta menús |

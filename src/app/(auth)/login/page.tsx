@@ -10,7 +10,9 @@ import { api, ApiError } from "@/lib/api-client";
 
 function LoginForm() {
   const router = useRouter();
-  const next = useSearchParams().get("next");
+  const params = useSearchParams();
+  const next = params.get("next");
+  const badLink = params.get("enlace") === "invalido";
   const qc = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -38,8 +40,9 @@ function LoginForm() {
       </div>
       <div className="space-y-3">
         <div className="space-y-1.5"><Label htmlFor="email">Correo</Label><Input id="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-        <div className="space-y-1.5"><Label htmlFor="password">Contraseña</Label><Input id="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+        <div className="space-y-1.5"><div className="flex items-center justify-between"><Label htmlFor="password">Contraseña</Label><Link href="/olvide-contrasena" className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">¿Olvidaste tu contraseña?</Link></div><Input id="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></div>
       </div>
+      {badLink && !error && <p role="alert" className="text-sm text-destructive">El enlace del correo venció o se abrió en otro navegador. Inicia sesión o pide uno nuevo.</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <Button type="submit" size="lg" className="w-full" disabled={busy}>{busy ? "Entrando…" : "Entrar"}</Button>
       <p className="text-center text-sm text-muted-foreground">¿No tienes cuenta? <Link href={next && next.startsWith("/") && !next.startsWith("//") ? `/registro?next=${encodeURIComponent(next)}` : "/registro"} className="font-medium text-foreground underline-offset-4 hover:underline">Regístrate</Link></p>

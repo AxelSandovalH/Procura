@@ -5,16 +5,21 @@ import { NextResponse, type NextRequest } from "next/server";
  * No autoriza nada: cada dato lo protege la API (401/403/404 en servidor). Esto solo evita
  * mostrar el shell a quien no tiene sesión y saltarse el login a quien ya la tiene.
  */
-const PUBLIC = ["/login", "/registro"];
+const PUBLIC = ["/login", "/registro", "/olvide-contrasena"];
+/** Rutas que funcionan con o sin sesión: el callback de los correos y el restablecimiento (que necesita la sesión de recuperación). */
+const NEUTRAL = ["/auth/callback", "/restablecer"];
 /** Portal público de un proveedor: /{slug}/solicitar. Lo ven tanto anónimos como con sesión (la API decide el siguiente paso). */
+const SESSION_COOKIE = /^sb-[a-z0-9]+-auth-token(\.\d+)?$/;
 const PORTAL = /^\/[^/]+\/solicitar\/?$/;
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const hasSession = req.cookies.getAll().some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
+  // Solo la cookie de sesión (`sb-<ref>-auth-token`, posiblemente en trozos `.0`, `.1`). Las de `…-code-verifier` (PKCE) existen
+  // tras pedir un correo de recuperación o registrarse, sin que haya sesión: contarlas causaba un bucle /login ↔ /inicio.
+  const hasSession = req.cookies.getAll().some((c) => SESSION_COOKIE.test(c.name));
 
   if (pathname === "/") return hasSession ? NextResponse.redirect(new URL("/inicio", req.url)) : NextResponse.next();
-  if (PORTAL.test(pathname)) return NextResponse.next();
+  if (PORTAL.test(pathname) || NEUTRAL.includes(pathname)) return NextResponse.next();
   const isPublic = PUBLIC.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   if (!hasSession && !isPublic) {
     const url = new URL("/login", req.url);

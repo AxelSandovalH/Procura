@@ -20,7 +20,7 @@ function RegistroForm() {
     e.preventDefault();
     setBusy(true); setError(null);
     try {
-      const r = await api<{ email_confirmation_required: boolean }>("/auth/register", { body: form });
+      const r = await api<{ email_confirmation_required: boolean }>("/auth/register", { body: { ...form, next: rawNext && rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : undefined } });
       setDone({ confirm: r.email_confirmation_required });
     } catch (err) {
       setError(err instanceof ApiError ? (err.fieldErrors[0]?.message ?? err.detail ?? err.title) : "No se pudo crear la cuenta.");
