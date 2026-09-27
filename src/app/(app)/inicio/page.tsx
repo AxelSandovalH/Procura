@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CheckSquare, ClipboardList, Plus, Send } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { GettingStarted } from "@/components/app/getting-started";
 import { PageHeader } from "@/components/app/page-header";
 import { RequisitionTable, type RequisitionRow } from "@/components/app/requisition-table";
 import { useSession } from "@/hooks/use-session";
@@ -34,6 +35,7 @@ export default function Inicio() {
     <>
       <PageHeader title={first ? `Hola, ${first}` : "Inicio"} description={session.org ? `Trabajas en ${session.org.display_name}.` : undefined}
         actions={session.can("requisition.create") ? <Link href="/requisiciones/nueva" className={cn(buttonVariants())}><Plus />Nueva requisición</Link> : undefined} />
+      <GettingStarted />
       {canRead ? (<>
         <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {session.can("requisition.approve") && <Stat href="/aprobaciones" icon={CheckSquare} label="Por aprobar" value={pending.data?.data.length ?? "—"} />}

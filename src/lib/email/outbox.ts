@@ -7,7 +7,7 @@ const TIMEOUT_MS = 10_000;
 
 interface Claimed extends EmailNotification { id: string; email: string }
 
-async function sendViaResend(apiKey: string, from: string, to: string, msg: { subject: string; html: string; text: string }): Promise<{ ok: boolean; error?: string }> {
+export async function sendViaResend(apiKey: string, from: string, to: string, msg: { subject: string; html: string; text: string }): Promise<{ ok: boolean; error?: string }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -41,4 +41,13 @@ export async function sendPendingEmails(): Promise<{ enabled: boolean; sent: num
     if (r.ok) sent++; else failed++;
   }));
   return { enabled: true, sent, failed };
+}
+
+/** Envía un correo suelto (invitaciones). Devuelve false si el envío está apagado o falla; nunca lanza. */
+export async function sendEmailNow(to: string, msg: { subject: string; html: string; text: string }): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY, from = process.env.EMAIL_FROM;
+  if (!apiKey || !from) return false;
+  const r = await sendViaResend(apiKey, from, to, msg);
+  if (!r.ok) console.warn("[email] invitación no enviada:", r.error);
+  return r.ok;
 }

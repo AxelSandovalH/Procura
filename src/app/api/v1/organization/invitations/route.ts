@@ -7,11 +7,16 @@ import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { generateToken } from "@/lib/auth/token";
 import { env } from "@/lib/env";
+import { rateLimit } from "@/lib/http/rate-limit";
+import { sendEmailNow } from "@/lib/email/outbox";
+import { renderInvitationEmail } from "@/lib/email/templates";
 
 const Base = z.object({
   auto_accept: z.boolean().default(false),
   expires_in_days: z.number().int().min(1).max(90).default(7),
   max_uses: z.number().int().min(1).max(1000).default(1),
+  // Si la invitación lleva `email`, Procura puede enviarla por correo (requiere Resend configurado).
+  send_email: z.boolean().default(false),
 });
 const MembershipInvite = Base.extend({
   kind: z.literal("MEMBERSHIP"),
@@ -73,5 +78,19 @@ export const POST = route(async (req) => {
     return created;
   });
 
-  return NextResponse.json({ ...invitation, token, url: `${env().APP_URL}/invitations/${token}` }, { status: 201 });
+  const url = `${env().APP_URL}/invitations/${token}`;
+  let emailSent = false;
+  if (body.send_email && body.kind === "MEMBERSHIP" && body.email) {
+    await rateLimit("invitation-email", actor.userId ?? actor.organizationId, { windowSeconds: 3600, max: 60 });
+    const ctx = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
+      const [org, inviter, roles] = await Promise.all([
+        tx.organizations.findUniqueOrThrow({ where: { id: actor.organizationId }, select: { display_name: true } }),
+        actor.userId ? tx.$queryRaw<{ full_name: string }[]>`select full_name from users where id = ${actor.userId}::uuid` : Promise.resolve([]),
+        tx.roles.findMany({ where: { organization_id: actor.organizationId, id: { in: body.role_ids } }, select: { name: true } }),
+      ]);
+      return { org: org.display_name, inviter: inviter[0]?.full_name || org.display_name, roles: roles.map((r) => r.name) };
+    });
+    emailSent = await sendEmailNow(body.email, renderInvitationEmail({ inviter: ctx.inviter, orgName: ctx.org, roleNames: ctx.roles, url, expiresAt }, env().APP_URL));
+  }
+  return NextResponse.json({ ...invitation, token, url, email_sent: emailSent }, { status: 201 });
 });
