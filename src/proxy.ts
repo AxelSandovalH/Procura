@@ -11,6 +11,8 @@ const NEUTRAL = ["/auth/callback", "/restablecer", "/opengraph-image"];
 /** Portal público de un proveedor: /{slug}/solicitar. Lo ven tanto anónimos como con sesión (la API decide el siguiente paso). */
 const SESSION_COOKIE = /^sb-[a-z0-9]+-auth-token(\.\d+)?$/;
 const PORTAL = /^\/[^/]+\/solicitar\/?$/;
+/** Detalle público de cada plan: /precios/starter, /precios/business… */
+const PRECIOS = /^\/precios\/[a-z]+\/?$/;
 
 export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -19,7 +21,7 @@ export function proxy(req: NextRequest) {
   const hasSession = req.cookies.getAll().some((c) => SESSION_COOKIE.test(c.name));
 
   if (pathname === "/") return hasSession ? NextResponse.redirect(new URL("/inicio", req.url)) : NextResponse.next();
-  if (PORTAL.test(pathname) || NEUTRAL.includes(pathname)) return NextResponse.next();
+  if (PORTAL.test(pathname) || PRECIOS.test(pathname) || NEUTRAL.includes(pathname)) return NextResponse.next();
   const isPublic = PUBLIC.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   if (!hasSession && !isPublic) {
     const url = new URL("/login", req.url);

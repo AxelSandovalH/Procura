@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { CURRENCY, PLANS, formatMoney, type Plan } from "./pricing-data";
 
 /** Etiqueta de un precio: «$3,490» o «Desde $15,000». */
-function Price({ plan }: { plan: Plan }) {
+export function Price({ plan }: { plan: Plan }) {
   return (
     <p className="flex flex-wrap items-baseline gap-x-1.5">
       {plan.priceFrom && <span className="w-full text-sm text-muted-foreground">Desde</span>}
@@ -36,9 +36,13 @@ function PlanCard({ plan }: { plan: Plan }) {
       <div className="mt-6">
         <Link
           href={plan.cta.href}
-          className={cn(buttonVariants({ variant: f ? "default" : "outline", size: "lg" }), "h-10 w-full justify-center text-sm transition-all duration-150 active:translate-y-px motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-foreground/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background", f && "shadow-sm")}
+          className={cn(buttonVariants({ variant: f ? "default" : "outline", size: "lg" }), "relative z-10 h-10 w-full justify-center text-sm transition-all duration-150 active:translate-y-px motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-foreground/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background", f && "shadow-sm")}
         >
           {plan.cta.label}<ArrowRight className="size-4" aria-hidden />
+        </Link>
+        {/* Enlace extendido: toda la tarjeta lleva al detalle del plan; el CTA de arriba queda por encima. */}
+        <Link href={`/precios/${plan.id}`} className="mt-3 flex items-center justify-center gap-1 rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-foreground/60 focus-visible:outline-none after:absolute after:inset-0 after:rounded-2xl">
+          Ver módulos incluidos<ArrowRight className="size-3.5" aria-hidden /><span className="sr-only"> del plan {plan.name}</span>
         </Link>
       </div>
       <div className="mt-6 border-t pt-5">
