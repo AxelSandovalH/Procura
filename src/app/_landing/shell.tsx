@@ -36,7 +36,11 @@ export function LandingFooter({ base = "" }: { base?: string }) {
         <Link href="/registro" className="hover:text-foreground">Crear cuenta</Link>
         <a href={`${base}#preguntas`} className="hover:text-foreground">Preguntas</a>
       </nav>
-      <p>© {new Date().getFullYear()} Procura</p>
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span>© {new Date().getFullYear()} Procura</span>
+        <span aria-hidden className="hidden h-3 w-px bg-border sm:inline-block" />
+        <a href="https://axelsandoval.dev" target="_blank" rel="noopener" className="rounded-sm transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-foreground/60 focus-visible:outline-none">Diseñado y desarrollado por <span className="font-medium">axelsandoval.dev</span><span className="sr-only"> (se abre en una pestaña nueva)</span></a>
+      </p>
     </div>
   </footer>
   );
