@@ -4,6 +4,7 @@ import { ArrowRight, BookOpen, ClipboardCheck, FileSearch, Handshake, Lock, Pack
 import { Logo } from "@/components/brand/logo";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Pricing } from "./_landing/pricing";
 import { ProductPreview } from "./_landing/product-preview";
 
 export const metadata: Metadata = {
@@ -49,13 +50,14 @@ export default function Home() {
   return (
     <div className="min-h-screen scroll-smooth bg-background text-foreground">
       <header className="sticky top-0 z-30 border-b bg-background/85 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 lg:gap-6">
           <Link href="/" aria-label="Procura, inicio"><Logo size={22} textClassName="text-lg" /></Link>
-          <nav aria-label="Secciones" className="hidden flex-1 items-center gap-6 text-sm text-muted-foreground md:flex">
+          <nav aria-label="Secciones" className="hidden flex-1 items-center gap-3 text-sm text-muted-foreground md:flex lg:gap-6">
             <a href="#como-funciona" className="hover:text-foreground">Cómo funciona</a>
             <a href="#compradores" className="hover:text-foreground">Para quien compra</a>
             <a href="#proveedores" className="hover:text-foreground">Para quien vende</a>
             <a href="#integraciones" className="hover:text-foreground">Integraciones</a>
+            <a href="#precios" className="hover:text-foreground">Precios</a>
             <a href="#preguntas" className="hover:text-foreground">Preguntas</a>
           </nav>
           <div className="ml-auto flex items-center gap-2 md:ml-0">
@@ -170,6 +172,8 @@ Authorization: Bearer pk_live_…
   Procura-Signature: v1=…`}</code></pre>
           </div>
         </section>
+
+        <Pricing />
 
         {/* Preguntas */}
         <section id="preguntas" className="mx-auto max-w-3xl scroll-mt-20 px-4 py-16 sm:py-20">

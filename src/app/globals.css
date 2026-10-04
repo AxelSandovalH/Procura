@@ -128,3 +128,11 @@
   .splash, .splash-a, .splash-b { animation: none; }
   .splash-bar > span { animation: none; transform: none; width: 100%; }
 }
+
+/* Entrada suave al hacer scroll (mejora progresiva: solo con soporte de scroll-driven animations y sin reducir movimiento). */
+@keyframes reveal-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal { animation: reveal-up linear both; animation-timeline: view(); animation-range: entry 0% entry 40%; }
+  }
+}
