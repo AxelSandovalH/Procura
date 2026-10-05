@@ -115,6 +115,7 @@
 | PATCH | `/requisitions/{id}` (`If-Match`) | `requisition.update` / `update_any` |
 | POST / PATCH / DELETE | `/requisitions/{id}/concepts[/{cid}]` | (solo DRAFT / APPROVED según reglas) |
 | POST | `/requisitions/{id}/submit` · `/withdraw` · `/cancel` · `/close` | ver WORKFLOWS §1 |
+| GET | `/requisitions/{id}/history` | `requisition.read`. Línea de tiempo (más reciente primero) de la requisición, sus RFQ, cotizaciones, orden, entregas y recepciones, con quién actuó |
 | POST | `/requisitions/{id}/approve` · `/reject` · `/request-changes` `{ comment, concept_ids? }` | `requisition.approve` (aprobador resuelto) |
 | GET | `/requisitions/{id}/approvals` | historial de ApprovalRequests/steps/decisions |
 | POST | `/requisitions/{id}/duplicate` · `/reorder` | `requisition.create` (OD-28) |

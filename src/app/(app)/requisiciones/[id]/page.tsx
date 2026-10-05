@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { QuotationComparison } from "@/components/app/quotation-comparison";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { HistoryTimeline } from "@/components/app/history-timeline";
 import { CollaborationPanel } from "@/components/app/collaboration-panel";
 import { StatusBadge } from "@/components/app/status-badge";
 import { ActionDialog } from "@/components/app/action-dialog";
@@ -104,7 +106,10 @@ export default function RequisitionDetail({ params }: { params: Promise<{ id: st
       {r.status === "CANCELLED" && r.cancel_reason && <p className="mb-4 rounded-lg bg-muted px-3 py-2 text-sm">Motivo de cancelación: {r.cancel_reason}</p>}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="min-w-0 space-y-6">
+        <Tabs defaultValue="resumen" className="min-w-0">
+          <TabsList><TabsTrigger value="resumen">Resumen</TabsTrigger><TabsTrigger value="historial">Historial</TabsTrigger></TabsList>
+          <TabsContent value="historial" className="mt-4"><Card><CardHeader><CardTitle>Historial</CardTitle></CardHeader><CardContent><HistoryTimeline requisitionId={r.id} /></CardContent></Card></TabsContent>
+          <TabsContent value="resumen" className="mt-4 min-w-0 space-y-6">
           <Card>
             <CardHeader><CardTitle>Conceptos</CardTitle></CardHeader>
             <CardContent className="px-0">
@@ -123,7 +128,8 @@ export default function RequisitionDetail({ params }: { params: Promise<{ id: st
           </Card>
           <QuotationComparison requisitionId={r.id} status={r.status} concepts={r.concepts} currency={r.currency} hasOrder={!!r.order_id} />
           <CollaborationPanel anchorType="REQUISITION" anchorId={r.id} allowShared={false} />
-        </div>
+          </TabsContent>
+        </Tabs>
 
         <div className="min-w-0 space-y-6">
           {r.order_id && <Link href={`/ordenes/${r.order_id}`} className="flex items-center justify-between rounded-xl border px-4 py-3 text-sm font-medium hover:bg-muted">Ver orden generada<ArrowLeft className="size-4 rotate-180" /></Link>}
