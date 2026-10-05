@@ -43,9 +43,9 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
   const has = (a: string) => o.available_actions.includes(a);
   const st = ORDER_STATUS[o.status] ?? { label: o.status, tone: "neutral" as const };
   const isBuyer = o.perspective === "BUYER";
-  async function simple(path: string) {
+  async function simple(path: string, body: object = {}) {
     setBusy(true); setError(null);
-    try { await api(`/orders/${id}/${path}`, { method: "POST", body: {} }); await refresh(); }
+    try { await api(`/orders/${id}/${path}`, { method: "POST", body }); await refresh(); }
     catch (e) { setError(e instanceof ApiError ? (e.detail ?? e.title) : "No se pudo completar la acción."); }
     finally { setBusy(false); }
   }
@@ -65,7 +65,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           <h1 className="text-2xl font-semibold tracking-tight">{isBuyer ? `Orden con ${o.supplier.display_name}` : `Orden de ${o.buyer.display_name}`}</h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          {has("confirm") && <Button onClick={() => simple("confirm")} disabled={busy}><Check />Confirmar</Button>}
+          {has("confirm") && <Button onClick={() => simple("confirm", { start: true })} disabled={busy}><Check />Confirmar y comenzar</Button>}
           {has("start") && <Button onClick={() => simple("start")} disabled={busy}><Play />Iniciar</Button>}
           {has("reject") && <Button variant="destructive" onClick={() => setDlg("reject")}><X />Rechazar</Button>}
           {has("close_short") && <Button variant="outline" onClick={() => setDlg("close_short")}><Lock />Cerrar con faltante</Button>}
