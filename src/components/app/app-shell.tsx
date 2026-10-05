@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ClipboardList, CheckSquare, Home, Inbox, Package, Handshake, BookOpen, Settings, LogOut, Menu, X } from "lucide-react";
+import { ClipboardList, ShoppingCart, CheckSquare, Home, Inbox, Package, Handshake, BookOpen, Settings, LogOut, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 /** Solo lo implementado: nada de enlaces muertos. Cada ítem se muestra si el actor tiene el permiso. */
 const NAV = [
   { href: "/inicio", label: "Inicio", icon: Home, perm: null },
+  { href: "/comprar", label: "Comprar", icon: ShoppingCart, perm: "requisition.create" },
   { href: "/requisiciones", label: "Requisiciones", icon: ClipboardList, perm: "requisition.read" },
   { href: "/aprobaciones", label: "Aprobaciones", icon: CheckSquare, perm: "requisition.approve", badge: true },
   { href: "/solicitudes", label: "Cotizaciones", icon: Inbox, perm: "rfq.read", alt: ["rfq.issue"] },

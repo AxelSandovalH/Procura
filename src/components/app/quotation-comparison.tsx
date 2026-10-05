@@ -115,7 +115,7 @@ export function QuotationComparison({ requisitionId, status, concepts, currency,
                 <TableRow><TableCell className="text-muted-foreground">Estado</TableCell>{list.map((q) => <TableCell key={q.id} className="text-right"><StatusBadge {...(QUOTATION_STATUS[q.status] ?? { label: q.status, tone: "neutral" as const })} /></TableCell>)}</TableRow>
                 {canDecide && <TableRow><TableCell />{list.map((q) => <TableCell key={q.id} className="text-right">
                   {(q.status === "SUBMITTED" || q.status === "NOT_SELECTED") && <div className="flex justify-end gap-1.5">
-                    <Button size="sm" onClick={() => { setError(null); accept.mutate(q.id); }} disabled={accept.isPending}><Check />Aceptar</Button>
+                    <Button size="sm" onClick={() => { setError(null); accept.mutate(q.id); }} disabled={accept.isPending}><Check />Comprar esta</Button>
                     <Button size="sm" variant="outline" onClick={() => setReject(q)}><X />Rechazar</Button>
                   </div>}
                 </TableCell>)}</TableRow>}

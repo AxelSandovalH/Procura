@@ -38,7 +38,7 @@ function List() {
   return (
     <>
       <PageHeader title="Requisiciones" description="Solicitudes de compra de tu organización."
-        actions={session.can("requisition.create") ? <Link href="/requisiciones/nueva" className={cn(buttonVariants())}><Plus />Nueva requisición</Link> : undefined} />
+        actions={session.can("requisition.create") ? <Link href="/comprar" className={cn(buttonVariants())}><Plus />Comprar</Link> : undefined} />
       <div className="mb-4 flex flex-wrap gap-2">
         <form className="relative min-w-56 flex-1 sm:max-w-xs" onSubmit={(e) => { e.preventDefault(); setParam("q", text.trim() || null); }}>
           <Search className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" />

@@ -43,6 +43,8 @@ export default function RequisitionDetail({ params }: { params: Promise<{ id: st
   const approvals = useQuery({ queryKey: ["requisition-approvals", id], queryFn: () => api<{ data: ApprovalRequest[] }>(`/requisitions/${id}/approvals`), enabled: req.isSuccess });
   const canDecide = session.can("requisition.approve");
   const pending = useQuery({ queryKey: ["approvals-pending"], queryFn: () => api<{ data: { requisition: { id: string } }[] }>("/approvals/pending"), enabled: canDecide });
+  const quoted = useQuery({ queryKey: ["req-quotations", id], queryFn: () => api<{ data: { status: string }[] }>(`/requisitions/${id}/quotations`), enabled: req.isSuccess && session.can("quotation.read") && ["SUBMITTED", "SENT"].includes(req.data?.status ?? "") });
+  const offers = (quoted.data?.data ?? []).filter((q) => q.status === "SUBMITTED" || q.status === "NOT_SELECTED").length;
   const iCanDecide = !!pending.data?.data.some((p) => p.requisition.id === id);
 
   const refresh = () => Promise.all(["requisition", "requisition-approvals", "requisitions", "approvals-pending"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
@@ -92,6 +94,12 @@ export default function RequisitionDetail({ params }: { params: Promise<{ id: st
           {has("cancel") && <Button variant="destructive" onClick={() => setDlg("cancel")}><XCircle />Cancelar</Button>}
         </div>
       </div>
+      {(() => {
+        const next = r.status === "SUBMITTED" || r.status === "SENT" ? (offers > 0 ? (session.can("quotation.accept") ? `Elige una oferta: tienes ${offers} para comparar. Pulsa «Comprar esta» en la que prefieras.` : "Ya hay ofertas; quien compra está eligiendo una.") : "Esperando ofertas de los proveedores.")
+          : r.status === "PENDING_APPROVAL" ? (iCanDecide ? "Esperando tu aprobación: revisa la compra y aprueba." : "Esperando aprobación.")
+          : r.status === "IN_PROCESS" ? "Aprobada. La orden está en curso con el proveedor." : null;
+        return next ? <p role="status" className="mb-4 rounded-lg border bg-muted/40 px-3 py-2 text-sm"><span className="font-medium">Siguiente paso · </span>{next}</p> : null;
+      })()}
       {actionError && <p role="alert" className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{actionError}</p>}
       {r.status === "CANCELLED" && r.cancel_reason && <p className="mb-4 rounded-lg bg-muted px-3 py-2 text-sm">Motivo de cancelación: {r.cancel_reason}</p>}
 
