@@ -32,24 +32,27 @@ export function QuotationComparison({ requisitionId, status, concepts, currency,
   const session = useSession();
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const [reject, setReject] = useState<Quotation | null>(null);
   const [issueOpen, setIssueOpen] = useState(false);
   const canIssue = session.can("rfq.issue");
   const canAccept = session.can("quotation.accept");
-  const sourcing = ["APPROVED", "SENT", "IN_PROCESS", "RESOLVED", "CLOSED"].includes(status);
+  const sourcing = ["APPROVED", "SUBMITTED", "SENT", "PENDING_APPROVAL", "IN_PROCESS", "RESOLVED", "CLOSED"].includes(status);
 
   const quotations = useQuery({ queryKey: ["req-quotations", requisitionId], queryFn: () => api<{ data: Quotation[] }>(`/requisitions/${requisitionId}/quotations`), enabled: sourcing && session.can("quotation.read") });
   const rfqs = useQuery({ queryKey: ["req-rfqs", requisitionId], queryFn: () => api<{ data: Rfq[] }>(`/requisitions/${requisitionId}/rfqs`), enabled: sourcing && canIssue });
   const refresh = () => Promise.all(["req-quotations", "req-rfqs", "requisition", "orders"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
 
   const accept = useMutation({
-    mutationFn: (id: string) => api<{ order: { id: string } }>(`/quotations/${id}/accept`, { method: "POST", body: {} }),
-    onSuccess: refresh, onError: (e) => setError(e instanceof ApiError ? (e.detail ?? e.title) : "No se pudo aceptar."),
+    mutationFn: (id: string) => api<{ approval_required: boolean; order: { id: string } | null }>(`/quotations/${id}/accept`, { method: "POST", body: {} }),
+    onSuccess: (r) => { setNote(r.approval_required ? "Compra enviada a aprobación. Cuando se apruebe se creará la orden." : null); return refresh(); },
+    onError: (e) => setError(e instanceof ApiError ? (e.detail ?? e.title) : "No se pudo aceptar."),
   });
 
   if (!sourcing) return null;
   const list = (quotations.data?.data ?? []).filter((q) => !HIDDEN.includes(q.status));
-  const canDecide = canAccept && !hasOrder;
+  const canDecide = canAccept && !hasOrder && status !== "PENDING_APPROVAL";
+  if (status === "PENDING_APPROVAL" && list.length === 0 && !quotations.isLoading) return null; // aprobación de la requisición (flujo previo a cotizar)
 
   // Menor precio unitario por concepto (solo entre cotizaciones vivas): se resalta, no se decide por el usuario.
   const best = new Map<string, number>();
@@ -63,9 +66,11 @@ export function QuotationComparison({ requisitionId, status, concepts, currency,
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between gap-2"><CardTitle>Cotizaciones</CardTitle>
-        {canIssue && !hasOrder && ["APPROVED", "SENT"].includes(status) && <Button size="sm" variant="outline" onClick={() => setIssueOpen(true)}><Send />Solicitar cotización</Button>}</div>
+        {canIssue && !hasOrder && ["APPROVED", "SUBMITTED", "SENT"].includes(status) && <Button size="sm" variant="outline" onClick={() => setIssueOpen(true)}><Send />Solicitar cotización</Button>}</div>
       </CardHeader>
       <CardContent className="space-y-4 px-0">
+        {status === "PENDING_APPROVAL" && list.length > 0 && <p role="status" className="mx-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-sm">Esta compra está esperando aprobación. Al aprobarse se crea la orden.</p>}
+        {note && <p role="status" className="mx-4 rounded-lg border border-emerald-600/30 bg-emerald-600/5 px-3 py-2 text-sm">{note}</p>}
         {error && <p role="alert" className="mx-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
         {(rfqs.data?.data.length ?? 0) > 0 && (
           <ul className="flex flex-wrap gap-2 px-4 text-xs">{rfqs.data!.data.map((r) => {
@@ -118,7 +123,7 @@ export function QuotationComparison({ requisitionId, status, concepts, currency,
             </Table>
           </div>
         )}
-        <p className="px-4 text-xs text-muted-foreground">Al aceptar una cotización se crea la orden con esas líneas y precios. Los precios más bajos por concepto se resaltan; la decisión es tuya.</p>
+        <p className="px-4 text-xs text-muted-foreground">Al elegir una cotización se crea la orden con esas líneas y precios (si tu organización aprueba después de cotizar, antes pasa a aprobación). Los precios más bajos por concepto se resaltan; la decisión es tuya.</p>
       </CardContent>
 
       <ActionDialog open={!!reject} onOpenChange={(o) => !o && setReject(null)} title="Rechazar cotización" description={reject ? `${reject.quotation_number} — ${reject.supplier.display_name}` : undefined} fieldLabel="Motivo" required destructive confirmLabel="Rechazar"

@@ -14,12 +14,12 @@ export const GET = route(async (req) => {
         organization_id: actor.organizationId, status: "PENDING",
         approval_steps: { some: { status: "PENDING", resolved_approver_membership_ids: { has: actor.membershipId! } } },
       },
-      include: { requisitions: true, approval_steps: { where: { status: "PENDING" }, take: 1 } },
+      include: { requisitions: true, quotations: { select: { id: true, quotation_number: true, total_minor: true, currency: true, supplier_organization_id: true } }, approval_steps: { where: { status: "PENDING" }, take: 1 } },
     }),
   );
   return NextResponse.json({
     data: requests
       .filter((r) => r.current_level != null && r.approval_steps[0]?.level === r.current_level)
-      .map((r) => ({ requisition: r.requisitions, approval_request_id: r.id, level: r.current_level })),
+      .map((r) => ({ requisition: r.requisitions, approval_request_id: r.id, level: r.current_level, quotation: r.quotations })),
   });
 });

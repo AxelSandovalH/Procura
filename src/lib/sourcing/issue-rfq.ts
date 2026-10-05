@@ -16,7 +16,7 @@ export interface IssueOptions { dueDate?: Date; message?: string; conceptIds?: s
 export async function issueRfqs(tx: Tx, actor: Actor, requisitionId: string, supplierOrgIds: string[], opts: IssueOptions = {}) {
   const r = await tx.requisitions.findFirst({ where: { id: requisitionId, organization_id: actor.organizationId }, include: { requisition_concepts: true } });
   if (!r) throw Problem.notFound();
-  if (r.status !== "APPROVED" && r.status !== "SENT") throw Problem.conflict(`No se puede emitir RFQ en estado ${r.status}`);
+  if (r.status !== "APPROVED" && r.status !== "SUBMITTED" && r.status !== "SENT") throw Problem.conflict(`No se puede emitir RFQ en estado ${r.status}`);
 
   const concepts = opts.conceptIds ? r.requisition_concepts.filter((c) => opts.conceptIds!.includes(c.id)) : r.requisition_concepts;
   if (concepts.length === 0) throw Problem.badRequest("No hay conceptos para incluir en la RFQ");
@@ -53,7 +53,7 @@ export async function issueRfqs(tx: Tx, actor: Actor, requisitionId: string, sup
     rfqs.push(rfq);
   }
 
-  if (r.status === "APPROVED") await tx.requisitions.update({ where: { id: r.id }, data: { status: "SENT", sent_at: new Date() } });
+  if (r.status === "APPROVED" || r.status === "SUBMITTED") await tx.requisitions.update({ where: { id: r.id }, data: { status: "SENT", sent_at: new Date() } });
   return rfqs;
 }
 
@@ -64,7 +64,7 @@ export async function issueRfqs(tx: Tx, actor: Actor, requisitionId: string, sup
  */
 export async function autoIssueDirectedRfq(tx: Tx, actor: Actor, requisitionId: string): Promise<"ISSUED" | "SKIPPED"> {
   const r = await tx.requisitions.findFirst({ where: { id: requisitionId, organization_id: actor.organizationId }, select: { id: true, folio: true, status: true, directed_supplier_organization_id: true } });
-  if (!r || r.status !== "APPROVED" || !r.directed_supplier_organization_id) return "SKIPPED";
+  if (!r || (r.status !== "APPROVED" && r.status !== "SUBMITTED") || !r.directed_supplier_organization_id) return "SKIPPED";
   const supplierId = r.directed_supplier_organization_id;
 
   const [relationship, liveRfq] = await Promise.all([

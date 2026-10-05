@@ -14,10 +14,11 @@ import { api, ApiError } from "@/lib/api-client";
 interface OrgResp { organization: { legal_name: string; display_name: string; tax_id: string | null; slug: string; is_discoverable: boolean; base_currency: string }; settings: Settings | null }
 interface Settings {
   requisition_folio_prefix: string; allow_free_concepts: boolean; require_estimated_price: boolean; membership_join_policy: string; relationship_request_policy: string;
-  requester_can_self_approve: boolean; reapproval_policy: string; auto_close_days_after_resolved: number | null; portal_enabled: boolean; portal_welcome_text: string | null;
+  requester_can_self_approve: boolean; reapproval_policy: string; approval_timing: string; auto_close_days_after_resolved: number | null; portal_enabled: boolean; portal_welcome_text: string | null;
 }
 const JOIN = [{ value: "INVITE_ONLY", label: "Solo por invitación" }, { value: "REQUEST_APPROVAL", label: "Solicitud con aprobación" }];
 const REL = [{ value: "MANUAL_APPROVAL", label: "Aprobar cada solicitud manualmente" }, { value: "AUTO_ACCEPT_VIA_INVITATION_ONLY", label: "Aceptar automático solo con invitación" }];
+const TIMING = [{ value: "AFTER_QUOTING", label: "Después de cotizar (se aprueba la compra elegida)" }, { value: "BEFORE_QUOTING", label: "Antes de cotizar (se aprueba la requisición)" }];
 const REAPP = [{ value: "ALWAYS", label: "Siempre que se edite" }, { value: "IF_AMOUNT_INCREASES", label: "Solo si el monto aumenta" }, { value: "NEVER", label: "Nunca" }];
 
 export default function Organizacion() {
@@ -64,8 +65,8 @@ function SettingsCard({ s }: { s: Settings }) {
   const { busy, msg, save } = useSave(() => api("/organization/settings", { method: "PATCH", body: {
     requisition_folio_prefix: f.requisition_folio_prefix.trim(), allow_free_concepts: f.allow_free_concepts, require_estimated_price: f.require_estimated_price,
     membership_join_policy: f.membership_join_policy, relationship_request_policy: f.relationship_request_policy, requester_can_self_approve: f.requester_can_self_approve,
-    reapproval_policy: f.reapproval_policy, auto_close_days_after_resolved: f.auto_close === "" ? null : Number(f.auto_close), portal_enabled: f.portal_enabled, portal_welcome_text: f.welcome.trim() || null } }));
-  const sel = (label: string, items: { value: string; label: string }[], key: "membership_join_policy" | "relationship_request_policy" | "reapproval_policy") => (
+    reapproval_policy: f.reapproval_policy, approval_timing: f.approval_timing, auto_close_days_after_resolved: f.auto_close === "" ? null : Number(f.auto_close), portal_enabled: f.portal_enabled, portal_welcome_text: f.welcome.trim() || null } }));
+  const sel = (label: string, items: { value: string; label: string }[], key: "membership_join_policy" | "relationship_request_policy" | "reapproval_policy" | "approval_timing") => (
     <div className="space-y-1.5"><Label>{label}</Label><Select items={items} value={f[key]} onValueChange={(v) => setF({ ...f, [key]: v ?? f[key] })}><SelectTrigger className="w-full" aria-label={label}><SelectValue /></SelectTrigger><SelectContent>{items.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectContent></Select></div>);
   const chk = (label: string, key: "allow_free_concepts" | "require_estimated_price" | "requester_can_self_approve" | "portal_enabled", hint?: string) => (
     <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={f[key]} onChange={(e) => setF({ ...f, [key]: e.target.checked })} /><span>{label}{hint && <span className="block text-xs text-muted-foreground">{hint}</span>}</span></label>);
@@ -76,6 +77,7 @@ function SettingsCard({ s }: { s: Settings }) {
         {chk("Permitir conceptos libres (sin catálogo)", "allow_free_concepts")}
         {chk("Exigir precio estimado en cada concepto", "require_estimated_price")}
         {chk("El solicitante puede aprobar sus propias requisiciones", "requester_can_self_approve")}
+        {sel("¿Cuándo se aprueba?", TIMING, "approval_timing")}
         {sel("Reaprobación al editar", REAPP, "reapproval_policy")}
         {sel("Ingreso de nuevos miembros", JOIN, "membership_join_policy")}
         {sel("Solicitudes de relación", REL, "relationship_request_policy")}

@@ -1,5 +1,6 @@
 import type { Tx } from "@/lib/db/client";
 import { Problem } from "@/lib/http/problem";
+import { acceptQuotationAndCreateOrder } from "@/lib/sourcing/create-order";
 
 interface RequisitionForEngine {
   id: string; organization_id: string; version: number;
@@ -87,11 +88,17 @@ async function resolveApprovers(tx: Tx, rule: { approver_type: string; approver_
 
 export interface StartResult { status: "APPROVED" | "PENDING_APPROVAL"; approvalRequestId: string | null }
 
+/** Aprobación de una compra concreta (flujo AFTER_QUOTING): la cotización elegida y su monto, que es el que evalúan las reglas. */
+export interface QuotationApproval { quotationId: string; amountMinor: bigint }
+
 /**
- * Arranca (o resuelve instantáneamente) el ciclo de aprobación de una requisición al enviarla.
+ * Arranca (o resuelve instantáneamente) el ciclo de aprobación.
+ *  - Sin `quotation`: aprueba la requisición al enviarla (flujo BEFORE_QUOTING), según su total estimado.
+ *  - Con `quotation`: aprueba la compra de la cotización elegida (flujo AFTER_QUOTING), según el total cotizado.
  * Sin workflow aplicable o sin niveles → aprobación automática (WORKFLOWS.md §1).
  */
-export async function startApprovalRequest(tx: Tx, requisition: RequisitionForEngine): Promise<StartResult> {
+export async function startApprovalRequest(tx: Tx, original: RequisitionForEngine, quotation?: QuotationApproval): Promise<StartResult> {
+  const requisition: RequisitionForEngine = quotation ? { ...original, estimated_total_minor: quotation.amountMinor } : original;
   const settings = await tx.organization_settings.findUnique({ where: { organization_id: requisition.organization_id } });
   const allowSelfApprove = settings?.requester_can_self_approve ?? false;
   const resolved = await resolveWorkflow(tx, requisition);
@@ -99,7 +106,7 @@ export async function startApprovalRequest(tx: Tx, requisition: RequisitionForEn
   if (!resolved) return { status: "APPROVED", approvalRequestId: null };
 
   const request = await tx.approval_requests.create({
-    data: { requisition_id: requisition.id, organization_id: requisition.organization_id, requisition_version: requisition.version, workflow_id: resolved.workflow.id, status: "PENDING", current_level: resolved.levels[0].level },
+    data: { requisition_id: requisition.id, organization_id: requisition.organization_id, requisition_version: requisition.version, workflow_id: resolved.workflow.id, status: "PENDING", current_level: resolved.levels[0].level, quotation_id: quotation?.quotationId ?? null },
   });
 
   for (const rule of resolved.levels) {
@@ -113,7 +120,13 @@ export async function startApprovalRequest(tx: Tx, requisition: RequisitionForEn
 
 export type DecisionKind = "APPROVE" | "REJECT" | "REQUEST_CHANGES";
 
-export interface DecisionResult { requisitionStatus: "APPROVED" | "REJECTED" | "DRAFT" | "PENDING_APPROVAL"; requestStatus: string; stepAdvanced: boolean }
+export interface DecisionResult {
+  /** SENT / IN_PROCESS solo en la aprobación de una cotización: rechazar vuelve a cotizar; aprobar genera la orden. */
+  requisitionStatus: "APPROVED" | "REJECTED" | "DRAFT" | "PENDING_APPROVAL" | "SENT" | "IN_PROCESS";
+  requestStatus: string; stepAdvanced: boolean;
+  /** Cotización cuya compra se decidió (flujo AFTER_QUOTING) y, si se aprobó, la orden creada. */
+  quotationId?: string; orderId?: string;
+}
 
 /** Aplica una decisión del aprobador resuelto del nivel actual. Lanza Problem si no corresponde. */
 export async function recordDecision(tx: Tx, requisitionId: string, membershipId: string, decision: DecisionKind, comment: string | undefined, conceptId: string | undefined): Promise<DecisionResult> {
@@ -126,15 +139,20 @@ export async function recordDecision(tx: Tx, requisitionId: string, membershipId
 
   await tx.approval_decisions.create({ data: { step_id: step.id, organization_id: request.organization_id, membership_id: membershipId, decision, comment, concept_id: conceptId } });
 
+  const qid = request.quotation_id ?? undefined;
+
   if (decision === "REJECT") {
     await tx.approval_steps.update({ where: { id: step.id }, data: { status: "REJECTED", resolved_at: new Date() } });
     await tx.approval_requests.update({ where: { id: request.id }, data: { status: "REJECTED", completed_at: new Date() } });
+    // Compra rechazada: la requisición sigue viva y Compras puede elegir otra cotización.
+    if (qid) { await tx.requisitions.update({ where: { id: requisitionId }, data: { status: "SENT" } }); return { requisitionStatus: "SENT", requestStatus: "REJECTED", stepAdvanced: false, quotationId: qid }; }
     await tx.requisitions.update({ where: { id: requisitionId }, data: { status: "REJECTED", rejected_at: new Date() } });
     return { requisitionStatus: "REJECTED", requestStatus: "REJECTED", stepAdvanced: false };
   }
 
   if (decision === "REQUEST_CHANGES") {
     await tx.approval_requests.update({ where: { id: request.id }, data: { status: "CHANGES_REQUESTED", completed_at: new Date() } });
+    if (qid) { await tx.requisitions.update({ where: { id: requisitionId }, data: { status: "SENT" } }); return { requisitionStatus: "SENT", requestStatus: "CHANGES_REQUESTED", stepAdvanced: false, quotationId: qid }; }
     await tx.requisitions.update({ where: { id: requisitionId }, data: { status: "DRAFT" } });
     return { requisitionStatus: "DRAFT", requestStatus: "CHANGES_REQUESTED", stepAdvanced: false };
   }
@@ -159,6 +177,11 @@ export async function recordDecision(tx: Tx, requisitionId: string, membershipId
   await tx.approval_requests.update({ where: { id: request.id }, data: { status: "APPROVED", completed_at: new Date() } });
   const req = await tx.requisitions.update({ where: { id: requisitionId }, data: { status: "APPROVED", approved_at: new Date() } });
   await tx.requisitions.update({ where: { id: requisitionId }, data: { approved_version: req.version } });
+  // Aprobada la compra de una cotización: se genera la orden (deja la requisición IN_PROCESS).
+  if (qid) {
+    const order = await acceptQuotationAndCreateOrder(tx, qid, membershipId);
+    return { requisitionStatus: "IN_PROCESS", requestStatus: "APPROVED", stepAdvanced: false, quotationId: qid, orderId: order.id };
+  }
   return { requisitionStatus: "APPROVED", requestStatus: "APPROVED", stepAdvanced: false };
 }
 

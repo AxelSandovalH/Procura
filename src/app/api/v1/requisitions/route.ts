@@ -8,9 +8,7 @@ import { audit, auditBase } from "@/lib/audit";
 import { nextFolio } from "@/lib/requisitions/folio";
 import { recomputeRequisitionTotals } from "@/lib/requisitions/totals";
 import { requisitionVisibilityWhere } from "@/lib/requisitions/visibility";
-import { startApprovalRequest } from "@/lib/requisitions/approval-engine";
-import { emitEvent, notifyPermissionHolders, notify } from "@/lib/events/emit";
-import { autoIssueDirectedRfq } from "@/lib/sourcing/issue-rfq";
+import { submitRequisition } from "@/lib/requisitions/submit";
 import type { Prisma, requisition_status, requisition_priority, requisition_type } from "@prisma/client";
 import { isoDateOptional } from "@/lib/validation";
 
@@ -141,25 +139,7 @@ export const POST = route(async (req) => {
 
     if (submit) {
       const full = await tx.requisitions.findUniqueOrThrow({ where: { id: requisition.id } });
-      const outcome = await startApprovalRequest(tx, full);
-      const updated = await tx.requisitions.update({
-        where: { id: requisition.id },
-        data: outcome.status === "APPROVED"
-          ? { status: "APPROVED", submitted_at: new Date(), approved_at: new Date(), approved_version: full.version }
-          : { status: "PENDING_APPROVAL", submitted_at: new Date() },
-      });
-      await audit(tx, { ...auditBase(actor), action: "requisition.submitted", resourceType: "requisition", resourceId: requisition.id, resourceLabel: requisition.folio });
-      await emitEvent(tx, { type: "requisition.submitted", aggregateType: "requisition", aggregateId: requisition.id, actor, recipients: [{ organizationId: actor.organizationId, perspective: "OWNER", payload: { requisition: { id: requisition.id, folio: requisition.folio, status: updated.status } } }] });
-
-      if (outcome.status === "APPROVED") {
-        await audit(tx, { ...auditBase(actor), action: "requisition.approved", resourceType: "requisition", resourceId: requisition.id, resourceLabel: requisition.folio, metadata: { auto: true } });
-        await emitEvent(tx, { type: "requisition.approved", aggregateType: "requisition", aggregateId: requisition.id, actor, recipients: [{ organizationId: actor.organizationId, perspective: "OWNER", payload: { requisition: { id: requisition.id, folio: requisition.folio } } }] });
-        if (requisition.requester_membership_id) await notify(tx, { organizationId: actor.organizationId, membershipIds: [requisition.requester_membership_id], type: "requisition.approved", title: `${requisition.folio} fue aprobada`, resourceType: "requisition", resourceId: requisition.id });
-        if ((await autoIssueDirectedRfq(tx, actor, requisition.id)) === "ISSUED") return tx.requisitions.findUniqueOrThrow({ where: { id: requisition.id } });
-      } else {
-        await notifyPermissionHolders(tx, { organizationId: actor.organizationId, permission: "requisition.approve", excludeMembershipId: actor.membershipId ?? undefined, type: "requisition.submitted", title: `${requisition.folio} espera tu aprobación`, resourceType: "requisition", resourceId: requisition.id });
-      }
-      return updated;
+      return submitRequisition(tx, actor, full);
     }
     return requisition;
   });

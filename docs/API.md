@@ -173,7 +173,7 @@ Respuesta `201`: requisición con `folio`, `status` (`PENDING_APPROVAL` o `APPRO
 | POST / PATCH / DELETE | `/quotations/{id}/lines[/{lid}]` | proveedor, DRAFT |
 | GET / PUT | `/quotations/{id}/private` | `quotation.read_private` — **solo proveedor**; 404 para comprador |
 | POST | `/quotations/{id}/submit` · `/withdraw` · `/revise` · `/extend` `{ valid_until }` | `quotation.submit` |
-| POST | `/quotations/{id}/accept` · `/reject` `{ reason }` | `quotation.accept` (comprador) |
+| POST | `/quotations/{id}/accept` · `/reject` `{ reason }` | `quotation.accept` (comprador). Si la organización aprueba después de cotizar (`approval_timing=AFTER_QUOTING`, ajuste en `PATCH /organization/settings`) responde `{ approval_required: true, order: null }` y la compra espera a `/requisitions/{id}/approve`, que al aprobar crea la orden |
 
 ### Ejemplo: aceptar cotización
 ```http

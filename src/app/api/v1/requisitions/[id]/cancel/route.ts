@@ -7,7 +7,7 @@ import { audit, auditBase } from "@/lib/audit";
 import { emitEvent } from "@/lib/events/emit";
 
 const Body = z.object({ reason: z.string().trim().min(1).max(500) });
-const CANCELLABLE: readonly string[] = ["DRAFT", "PENDING_APPROVAL", "APPROVED", "SENT"];
+const CANCELLABLE: readonly string[] = ["DRAFT", "SUBMITTED", "PENDING_APPROVAL", "APPROVED", "SENT"];
 
 /** OD-30: el solicitante cancela las propias hasta APPROVED inclusive; Compras/Admin hasta SENT sin orden viva. */
 export const POST = route(async (req, params) => {
@@ -21,7 +21,7 @@ export const POST = route(async (req, params) => {
     if (r.order_id) throw Problem.conflict("Existe una orden viva; cancélala primero");
 
     const isOwner = r.requester_membership_id === actor.membershipId;
-    const ownerCanCancel = isOwner && actor.permissions.has("requisition.cancel") && (r.status === "DRAFT" || r.status === "PENDING_APPROVAL" || r.status === "APPROVED");
+    const ownerCanCancel = isOwner && actor.permissions.has("requisition.cancel") && (r.status === "DRAFT" || r.status === "SUBMITTED" || r.status === "PENDING_APPROVAL" || r.status === "APPROVED");
     const staffCanCancel = actor.permissions.has("requisition.cancel") && actor.permissions.has("requisition.update_any");
     if (!ownerCanCancel && !staffCanCancel) throw Problem.forbidden("No tienes permiso para cancelar esta requisición");
 

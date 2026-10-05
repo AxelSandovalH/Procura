@@ -15,6 +15,7 @@ const Update = z.object({
   relationship_request_policy: z.enum(["MANUAL_APPROVAL", "AUTO_ACCEPT_VIA_INVITATION_ONLY"]).optional(),
   requester_can_self_approve: z.boolean().optional(),
   reapproval_policy: z.enum(["ALWAYS", "IF_AMOUNT_INCREASES", "NEVER"]).optional(),
+  approval_timing: z.enum(["BEFORE_QUOTING", "AFTER_QUOTING"]).optional(),
   auto_close_days_after_resolved: z.number().int().min(0).nullable().optional(),
   portal_enabled: z.boolean().optional(),
   portal_welcome_text: z.string().trim().max(2000).nullable().optional(),

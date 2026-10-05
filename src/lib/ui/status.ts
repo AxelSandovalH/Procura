@@ -2,6 +2,7 @@ export type Tone = "neutral" | "info" | "warn" | "ok" | "bad" | "muted";
 
 export const REQUISITION_STATUS: Record<string, { label: string; tone: Tone }> = {
   DRAFT: { label: "Borrador", tone: "muted" },
+  SUBMITTED: { label: "Por cotizar", tone: "info" },
   PENDING_APPROVAL: { label: "En aprobación", tone: "warn" },
   APPROVED: { label: "Aprobada", tone: "ok" },
   SENT: { label: "Cotizando", tone: "info" },

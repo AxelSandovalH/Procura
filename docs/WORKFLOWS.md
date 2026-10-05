@@ -28,7 +28,8 @@ La API devuelve `available_actions: ["submit", "cancel"]` en cada recurso. El fr
 | Estado | Significado |
 |---|---|
 | `DRAFT` | Editable por el solicitante |
-| `PENDING_APPROVAL` | En el motor de aprobación |
+| `SUBMITTED` | «Por cotizar»: enviada en una organización con `approval_timing=AFTER_QUOTING` (sin aprobación aún) |
+| `PENDING_APPROVAL` | En el motor de aprobación (de la requisición, o de la compra elegida si es `AFTER_QUOTING`) |
 | `APPROVED` | Aprobada; lista para que Compras busque proveedor. Sin RFQ activas |
 | `SENT` | Al menos una RFQ emitida; en proceso de cotización |
 | `IN_PROCESS` | Existe una orden viva (PENDING_CONFIRMATION / CONFIRMED / IN_PROCESS) |
@@ -44,7 +45,11 @@ La API devuelve `available_actions: ["submit", "cancel"]` en cada recurso. El fr
 |---|---|---|---|---|---|
 | — | `create` | `DRAFT` | `requisition.create` | ≥0 conceptos | folio asignado · `requisition.created` |
 | `DRAFT` | `update` | `DRAFT` | `requisition.update` (propia) / `update_any` | — | `version++` si cambio material |
-| `DRAFT` | `submit` | `PENDING_APPROVAL` · o `APPROVED` si no aplica workflow | `requisition.submit` | ≥1 concepto; conceptos libres permitidos por settings; precio estimado si `require_estimated_price` | crea `ApprovalRequest` · `requisition.submitted` · (si sin workflow) `requisition.approved` |
+| `DRAFT` | `submit` (`AFTER_QUOTING`) | `SUBMITTED` | `requisition.submit` | igual que abajo | `requisition.submitted` · aviso a `rfq.issue` · auto-RFQ si es dirigida |
+| `SUBMITTED` / `SENT` | `quotations/{id}/accept` (`AFTER_QUOTING`) | `PENDING_APPROVAL` (o directo a orden si ninguna regla aplica) | `quotation.accept` | la ApprovalRequest lleva `quotation_id`; el monto de las reglas es el total de esa cotización | `requisition.approval_requested` |
+| `PENDING_APPROVAL` (compra) | `approve` (último nivel) | `IN_PROCESS` | aprobador | — | crea la orden · `quotation.accepted` · `order.created` |
+| `PENDING_APPROVAL` (compra) | `reject` / `request-changes` / `withdraw` | `SENT` | — | — | la requisición vuelve a «Cotizando» para elegir otra oferta |
+| `DRAFT` | `submit` (`BEFORE_QUOTING`) | `PENDING_APPROVAL` · o `APPROVED` si no aplica workflow | `requisition.submit` | ≥1 concepto; conceptos libres permitidos por settings; precio estimado si `require_estimated_price` | crea `ApprovalRequest` · `requisition.submitted` · (si sin workflow) `requisition.approved` |
 | `PENDING_APPROVAL` | `approve` (último nivel) | `APPROVED` | `requisition.approve` (aprobador resuelto) | ver §3 | `requisition.approved` · si `directed_supplier_organization_id` → auto `issue_rfq` (OD-02) |
 | `PENDING_APPROVAL` | `reject` | `REJECTED` | aprobador resuelto | motivo | `requisition.rejected` |
 | `PENDING_APPROVAL` | `request_changes` | `DRAFT` | aprobador resuelto | comentario | ApprovalRequest → `CHANGES_REQUESTED` · `requisition.changes_requested` |
@@ -57,7 +62,7 @@ La API devuelve `available_actions: ["submit", "cancel"]` en cada recurso. El fr
 | `IN_PROCESS` | *(orden rechazada o cancelada)* | `SENT` | sistema | — | la requisición **permanece abierta** (reglas 8–10). Cotizaciones `NOT_SELECTED` vigentes: OD-14 |
 | `IN_PROCESS` | *(orden COMPLETED)* | `RESOLVED` | sistema | — | `requisition.completed` |
 | `RESOLVED` | `close` | `CLOSED` | `requisition.close` · o auto tras N días | — | `requisition.closed` |
-| `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `SENT` | `cancel` | `CANCELLED` | solicitante (propia, hasta APPROVED) · `requisition.cancel` (Compras/Admin) — OD-30 | motivo; sin orden viva | RFQs → `WITHDRAWN` · ApprovalRequest → `CANCELLED` · `requisition.cancelled` |
+| `DRAFT`, `SUBMITTED`, `PENDING_APPROVAL`, `APPROVED`, `SENT` | `cancel` | `CANCELLED` | solicitante (propia, hasta APPROVED) · `requisition.cancel` (Compras/Admin) — OD-30 | motivo; sin orden viva | RFQs → `WITHDRAWN` · ApprovalRequest → `CANCELLED` · `requisition.cancelled` |
 | cualquiera | `duplicate` / `reorder` | *(nueva DRAFT)* | `requisition.create` | — | nueva requisición con `derived_from`, `origin_type` (OD-28) |
 
 ### Reglas de edición

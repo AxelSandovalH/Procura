@@ -24,7 +24,7 @@ export function availableActions(r: requisitions, actor: Actor): string[] {
     if (isOwner || p.has("requisition.update_any")) actions.push("withdraw");
     if (p.has("requisition.cancel")) actions.push("cancel");
   }
-  if (r.status === "APPROVED") {
+  if (r.status === "APPROVED" || r.status === "SUBMITTED") {
     if (p.has("requisition.update_any")) actions.push("update");
     if (p.has("requisition.cancel")) actions.push("cancel");
   }
@@ -82,7 +82,7 @@ export const PATCH = route(async (req, params) => {
     const canEditOwn = isOwner && actor.permissions.has("requisition.update") && before.status === "DRAFT";
     const canEditAny = actor.permissions.has("requisition.update_any");
     if (!canEditOwn && !canEditAny) throw Problem.forbidden("No tienes permiso para editar esta requisición");
-    if (before.status !== "DRAFT" && before.status !== "APPROVED") throw Problem.conflict(`No se puede editar en estado ${before.status}`);
+    if (before.status !== "DRAFT" && before.status !== "APPROVED" && before.status !== "SUBMITTED") throw Problem.conflict(`No se puede editar en estado ${before.status}`);
 
     const totalBefore = before.estimated_total_minor;
     const after = await tx.requisitions.update({ where: { id: before.id }, data: body });
