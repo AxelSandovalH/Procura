@@ -62,17 +62,12 @@ export async function requireActor(req: Request): Promise<Actor> {
   const headerOrg = req.headers.get("x-procura-organization");
   const cookieMembership = cookieStore.get(ACTIVE_MEMBERSHIP_COOKIE)?.value ?? null;
 
-  const membership = await withContext({ userId: user.id }, (tx) =>
-    tx.memberships.findFirst({
-      where: {
-        user_id: user.id,
-        status: "ACTIVE",
-        ...(headerOrg ? { organization_id: headerOrg } : cookieMembership ? { id: cookieMembership } : {}),
-      },
-      orderBy: { created_at: "asc" },
-      select: { id: true, organization_id: true },
-    }),
-  );
+  const membership = await withContext({ userId: user.id }, async (tx) => {
+    const find = (extra: object) => tx.memberships.findFirst({ where: { user_id: user.id, status: "ACTIVE", ...extra }, orderBy: { created_at: "asc" }, select: { id: true, organization_id: true } });
+    if (headerOrg) return find({ organization_id: headerOrg });
+    // Cookie caducada (membresía borrada o inactiva): se usa la primera organización activa en vez de dejar al usuario sin contexto.
+    return (cookieMembership ? await find({ id: cookieMembership }) : null) ?? find({});
+  });
   if (!membership) throw new Problem(403, "Sin organización activa", "Selecciona una organización (POST /api/v1/me/active-organization) o no eres miembro activo de la indicada");
 
   const roles = await loadRoles({ userId: user.id, organizationId: membership.organization_id, membershipId: membership.id });
