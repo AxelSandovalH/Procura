@@ -35,6 +35,7 @@ export default function QuotationPage({ params }: { params: Promise<{ id: string
   const router = useRouter();
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dlg, setDlg] = useState<"reject" | "extend" | null>(null);
 
@@ -70,7 +71,7 @@ export default function QuotationPage({ params }: { params: Promise<{ id: string
   const submit = () => guard(async () => { await saveHead(); await api(`/quotations/${id}/submit`, { method: "POST", body: {} }); await refresh(); });
   const simple = (path: string) => guard(async () => { await api(`/quotations/${id}/${path}`, { method: "POST", body: {} }); await refresh(); });
   const revise = () => guard(async () => { const n = await api<{ id: string }>(`/quotations/${id}/revise`, { method: "POST", body: {} }); await refresh(); router.push(`/cotizaciones/${n.id}`); });
-  const accept = () => guard(async () => { const r = await api<{ order: { id: string } }>(`/quotations/${id}/accept`, { method: "POST", body: {} }); await refresh(); router.push(`/ordenes/${r.order.id}`); });
+  const accept = () => guard(async () => { const r = await api<{ approval_required: boolean; order: { id: string } | null }>(`/quotations/${id}/accept`, { method: "POST", body: {} }); await refresh(); if (r.order) router.push(`/ordenes/${r.order.id}`); else setNote("Compra enviada a aprobación. Cuando se apruebe se creará la orden."); });
 
   return (
     <>
@@ -85,10 +86,11 @@ export default function QuotationPage({ params }: { params: Promise<{ id: string
           {has("revise") && <Button variant="outline" onClick={revise} disabled={busy}><FilePen />Revisar</Button>}
           {has("extend") && <Button variant="outline" onClick={() => setDlg("extend")}><CalendarPlus />Extender vigencia</Button>}
           {has("withdraw") && <Button variant="outline" onClick={() => simple("withdraw")} disabled={busy}><Undo2 />Retirar</Button>}
-          {has("accept") && <Button onClick={accept} disabled={busy}><Check />Aceptar y crear orden</Button>}
+          {has("accept") && <Button onClick={accept} disabled={busy}><Check />Comprar esta</Button>}
           {has("reject") && <Button variant="destructive" onClick={() => setDlg("reject")}><X />Rechazar</Button>}
         </div>
       </div>
+      {note && <p role="status" className="mb-4 rounded-lg border border-emerald-600/30 bg-emerald-600/5 px-3 py-2 text-sm">{note}</p>}
       {error && <p role="alert" className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
