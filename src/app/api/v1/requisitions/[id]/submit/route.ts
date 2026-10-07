@@ -1,12 +1,13 @@
-import { NextResponse } from "next/server";
 import { route, Problem } from "@/lib/http/problem";
 import { requireActor } from "@/lib/auth/context";
 import { withContext } from "@/lib/db/client";
+import { idempotent } from "@/lib/http/idempotency";
 import { submitRequisition } from "@/lib/requisitions/submit";
 
 export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
 
+  return idempotent(req, actor, params.id, async () => {
   const requisition = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
     const r = await tx.requisitions.findFirst({ where: { id: params.id, organization_id: actor.organizationId } });
     if (!r) throw Problem.notFound();
@@ -20,5 +21,6 @@ export const POST = route(async (req, params) => {
 
     return submitRequisition(tx, actor, r);
   });
-  return NextResponse.json(requisition);
+  return { status: 200, body: requisition };
+  });
 });

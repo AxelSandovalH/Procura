@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
 import { route, json } from "@/lib/http/problem";
 import { requireActor } from "@/lib/auth/context";
@@ -6,6 +5,7 @@ import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { ConceptInput, createRequisition } from "@/lib/requisitions/create";
 import { isoDateOptional } from "@/lib/validation";
+import { idempotent } from "@/lib/http/idempotency";
 import { issueRfqs } from "@/lib/sourcing/issue-rfq";
 
 const Body = z.object({
@@ -14,6 +14,7 @@ const Body = z.object({
   priority: z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]).default("NORMAL"),
   required_date: isoDateOptional,
   currency: z.string().regex(/^[A-Z]{3}$/).default("MXN"),
+  external_reference: z.string().trim().max(200).optional(),
   concepts: z.array(ConceptInput).min(1),
   supplier_organization_ids: z.array(z.uuid()).max(10).default([]),
   due_days: z.number().int().min(1).max(60).default(7),
@@ -26,8 +27,10 @@ const Body = z.object({
 export const POST = route(async (req) => {
   const actor = await requireActor(req);
   authorize(actor, "requisition.create");
-  const { supplier_organization_ids, due_days, ...rest } = await json(req, (d) => Body.parse(d));
+  const parsed = await json(req, (d) => Body.parse(d));
+  const { supplier_organization_ids, due_days, ...rest } = parsed;
 
+  return idempotent(req, actor, parsed, async () => {
   const result = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
     let requisition = await createRequisition(tx, actor, { ...rest, submit: true });
     let quoted = false;
@@ -38,5 +41,6 @@ export const POST = route(async (req) => {
     }
     return { requisition, rfqs_issued: quoted ? supplier_organization_ids.length : 0 };
   });
-  return NextResponse.json(result, { status: 201 });
+  return { status: 201, body: result };
+  });
 });

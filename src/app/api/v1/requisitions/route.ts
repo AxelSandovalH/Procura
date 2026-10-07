@@ -3,6 +3,7 @@ import { route, json, Problem } from "@/lib/http/problem";
 import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
+import { idempotent } from "@/lib/http/idempotency";
 import { createRequisition, CreateRequisition } from "@/lib/requisitions/create";
 import { requisitionVisibilityWhere } from "@/lib/requisitions/visibility";
 import type { Prisma, requisition_status, requisition_priority, requisition_type } from "@prisma/client";
@@ -24,6 +25,7 @@ export const GET = route(async (req) => {
     ...(status ? { status } : {}),
     ...(priority ? { priority } : {}),
     ...(type ? { requisition_type: type } : {}),
+    ...(sp.get("external_reference") ? { external_reference: sp.get("external_reference")! } : {}),
     ...(sp.get("folio") ? { folio: { contains: sp.get("folio")!, mode: "insensitive" } } : {}),
     ...(sp.get("department_id") ? { department_id: sp.get("department_id") } : {}),
     ...(sp.get("location_id") ? { location_id: sp.get("location_id") } : {}),
@@ -53,9 +55,11 @@ export const POST = route(async (req) => {
   authorize(actor, "requisition.create");
   const body = await json(req, (d) => CreateRequisition.parse(d));
 
+  return idempotent(req, actor, body, async () => {
   const result = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
     return createRequisition(tx, actor, body);
   });
 
-  return NextResponse.json(result, { status: 201 });
+  return { status: 201, body: result };
+  });
 });
