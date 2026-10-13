@@ -1,7 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, FileText, Info, Search, Upload } from "lucide-react";
+import { Download, FileText, Info, Receipt, Search, Upload } from "lucide-react";
 import { SatDownloadCard } from "@/components/app/sat-download";
 import { PageHeader } from "@/components/app/page-header";
 import { StatusBadge } from "@/components/app/status-badge";
@@ -22,6 +22,8 @@ interface Detail extends Cfdi { downloads: { xml_url: string | null; pdf_url: st
 interface Provider { provider: string; configured: boolean; capabilities: Record<string, boolean>; notes: string[] }
 const TYPE: Record<string, string> = { I: "Ingreso", E: "Egreso", P: "Pago", T: "Traslado", N: "Nómina" };
 const SOURCE: Record<string, string> = { MANUAL_UPLOAD: "Carga manual", SUPPLIER_ORDER: "Factura de proveedor en una orden", PROVIDER_SYNC: "Sincronización", PROVIDER_ISSUED: "Emitida desde Procura" };
+/** El «tipo» del SAT describe el comprobante para quien lo emite: una factura que te hacen a ti es «Ingreso» para el emisor, pero para ti es una compra. */
+const typeName = (direction: string, t: string) => (t === "I" ? (direction === "RECEIVED" ? "Factura recibida" : "Factura emitida") : t === "E" ? "Nota de crédito" : t === "P" ? "Complemento de pago" : TYPE[t] ?? t);
 const label = (c: { series: string | null; folio: string | null; fiscal_uuid: string }) => [c.series, c.folio].filter(Boolean).join("-") || c.fiscal_uuid.slice(0, 8);
 
 export default function FacturasPage() {
@@ -29,7 +31,7 @@ export default function FacturasPage() {
   const [tab, setTab] = useState<"ISSUED" | "RECEIVED">("RECEIVED");
   const [f, setF] = useState({ q: "", from: "", to: "", unlinked: false });
   const [upload, setUpload] = useState(false); const [openId, setOpenId] = useState<string | null>(null);
-  const [picked, setPicked] = useState<Set<string>>(new Set()); const [making, setMaking] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set()); const [making, setMaking] = useState(false); const [single, setSingle] = useState<string | null>(null);
   const qs = new URLSearchParams({ direction: tab, ...(f.q ? { q: f.q } : {}), ...(f.from ? { from: f.from } : {}), ...(f.to ? { to: f.to } : {}), ...(f.unlinked ? { unlinked: "1" } : {}) }).toString();
   const list = useQuery({ queryKey: ["cfdi", "list", qs], queryFn: () => api<{ data: Cfdi[] }>(`/cfdi?${qs}`), enabled: session.can("cfdi.read") });
   const provider = useQuery({ queryKey: ["fiscal-provider"], queryFn: () => api<Provider>("/fiscal/provider"), enabled: session.can("cfdi.read"), staleTime: 60_000 });
@@ -69,14 +71,15 @@ export default function FacturasPage() {
               {tab === "RECEIVED" && <TableCell onClick={(e) => e.stopPropagation()}>{selectable.some((x) => x.id === c.id) ? <input type="checkbox" aria-label={`Seleccionar ${label(c)}`} checked={picked.has(c.id)} onChange={() => togglePick(c.id)} /> : null}</TableCell>}
               <TableCell className="font-medium"><button className="text-left hover:underline" onClick={() => setOpenId(c.id)}>{label(c)}</button><div className="max-w-40 truncate font-mono text-xs text-muted-foreground" title={c.fiscal_uuid}>{c.fiscal_uuid}</div></TableCell>
               <TableCell>{dateShort(c.issued_at)}</TableCell>
-              <TableCell>{tab === "ISSUED" ? c.receiver_name ?? c.receiver_rfc : c.issuer_name ?? c.issuer_rfc}</TableCell><TableCell className="text-muted-foreground">{TYPE[c.cfdi_type] ?? c.cfdi_type}</TableCell>
+              <TableCell>{tab === "ISSUED" ? c.receiver_name ?? c.receiver_rfc : c.issuer_name ?? c.issuer_rfc}</TableCell><TableCell className="text-muted-foreground">{typeName(c.direction, c.cfdi_type)}</TableCell>
               <TableCell className="text-right tabular-nums">{money(c.total_minor, c.currency)}</TableCell><TableCell className="text-right tabular-nums">{c.cfdi_type === "I" ? money(c.pending_to_allocate_minor, c.currency) : "—"}</TableCell>
               <TableCell><StatusBadge {...(SAT_STATUS[c.sat_status] ?? { label: c.sat_status, tone: "neutral" as const })} /></TableCell>
             </TableRow>))}</TableBody>
         </Table></div>)}
       <ExpensesFromCfdi ids={chosen} open={making} onOpenChange={setMaking} onDone={async () => { setPicked(new Set()); await refresh(); }} />
       <UploadCfdi open={upload} onOpenChange={setUpload} defaultDirection={tab} onDone={refresh} />
-      <CfdiDetail id={openId} onClose={() => setOpenId(null)} />
+      <CfdiDetail id={openId} onClose={() => setOpenId(null)} canCreateExpense={session.can("expense.manage") && session.can("cfdi.manage")} onCreateExpense={(cid) => { setOpenId(null); setSingle(cid); }} />
+      <ExpensesFromCfdi ids={single ? [single] : []} open={!!single} onOpenChange={(o) => !o && setSingle(null)} onDone={refresh} />
     </>
   );
 }
@@ -145,19 +148,20 @@ function ExpensesFromCfdi({ ids, open, onOpenChange, onDone }: { ids: string[]; 
   );
 }
 
-function CfdiDetail({ id, onClose }: { id: string | null; onClose: () => void }) {
+function CfdiDetail({ id, onClose, canCreateExpense, onCreateExpense }: { id: string | null; onClose: () => void; canCreateExpense: boolean; onCreateExpense: (id: string) => void }) {
   const q = useQuery({ queryKey: ["cfdi", "detail", id], queryFn: () => api<Detail>(`/cfdi/${id}`), enabled: !!id });
   const c = q.data;
   return (
     <Dialog open={!!id} onOpenChange={(o) => !o && onClose()}><DialogContent>
       {!c ? <div className="h-32 animate-pulse rounded bg-muted" /> : (<>
-        <DialogHeader><DialogTitle>{label(c)} · {TYPE[c.cfdi_type] ?? c.cfdi_type}</DialogTitle><DialogDescription className="break-all font-mono text-xs">{c.fiscal_uuid}</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>{label(c)} · {typeName(c.direction, c.cfdi_type)}</DialogTitle><DialogDescription className="break-all font-mono text-xs">{c.fiscal_uuid}</DialogDescription></DialogHeader>
         <dl className="space-y-1.5 text-sm">
           <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Emisor</dt><dd className="text-right">{c.issuer_name ?? "—"} <span className="text-muted-foreground">{c.issuer_rfc}</span></dd></div>
           <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Receptor</dt><dd className="text-right">{c.receiver_name ?? "—"} <span className="text-muted-foreground">{c.receiver_rfc}</span></dd></div>
           <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Fecha</dt><dd>{dateShort(c.issued_at)}</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Total</dt><dd className="font-semibold tabular-nums">{money(c.total_minor, c.currency)}</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Ligado a operaciones</dt><dd className="tabular-nums">{money(c.allocated_minor, c.currency)}</dd></div>
+          <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Tipo según el SAT</dt><dd>{TYPE[c.cfdi_type] ?? c.cfdi_type}{c.direction === "RECEIVED" && c.cfdi_type === "I" ? <span className="text-muted-foreground"> (ingreso del emisor)</span> : null}</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Origen</dt><dd>{SOURCE[c.source] ?? c.source}</dd></div>
           <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Vigencia ante el SAT</dt><dd><StatusBadge {...(SAT_STATUS[c.sat_status] ?? { label: c.sat_status, tone: "neutral" as const })} /></dd></div>
         </dl>
@@ -166,6 +170,7 @@ function CfdiDetail({ id, onClose }: { id: string | null; onClose: () => void })
             <li key={l.id} className="flex justify-between gap-2 rounded-lg border px-3 py-2"><span>{l.sale ? <Link className="underline" href={`/ventas/${l.sale.id}`}>{l.sale.folio}</Link> : null}{l.sale ? ` · ${l.sale.description}` : ""}{l.expense ? `Gasto · ${l.expense.description}` : ""}</span><span className="tabular-nums">{money(l.amount_minor, c.currency)}</span></li>))}</ul>}
         </div>
         <DialogFooter>
+          {canCreateExpense && c.direction === "RECEIVED" && c.cfdi_type === "I" && c.sat_status !== "CANCELADO" && Number(c.allocated_minor) === 0 && <Button onClick={() => onCreateExpense(c.id)}><Receipt />Crear gasto</Button>}
           {c.downloads.xml_url && <Button variant="outline" onClick={() => window.open(c.downloads.xml_url!, "_blank", "noopener")}><Download />XML</Button>}
           {c.downloads.pdf_url && <Button variant="outline" onClick={() => window.open(c.downloads.pdf_url!, "_blank", "noopener")}><Download />PDF</Button>}
           <Button variant="outline" onClick={onClose}>Cerrar</Button></DialogFooter>
