@@ -6,19 +6,26 @@ import { assertAllocation, defaultAllocation } from "@/lib/finance/calc";
 export type OpKind = "sale" | "expense";
 
 /** Recalcula la caché de importes (cobrado/pagado, documentado) de una venta o gasto y la del CFDI. Llamar en la misma transacción. */
+/** Importe documentado por CFDI: los comprobantes cancelados ante el SAT ya no documentan nada (el vínculo se conserva como historial). */
+async function documentedMinor(tx: Tx, where: { sale_id: string } | { expense_id: string }): Promise<bigint> {
+  const links = await tx.cfdi_links.findMany({ where, select: { cfdi_id: true, amount_minor: true } });
+  if (links.length === 0) return BigInt(0);
+  const cancelled = new Set((await tx.cfdi_documents.findMany({ where: { id: { in: links.map((l) => l.cfdi_id) }, sat_status: "CANCELADO" }, select: { id: true } })).map((d) => d.id));
+  return links.filter((l) => !cancelled.has(l.cfdi_id)).reduce((s, l) => s + l.amount_minor, BigInt(0));
+}
 export async function recomputeSale(tx: Tx, id: string) {
   const [pay, doc] = await Promise.all([
     tx.payments.aggregate({ where: { sale_id: id, voided_at: null }, _sum: { amount_minor: true } }),
-    tx.cfdi_links.aggregate({ where: { sale_id: id }, _sum: { amount_minor: true } }),
+    documentedMinor(tx, { sale_id: id }),
   ]);
-  return tx.sales.update({ where: { id }, data: { collected_minor: pay._sum.amount_minor ?? BigInt(0), documented_minor: doc._sum.amount_minor ?? BigInt(0), updated_at: new Date() } });
+  return tx.sales.update({ where: { id }, data: { collected_minor: pay._sum.amount_minor ?? BigInt(0), documented_minor: doc, updated_at: new Date() } });
 }
 export async function recomputeExpense(tx: Tx, id: string) {
   const [pay, doc] = await Promise.all([
     tx.payments.aggregate({ where: { expense_id: id, voided_at: null }, _sum: { amount_minor: true } }),
-    tx.cfdi_links.aggregate({ where: { expense_id: id }, _sum: { amount_minor: true } }),
+    documentedMinor(tx, { expense_id: id }),
   ]);
-  return tx.expenses.update({ where: { id }, data: { paid_minor: pay._sum.amount_minor ?? BigInt(0), documented_minor: doc._sum.amount_minor ?? BigInt(0), updated_at: new Date() } });
+  return tx.expenses.update({ where: { id }, data: { paid_minor: pay._sum.amount_minor ?? BigInt(0), documented_minor: doc, updated_at: new Date() } });
 }
 export async function recomputeCfdi(tx: Tx, id: string) {
   const agg = await tx.cfdi_links.aggregate({ where: { cfdi_id: id }, _sum: { amount_minor: true } });
@@ -30,7 +37,7 @@ export async function linkCfdi(tx: Tx, organizationId: string, membershipId: str
   const cfdi = await tx.cfdi_documents.findFirst({ where: { id: cfdiId, organization_id: organizationId } });
   if (!cfdi) throw Problem.badRequest("El CFDI no existe o no es de tu organización");
   if (cfdi.cfdi_type !== "I") throw Problem.badRequest("Solo un CFDI de ingreso (tipo I) puede documentar una venta o un gasto");
-  if (cfdi.sat_status === "CANCELADO") throw Problem.badRequest("El CFDI está cancelado ante el SAT: no puede documentar una operación");
+  if (cfdi.sat_status === "CANCELADO" || cfdi.sat_status === "CANCELANDO") throw Problem.badRequest("El CFDI está cancelado (o en proceso de cancelación) ante el SAT: no puede documentar una operación");
   const op = kind === "sale"
     ? await tx.sales.findFirst({ where: { id: opId, organization_id: organizationId } })
     : await tx.expenses.findFirst({ where: { id: opId, organization_id: organizationId } });

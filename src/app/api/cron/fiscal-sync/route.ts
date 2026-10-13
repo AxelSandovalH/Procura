@@ -3,6 +3,8 @@ import * as Sentry from "@sentry/nextjs";
 import { prisma } from "@/lib/db/client";
 import { runDownloadSync } from "@/lib/fiscal/download";
 import { getFiscalProvider } from "@/lib/fiscal/fiscalapi";
+import { withContext } from "@/lib/db/client";
+import { refreshInvoiceState } from "@/lib/billing/cancel";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -20,5 +22,15 @@ export async function GET(req: Request) {
     try { const r = await runDownloadSync(organization_id, null, { budgetMs: 40_000 - (Date.now() - started) }); out.push({ org: organization_id, created: r.created, duplicates: r.duplicates, errors: r.errors }); if (r.errors) Sentry.captureMessage(`Descarga masiva con errores (${r.errors}) en ${organization_id}: ${r.last_error}`, "warning"); }
     catch (e) { out.push({ org: organization_id, error: (e as Error).message }); Sentry.captureException(e); }
   }
-  return NextResponse.json({ ok: true, organizations: out.length, results: out });
+  // Cancelaciones en proceso: se consulta su estado hasta que el SAT las confirme o las rechace.
+  const cancelling: { org: string; checked: number; error?: string }[] = [];
+  for (const { organization_id } of await prisma().$queryRaw<{ organization_id: string }[]>`select * from app.orgs_with_cancelling_cfdi()`) {
+    if (Date.now() - started > 50_000) break;
+    try {
+      const ids = await withContext({ organizationId: organization_id }, (tx) => tx.cfdi_documents.findMany({ where: { organization_id, sat_status: "CANCELANDO" }, select: { id: true }, take: 20 }));
+      for (const { id } of ids) await withContext({ organizationId: organization_id }, (tx) => refreshInvoiceState(tx, organization_id, null, id)).catch((e) => Sentry.captureException(e));
+      cancelling.push({ org: organization_id, checked: ids.length });
+    } catch (e) { cancelling.push({ org: organization_id, checked: 0, error: (e as Error).message }); Sentry.captureException(e); }
+  }
+  return NextResponse.json({ ok: true, organizations: out.length, results: out, cancelling });
 }

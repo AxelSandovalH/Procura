@@ -12,6 +12,7 @@ export interface FiscalCapabilities {
   statusLookup: boolean;     // consultar vigencia ante el SAT
   downloadXml: boolean;
   downloadPdf: boolean;
+  cancel: boolean;           // cancelar CFDI emitidos
 }
 
 /** Comprobante normalizado, independiente del proveedor. */
@@ -30,6 +31,10 @@ export interface IssueRequest {
   items: { sku: string; productCode: string; unitCode: string; description: string; quantity: number; unitPrice: number; discount: number; taxRate: number }[];
   timeZone: string;
 }
+/** Estado de un CFDI emitido según el proveedor/SAT. */
+export type InvoiceState = "VIGENTE" | "CANCELANDO" | "CANCELADO" | "UNKNOWN";
+export interface CancelRequest { providerInvoiceId: string; reasonCode: "01" | "02" | "03"; replacementUuid?: string }
+export interface CancelResult { satCode: string | null; acknowledgement: string | null }
 export interface IssuedCfdi { providerInvoiceId: string; fiscalUuid: string | null; xml: Buffer | null }
 export interface ProviderIssuer { id: string; legalName: string; taxId: string; taxRegimeCode: string | null; zipCode: string | null }
 
@@ -54,6 +59,10 @@ export interface FiscalProvider {
   listIssuers(): Promise<ProviderIssuer[]>;
   listCfdi(orgExternalAccount: string, params: { direction: "ISSUED" | "RECEIVED"; from: Date; to: Date; cursor?: string }): Promise<{ items: NormalizedCfdi[]; nextCursor?: string }>;
   getCfdiStatus(fiscalUuid: string): Promise<NormalizedCfdi["satStatus"]>;
+  /** Solicita la cancelación de un CFDI emitido por este proveedor. No es inmediata: el CFDI pasa a «Cancelando» y luego a «Cancelado» (o vuelve a «Vigente»). */
+  cancelCfdi(req: CancelRequest): Promise<CancelResult>;
+  /** Estado actual de un CFDI emitido (consulta al SAT a través del proveedor). */
+  invoiceStatus(providerInvoiceId: string): Promise<{ state: InvoiceState; raw: string; cancelable: string | null }>;
   /** Comprueba que las credenciales del servidor funcionan, sin modificar nada en el proveedor. */
   listDownloadRules(): Promise<DownloadRule[]>;
   createDownloadRule(input: { personId: string; description: string; downloadType: "Emitidos" | "Recibidos" }): Promise<DownloadRule>;

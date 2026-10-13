@@ -18,7 +18,7 @@ import { SAT_STATUS } from "@/lib/ui/status";
 import Link from "next/link";
 
 interface Cfdi { id: string; direction: "ISSUED" | "RECEIVED"; fiscal_uuid: string; series: string | null; folio: string | null; issued_at: string | null; issuer_name: string | null; issuer_rfc: string; receiver_name: string | null; receiver_rfc: string; currency: string; total_minor: number | string; allocated_minor: number | string; pending_to_allocate_minor: number | string; sat_status: string; cfdi_type: string; source: string; has_pdf: boolean; fiscal_payment_method: string | null }
-interface Detail extends Cfdi { downloads: { xml_url: string | null; pdf_url: string | null }; links: { id: string; amount_minor: number | string; sale: { id: string; folio: string; description: string } | null; expense: { id: string; description: string } | null }[] }
+interface Detail extends Cfdi { provider?: string | null; provider_external_id?: string | null; cancel_reason_code?: string | null; cancel_replacement_uuid?: string | null; cancel_requested_at?: string | null; cancelled_at?: string | null; downloads: { xml_url: string | null; pdf_url: string | null }; links: { id: string; amount_minor: number | string; sale: { id: string; folio: string; description: string } | null; expense: { id: string; description: string } | null }[] }
 interface Provider { provider: string; configured: boolean; capabilities: Record<string, boolean>; notes: string[] }
 const TYPE: Record<string, string> = { I: "Ingreso", E: "Egreso", P: "Pago", T: "Traslado", N: "Nómina" };
 const SOURCE: Record<string, string> = { MANUAL_UPLOAD: "Carga manual", SUPPLIER_ORDER: "Factura de proveedor en una orden", PROVIDER_SYNC: "Sincronización", PROVIDER_ISSUED: "Emitida desde Procura" };
@@ -78,7 +78,7 @@ export default function FacturasPage() {
         </Table></div>)}
       <ExpensesFromCfdi ids={chosen} open={making} onOpenChange={setMaking} onDone={async () => { setPicked(new Set()); await refresh(); }} />
       <UploadCfdi open={upload} onOpenChange={setUpload} defaultDirection={tab} onDone={refresh} />
-      <CfdiDetail id={openId} onClose={() => setOpenId(null)} canCreateExpense={session.can("expense.manage") && session.can("cfdi.manage")} onCreateExpense={(cid) => { setOpenId(null); setSingle(cid); }} />
+      <CfdiDetail id={openId} onClose={() => setOpenId(null)} canCreateExpense={session.can("expense.manage") && session.can("cfdi.manage")} onCreateExpense={(cid) => { setOpenId(null); setSingle(cid); }} canCancel={session.can("cfdi.manage")} onChanged={refresh} />
       <ExpensesFromCfdi ids={single ? [single] : []} open={!!single} onOpenChange={(o) => !o && setSingle(null)} onDone={refresh} />
     </>
   );
@@ -148,7 +148,8 @@ function ExpensesFromCfdi({ ids, open, onOpenChange, onDone }: { ids: string[]; 
   );
 }
 
-function CfdiDetail({ id, onClose, canCreateExpense, onCreateExpense }: { id: string | null; onClose: () => void; canCreateExpense: boolean; onCreateExpense: (id: string) => void }) {
+function CfdiDetail({ id, onClose, canCreateExpense, onCreateExpense, canCancel, onChanged }: { id: string | null; onClose: () => void; canCreateExpense: boolean; onCreateExpense: (id: string) => void; canCancel: boolean; onChanged: () => Promise<unknown> }) {
+  const [cancelling, setCancelling] = useState(false); const [checking, setChecking] = useState(false); const [note, setNote] = useState<string | null>(null);
   const q = useQuery({ queryKey: ["cfdi", "detail", id], queryFn: () => api<Detail>(`/cfdi/${id}`), enabled: !!id });
   const c = q.data;
   return (
@@ -169,12 +170,57 @@ function CfdiDetail({ id, onClose, canCreateExpense, onCreateExpense }: { id: st
           {c.links.length === 0 ? <p className="text-sm text-muted-foreground">Aún no está ligado a ninguna venta o gasto.</p> : <ul className="space-y-1 text-sm">{c.links.map((l) => (
             <li key={l.id} className="flex justify-between gap-2 rounded-lg border px-3 py-2"><span>{l.sale ? <Link className="underline" href={`/ventas/${l.sale.id}`}>{l.sale.folio}</Link> : null}{l.sale ? ` · ${l.sale.description}` : ""}{l.expense ? `Gasto · ${l.expense.description}` : ""}</span><span className="tabular-nums">{money(l.amount_minor, c.currency)}</span></li>))}</ul>}
         </div>
+        {c.sat_status === "CANCELANDO" && (
+          <div role="status" className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm">
+            <p>Cancelación solicitada{c.cancel_requested_at ? ` el ${dateShort(c.cancel_requested_at)}` : ""} (motivo {c.cancel_reason_code}). El SAT la confirma en minutos u horas; si el receptor la rechaza, el CFDI vuelve a quedar vigente.</p>
+            {canCancel && <Button size="sm" variant="outline" disabled={checking} onClick={async () => { setChecking(true); setNote(null); try { const r = await api<{ state: string; raw: string }>(`/cfdi/${c.id}/refresh-status`, { body: {} }); setNote(`Estado en el SAT: ${r.raw || r.state}`); await q.refetch(); await onChanged(); } catch (e) { setNote(apiErr(e, "No se pudo consultar el estado.")); } finally { setChecking(false); } }}>{checking ? "Consultando…" : "Actualizar estado"}</Button>}
+            {note && <p className="text-xs text-muted-foreground">{note}</p>}
+          </div>)}
+        {c.sat_status === "CANCELADO" && c.cancelled_at && <p className="text-sm text-muted-foreground">Cancelado el {dateShort(c.cancelled_at)}{c.cancel_reason_code ? ` (motivo ${c.cancel_reason_code})` : ""}.</p>}
         <DialogFooter>
+          {canCancel && c.direction === "ISSUED" && c.provider_external_id && (c.sat_status === "VIGENTE" || c.sat_status === "UNKNOWN") && <Button variant="outline" className="text-destructive" onClick={() => setCancelling(true)}>Cancelar CFDI</Button>}
           {canCreateExpense && c.direction === "RECEIVED" && c.cfdi_type === "I" && c.sat_status !== "CANCELADO" && Number(c.allocated_minor) === 0 && <Button onClick={() => onCreateExpense(c.id)}><Receipt />Crear gasto</Button>}
           {c.downloads.xml_url && <Button variant="outline" onClick={() => window.open(c.downloads.xml_url!, "_blank", "noopener")}><Download />XML</Button>}
           {c.downloads.pdf_url && <Button variant="outline" onClick={() => window.open(c.downloads.pdf_url!, "_blank", "noopener")}><Download />PDF</Button>}
           <Button variant="outline" onClick={onClose}>Cerrar</Button></DialogFooter>
       </>)}
+      {c && <CancelCfdi cfdi={c} open={cancelling} onOpenChange={setCancelling} onDone={async () => { await q.refetch(); await onChanged(); }} />}
     </DialogContent></Dialog>
   );
 }
+
+const REASONS = [
+  { code: "02", title: "02 · Se emitió con errores, sin sustituirla", text: "Úsalo si la factura tiene un dato mal y no la vas a reemplazar por otra." },
+  { code: "01", title: "01 · Se emitió con errores y la sustituyo por otra", text: "Primero emite la factura correcta; después cancela esta indicando cuál la sustituye." },
+  { code: "03", title: "03 · No se llevó a cabo la operación", text: "La venta o el servicio no se realizó." },
+];
+/** Cancelación de un CFDI emitido. Es irreversible y la confirma el SAT; el receptor puede tener que aceptarla. */
+function CancelCfdi({ cfdi, open, onOpenChange, onDone }: { cfdi: Detail; open: boolean; onOpenChange: (o: boolean) => void; onDone: () => Promise<unknown> }) {
+  const [reason, setReason] = useState("02"); const [replacement, setReplacement] = useState(""); const [sure, setSure] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
+  const issued = useQuery({ queryKey: ["cfdi", "list", "issued-for-replacement"], queryFn: () => api<{ data: Cfdi[] }>("/cfdi?direction=ISSUED"), enabled: open && reason === "01" });
+  const options = (issued.data?.data ?? []).filter((x) => x.id !== cfdi.id && x.sat_status !== "CANCELADO" && x.sat_status !== "CANCELANDO" && x.cfdi_type === "I");
+  async function go() {
+    setBusy(true); setError(null);
+    try { await api(`/cfdi/${cfdi.id}/cancel`, { body: { reason_code: reason, ...(reason === "01" ? { replacement_uuid: replacement } : {}), confirm: true } }); await onDone(); setSure(false); onOpenChange(false); }
+    catch (e) { setError(apiErr(e, "No se pudo solicitar la cancelación.")); } finally { setBusy(false); }
+  }
+  return (
+    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { setError(null); setSure(false); } }}><DialogContent>
+      <DialogHeader><DialogTitle>Cancelar CFDI {label(cfdi)}</DialogTitle><DialogDescription className="break-all font-mono text-xs">{cfdi.fiscal_uuid}</DialogDescription></DialogHeader>
+      <div className="space-y-3 text-sm">
+        <fieldset className="space-y-2"><legend className="mb-1 font-medium">Motivo</legend>
+          {REASONS.map((r) => <label key={r.code} className="flex cursor-pointer items-start gap-2 rounded-lg border p-2.5"><input type="radio" name="reason" className="mt-1" checked={reason === r.code} onChange={() => setReason(r.code)} /><span><span className="block font-medium">{r.title}</span><span className="block text-xs text-muted-foreground">{r.text}</span></span></label>)}
+        </fieldset>
+        {reason === "01" && (
+          <div className="space-y-1"><Label htmlFor="c-rep">CFDI que lo sustituye</Label>
+            <select id="c-rep" className="h-9 w-full rounded-lg border bg-background px-2 text-sm" value={replacement} onChange={(e) => setReplacement(e.target.value)}><option value="">Elige la factura nueva…</option>{options.map((o) => <option key={o.id} value={o.fiscal_uuid}>{label(o)} · {o.receiver_name ?? o.receiver_rfc} · {money(o.total_minor, o.currency)}</option>)}</select>
+            {issued.isFetched && options.length === 0 && <p className="text-xs text-amber-700">No hay otra factura emitida vigente. Emite primero la correcta.</p>}</div>)}
+        <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">La cancelación no se puede deshacer. No es inmediata: el SAT la confirma en minutos u horas y, según el caso, el receptor tiene que aceptarla; si la rechaza, el CFDI sigue vigente. Mientras tanto aparece como «Cancelando». Cancelar un CFDI emitido en producción es un trámite fiscal real.</p>
+        <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={sure} onChange={(e) => setSure(e.target.checked)} />Entiendo que es irreversible y quiero solicitar la cancelación de este CFDI.</label>
+        {error && <p role="alert" className="text-destructive">{error}</p>}
+      </div>
+      <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>No cancelar</Button><Button variant="destructive" onClick={() => void go()} disabled={busy || !sure || (reason === "01" && !replacement)}>{busy ? "Solicitando…" : "Solicitar cancelación"}</Button></DialogFooter>
+    </DialogContent></Dialog>
+  );
+}
+

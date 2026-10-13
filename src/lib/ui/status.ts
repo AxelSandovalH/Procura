@@ -66,6 +66,6 @@ export const INVOICING_STATUS: Record<string, { label: string; tone: Tone }> = {
   INVOICED: { label: "Facturada", tone: "ok" }, INCIDENT: { label: "Incidencia de facturación", tone: "bad" },
 };
 export const SAT_STATUS: Record<string, { label: string; tone: Tone }> = {
-  UNKNOWN: { label: "Vigencia sin verificar", tone: "muted" }, VIGENTE: { label: "Vigente", tone: "ok" }, CANCELADO: { label: "Cancelado", tone: "bad" },
+  UNKNOWN: { label: "Vigencia sin verificar", tone: "muted" }, VIGENTE: { label: "Vigente", tone: "ok" }, CANCELANDO: { label: "Cancelando", tone: "warn" }, CANCELADO: { label: "Cancelado", tone: "bad" },
 };
 export const PAYMENT_METHOD: Record<string, string> = { CASH: "Efectivo", CARD: "Tarjeta", TRANSFER: "Transferencia", OTHER: "Otro" };

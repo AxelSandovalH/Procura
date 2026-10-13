@@ -1,5 +1,5 @@
 import { env } from "@/lib/env";
-import { FiscalProviderError, type DownloadRequest, type DownloadRule, type DownloadedXml, type FiscalCapabilities, type FiscalProvider, type IssueRequest, type IssuedCfdi, type ProviderIssuer } from "@/lib/fiscal/provider";
+import { FiscalProviderError, type CancelRequest, type CancelResult, type DownloadRequest, type DownloadRule, type DownloadedXml, type FiscalCapabilities, type FiscalProvider, type IssueRequest, type IssuedCfdi, type ProviderIssuer } from "@/lib/fiscal/provider";
 
 /**
  * Adaptador de Fiscalapi.
@@ -14,9 +14,9 @@ import { FiscalProviderError, type DownloadRequest, type DownloadRule, type Down
  */
 class FiscalapiProvider implements FiscalProvider {
   readonly name = "fiscalapi";
-  readonly capabilities: FiscalCapabilities = { issue: true, fetchIssued: true, fetchReceived: true, statusLookup: false, downloadXml: false, downloadPdf: false };
+  readonly capabilities: FiscalCapabilities = { issue: true, fetchIssued: true, fetchReceived: true, statusLookup: true, downloadXml: false, downloadPdf: false, cancel: true };
   get notes() {
-    const out = ["Implementado: prueba de conexión, listado de emisores, emisión de factura de ingreso y descarga masiva de CFDI del SAT (reglas, solicitudes e importación). Falta verificar y construir: cancelación, consulta de estado y PDF."];
+    const out = ["Implementado: prueba de conexión, listado de emisores, emisión de factura de ingreso y descarga masiva de CFDI del SAT (reglas, solicitudes e importación). Cancelación y consulta de estado (verificadas contra su documentación; la cancelación solo aplica a facturas emitidas por referencia). Falta: PDF."];
     if (!this.isConfigured()) out.push("Faltan las variables de entorno FISCALAPI_API_KEY y FISCALAPI_TENANT en el servidor.");
     out.push("Cada empresa debe autorizar el acceso a su información fiscal; las credenciales de una no permiten consultar las de otra.");
     return out;
@@ -29,7 +29,7 @@ class FiscalapiProvider implements FiscalProvider {
   /** Ambiente al que apunta este servidor, para diagnosticar credenciales cruzadas (pruebas contra producción). */
   private envLabel() { const b = this.baseUrl(); return b === "https://test.fiscalapi.com" ? "ambiente de pruebas" : b === "https://live.fiscalapi.com" ? "ambiente de producción" : `ambiente ${b}`; }
   private baseUrl() { return (env().FISCALAPI_URL ?? "https://test.fiscalapi.com").replace(/\/+$/, ""); }
-  private async request(method: "GET" | "POST", path: string, body?: unknown, timeZone = "America/Mazatlan"): Promise<{ status: number; json: unknown }> {
+  private async request(method: "GET" | "POST" | "DELETE", path: string, body?: unknown, timeZone = "America/Mazatlan"): Promise<{ status: number; json: unknown }> {
     if (!this.isConfigured()) throw new FiscalProviderError("NOT_CONFIGURED", "Faltan FISCALAPI_API_KEY y FISCALAPI_TENANT en el servidor.");
     const e = env();
     let res: Response;
@@ -140,7 +140,27 @@ class FiscalapiProvider implements FiscalProvider {
     return { providerInvoiceId: id, fiscalUuid: j?.data?.uuid ?? resp?.invoiceUuid ?? null, xml: resp?.invoiceBase64 ? Buffer.from(resp.invoiceBase64, "base64") : null };
   }
   async listCfdi(): Promise<never> { return this.unsupported("Recuperación de CFDI"); }
-  async getCfdiStatus(): Promise<never> { return this.unsupported("Consulta de vigencia"); }
+  async getCfdiStatus(): Promise<never> { return this.unsupported("Consulta de vigencia por folio fiscal"); }
+  /** DELETE /api/v4/invoices {id, cancellationReasonCode: 01|02|03, replacementUuid (con 01)}. Firma con el CSD del emisor ya cargado; el motivo 04 (factura global) no se admite por esta vía. */
+  async cancelCfdi(req: CancelRequest): Promise<CancelResult> {
+    const r = await this.request("DELETE", "/api/v4/invoices", { id: req.providerInvoiceId, cancellationReasonCode: req.reasonCode, ...(req.reasonCode === "01" ? { replacementUuid: req.replacementUuid } : {}) });
+    const j = r.json as { succeeded?: boolean; data?: { base64CancellationAcknowledgement?: string; invoiceUuids?: Record<string, string> } } | null;
+    if (r.status < 200 || r.status >= 300 || j?.succeeded === false) {
+      if (r.status === 404) throw new FiscalProviderError("UPSTREAM", "Fiscalapi no encontró esta factura (¿se emitió con otra cuenta o ambiente?).");
+      throw new FiscalProviderError("UPSTREAM", `Fiscalapi no pudo cancelar el CFDI (${r.status}): ${this.why(r.json)}`.slice(0, 600));
+    }
+    const codes = Object.values(j?.data?.invoiceUuids ?? {});
+    return { satCode: codes[0] ?? null, acknowledgement: j?.data?.base64CancellationAcknowledgement ?? null };
+  }
+  /** POST /api/v4/invoices/status {id} → data.status («Vigente», «Cancelando», «Cancelado»), data.cancelableStatus. */
+  async invoiceStatus(providerInvoiceId: string) {
+    const r = await this.request("POST", "/api/v4/invoices/status", { id: providerInvoiceId });
+    const j = r.json as { succeeded?: boolean; data?: { status?: string; cancelableStatus?: string } } | null;
+    if (r.status < 200 || r.status >= 300 || j?.succeeded === false) throw new FiscalProviderError("UPSTREAM", `Fiscalapi no pudo consultar el estado (${r.status}): ${this.why(r.json)}`.slice(0, 400));
+    const raw = String(j?.data?.status ?? "").trim(); const s = raw.toLowerCase();
+    const state = s.startsWith("cancelando") ? "CANCELANDO" as const : s.startsWith("cancelado") ? "CANCELADO" as const : s.startsWith("vigente") ? "VIGENTE" as const : "UNKNOWN" as const;
+    return { state, raw, cancelable: j?.data?.cancelableStatus?.trim() || null };
+  }
 }
 
 let instance: FiscalProvider | null = null;

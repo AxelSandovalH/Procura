@@ -2709,6 +2709,11 @@ model cfdi_documents {
   provider                 String?
   provider_external_id     String?
   last_synced_at           DateTime?      @db.Timestamptz(6)
+  cancel_reason_code       String?
+  cancel_replacement_uuid  String?
+  cancel_requested_at      DateTime?      @db.Timestamptz(6)
+  cancel_requested_by      String?        @db.Uuid
+  cancelled_at             DateTime?      @db.Timestamptz(6)
   allocated_minor          BigInt         @default(0)
   created_by_membership_id String?        @db.Uuid
   created_at               DateTime       @default(now()) @db.Timestamptz(6)
