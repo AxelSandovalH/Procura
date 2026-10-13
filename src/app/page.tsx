@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowRight, BookOpen, ClipboardCheck, FileSearch, Handshake, Lock, PackageCheck, Plug, ShieldCheck, Store, Truck, Webhook } from "lucide-react";
+import { ArrowRight, BookOpen, ClipboardCheck, DownloadCloud, FilePlus2, FileSearch, Handshake, Landmark, LineChart, Lock, MessageSquareText, PackageCheck, Plug, Receipt, ScanLine, ShieldCheck, Store, Truck, Wallet, Webhook } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Pricing } from "./_landing/pricing";
@@ -8,12 +8,12 @@ import { LandingFooter, LandingHeader } from "./_landing/shell";
 import { ProductPreview } from "./_landing/product-preview";
 
 export const metadata: Metadata = {
-  title: { absolute: "Procura — Compras entre organizaciones en un solo flujo" },
-  description: "Requisiciones, aprobaciones, cotizaciones, órdenes y entregas entre quien compra y quien vende, en un solo lugar. Cada organización conserva lo suyo en privado. Con API y webhooks para tu ERP.",
+  title: { absolute: "Procura — Compras, gastos y facturación en un solo flujo" },
+  description: "Requisiciones, aprobaciones, cotizaciones y órdenes entre quien compra y quien vende, y además tus gastos, CFDI, ventas, cobros y conciliación bancaria. Cada organización conserva lo suyo en privado. Con API y webhooks para tu ERP.",
   alternates: { canonical: "/" },
 };
 
-const FLOW = ["Requisición", "Aprobación", "Cotización", "Orden", "Entrega", "Recepción"];
+const FLOW = ["Requisición", "Aprobación", "Cotización", "Orden", "Entrega", "Recepción", "Factura (CFDI)", "Pago", "Conciliación"];
 
 const STEPS = [
   { icon: ClipboardCheck, title: "Pide", text: "Una persona autorizada crea la requisición: qué necesita, cuánto y para cuándo. Y si ya pidió algo parecido, puede duplicar la requisición anterior." },
@@ -22,12 +22,24 @@ const STEPS = [
   { icon: PackageCheck, title: "Recibe", text: "El proveedor confirma la orden y registra entregas, incluso parciales. Quien compra confirma la recepción y señala discrepancias." },
 ];
 
+const FINANCE = [
+  { icon: ScanLine, title: "Gastos con una foto o un PDF", text: "Sube el ticket o el recibo (Vercel, Supabase, la gasolinera…). Procura lee fecha, total y comercio; tú revisas y confirmas antes de guardar. Si ya está pagado, lo marcas desde ahí." },
+  { icon: Receipt, title: "CFDI recibidos y emitidos", text: "Carga XML, PDF o ZIP en bloque, o trae tus facturas recibidas del SAT con la descarga masiva. Cada CFDI se liga al gasto o a la venta que documenta, por el importe que cubre." },
+  { icon: DownloadCloud, title: "Facturas del SAT, sin capturarlas", text: "Con tu e.firma en tu proveedor, las facturas que te emiten llegan solas y se ligan a tus gastos. Si subiste solo el PDF, el gasto espera el XML y se liga cuando llega." },
+  { icon: FilePlus2, title: "Emite tus facturas", text: "Desde una venta, emites el CFDI de ingreso con tu proveedor de timbrado (Fiscalapi). Revisas los datos y tú pulsas «Timbrar»: nada se emite sin tu confirmación." },
+  { icon: Wallet, title: "Ventas, cobros y pagos", text: "Registra ventas y gastos, con cobros y pagos parciales. Los estados de cobro, pago y facturación se calculan solos. Marca varios gastos como pagados de una vez." },
+  { icon: Landmark, title: "Conciliación bancaria", text: "Importa el CSV de tu estado de cuenta. Procura sugiere con qué gasto, venta o pago corresponde cada movimiento; tú confirmas, y el pago queda con la fecha del banco." },
+  { icon: LineChart, title: "Finanzas con gráficas", text: "Tendencia de 6 meses, gastos por categoría, principales proveedores y cuánto de tu gasto ya tiene CFDI, con la lista de cuáles sí y cuáles no." },
+  { icon: MessageSquareText, title: "Todo con su rastro", text: "Notas con fecha y autor en cada gasto, datos para pedir tu factura listos para copiar (RFC, régimen, uso de CFDI, domicilio) y una bitácora de cada cambio." },
+];
+
 const BUYERS = [
   "Requisiciones con aprobación según tus propias reglas de monto y área.",
   "Comparativo de cotizaciones lado a lado, con el menor precio por concepto resaltado.",
   "Tu presupuesto y precios estimados son privados: el proveedor nunca los ve.",
   "Consulta el catálogo que tus proveedores comparten contigo.",
   "Historial completo y bitácora de auditoría de cada decisión.",
+  "Las facturas que tus proveedores adjuntan a la orden quedan como tus CFDI recibidos, listas para ligarse a un gasto.",
 ];
 const SUPPLIERS = [
   "Bandeja de solicitudes de tus clientes y cotización desde la plataforma, con versiones.",
@@ -35,6 +47,7 @@ const SUPPLIERS = [
   "Tu catálogo es privado: compartes solo lo que quieras con cada cliente. Impórtalo desde Excel o CSV.",
   "Tus costos y notas internas nunca se muestran a quien compra.",
   "Confirma órdenes, registra entregas parciales y da seguimiento a las recepciones.",
+  "Adjunta tu factura (CFDI) a la orden para que quien compra la tenga en su contabilidad.",
 ];
 
 const FAQ = [
@@ -42,7 +55,9 @@ const FAQ = [
   { q: "¿Otros pueden ver mi información?", a: "No. Cada organización ve solo lo suyo. Lo que se comparte con la contraparte (una solicitud de cotización, una orden, una conversación) es explícito, y tu presupuesto, costos y notas internas nunca salen de tu organización. El aislamiento se aplica en la propia base de datos, no solo en la interfaz." },
   { q: "¿Se conecta con mi ERP?", a: "Sí. Procura tiene una API para crear requisiciones y consultar órdenes y entregas, y webhooks firmados para que tu sistema se entere de cada evento. También hay un feed de eventos para quien no pueda recibir webhooks." },
   { q: "¿Una persona puede estar en varias organizaciones?", a: "Sí. Un mismo usuario puede pertenecer a varias organizaciones y cambiar de una a otra; cada organización aprueba a sus miembros y decide sus permisos." },
-  { q: "¿Procura maneja facturas o pagos?", a: "Por ahora no. Cubre desde la requisición hasta la recepción de lo comprado. Facturación y pagos quedan fuera del alcance actual." },
+  { q: "¿Procura maneja facturas y pagos?", a: "Sí. Registra gastos y ventas, sus pagos y cobros (también parciales), y los CFDI que los documentan: puedes cargarlos, traerlos del SAT con la descarga masiva o emitirlos desde una venta. También concilia tu estado de cuenta importando el CSV de tu banco." },
+  { q: "¿Quién timbra mis facturas?", a: "Un proveedor autorizado de timbrado (PAC) conectado a Procura: hoy Fiscalapi. Tú tienes tu propia cuenta con él, tus certificados se guardan en su panel (nunca en Procura) y cada factura se timbra solo cuando tú pulsas «Timbrar». La descarga masiva del SAT también depende de ese proveedor y de tu e.firma." },
+  { q: "¿Procura es mi contabilidad?", a: "No. El resumen de Finanzas es operativo: con lo registrado en Procura, no es utilidad fiscal ni declaración de impuestos. Procura todavía no cancela CFDI ni se conecta directo a tu banco: la conciliación es con el archivo CSV de tu estado de cuenta. Para lo fiscal, sigue apoyándote en tu contador." },
   { q: "¿Se borra algo?", a: "No. Cancelar, rechazar o retirar deja el registro con su motivo y quién lo hizo. Todo cambio importante queda en la bitácora." },
 ];
 
@@ -56,8 +71,8 @@ export default function Home() {
         <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:py-20 lg:grid-cols-[1.05fr_1fr]">
           <div className="space-y-6">
             <p className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground"><Handshake className="size-3.5" />Compradores y proveedores, en la misma plataforma</p>
-            <h1 className="text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">Compras entre organizaciones, en un solo flujo.</h1>
-            <p className="max-w-xl text-lg text-muted-foreground">Requisiciones, aprobaciones, cotizaciones, órdenes y entregas entre quien compra y quien vende. Sin hojas de cálculo ni correos perdidos, y cada organización conserva lo suyo en privado.</p>
+            <h1 className="text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">Compras, gastos y facturación, en un solo flujo.</h1>
+            <p className="max-w-xl text-lg text-muted-foreground">Requisiciones, aprobaciones, cotizaciones, órdenes y entregas entre quien compra y quien vende. Y después, tus gastos, tus facturas (CFDI) y tu conciliación bancaria. Sin hojas de cálculo ni correos perdidos, y cada organización conserva lo suyo en privado.</p>
             <div className="flex flex-wrap gap-3">
               <Link href="/registro" className={cn(buttonVariants({ size: "lg" }), "h-11 px-5 text-base")}>Crear cuenta <ArrowRight className="size-4" /></Link>
               <Link href="/login" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-11 px-5 text-base")}>Iniciar sesión</Link>
@@ -76,6 +91,25 @@ export default function Home() {
                 {i < FLOW.length - 1 && <ArrowRight className="size-4 text-muted-foreground" aria-hidden />}
               </li>))}
           </ol>
+        </section>
+
+        {/* Finanzas y fiscal */}
+        <section id="finanzas" className="scroll-mt-20 border-y bg-muted/40">
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
+            <div className="max-w-2xl space-y-2">
+              <h2 className="text-3xl font-semibold tracking-tight">Y después de comprar: gastos, facturas y conciliación</h2>
+              <p className="text-muted-foreground">Lo que compras, lo que gastas y lo que facturas, en el mismo lugar y ligado entre sí.</p>
+            </div>
+            <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {FINANCE.map((f) => (
+                <li key={f.title} className="rounded-xl border bg-background p-5">
+                  <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground"><f.icon className="size-4" /></span>
+                  <h3 className="mt-4 font-semibold tracking-tight">{f.title}</h3>
+                  <p className="mt-1.5 text-sm text-muted-foreground">{f.text}</p>
+                </li>))}
+            </ul>
+            <p className="mt-6 text-xs text-muted-foreground">Finanzas es un resumen operativo con lo registrado en Procura; no sustituye a tu contabilidad ni a tu declaración de impuestos.</p>
+          </div>
         </section>
 
         {/* Cómo funciona */}

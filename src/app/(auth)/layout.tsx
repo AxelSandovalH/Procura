@@ -8,7 +8,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <section className="hidden flex-col justify-between bg-primary p-10 text-primary-foreground lg:flex">
         <Link href="/" aria-label="Procura, volver al inicio" className="w-fit rounded-md outline-none focus-visible:ring-3 focus-visible:ring-primary-foreground/40"><Logo size={28} textClassName="text-xl" /></Link>
         <div className="max-w-md space-y-4">
-          <h2 className="text-3xl leading-tight font-semibold tracking-tight">Compras entre organizaciones, sin hojas de cálculo ni correos perdidos.</h2>
+          <h2 className="text-3xl leading-tight font-semibold tracking-tight">Compras, gastos y facturación, sin hojas de cálculo ni correos perdidos.</h2>
           <p className="text-sm text-primary-foreground/70">Requisiciones, aprobaciones, cotizaciones, órdenes y entregas en un solo flujo — y cada organización conserva lo suyo en privado.</p>
         </div>
         <div className="text-xs text-primary-foreground/50">Requisición → Aprobación → Cotización → Orden → Entrega → Recepción</div>

@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "Procura — Compras entre organizaciones en un solo flujo";
+export const alt = "Procura — Compras, gastos y facturación en un solo flujo";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -15,7 +15,7 @@ export default async function Image() {
           </svg>
           <div style={{ fontSize: 96, fontWeight: 700, letterSpacing: -3 }}>Procura</div>
         </div>
-        <div style={{ marginTop: 44, fontSize: 46, lineHeight: 1.2, maxWidth: 940, color: "#e5e5e5" }}>Compras entre organizaciones, en un solo flujo.</div>
+        <div style={{ marginTop: 44, fontSize: 46, lineHeight: 1.2, maxWidth: 940, color: "#e5e5e5" }}>Compras, gastos y facturación, en un solo flujo.</div>
         <div style={{ marginTop: 28, fontSize: 28, color: "#a3a3a3" }}>Requisición → Aprobación → Cotización → Orden → Entrega → Recepción</div>
       </div>
     ),

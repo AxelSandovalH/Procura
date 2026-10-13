@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 /** Permite instalar Procura en el teléfono; Android arma la pantalla de arranque con el icono y estos colores. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Procura", short_name: "Procura", description: "Compras entre organizaciones en un solo flujo",
+    name: "Procura", short_name: "Procura", description: "Compras, gastos y facturación en un solo flujo",
     start_url: "/inicio", scope: "/", display: "standalone", lang: "es-MX",
     background_color: "#2b2f32", theme_color: "#2b2f32",
     icons: [

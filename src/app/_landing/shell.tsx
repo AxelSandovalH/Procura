@@ -13,6 +13,7 @@ export function LandingHeader({ base = "" }: { base?: string }) {
         <a href={`${base}#como-funciona`} className="hover:text-foreground">Cómo funciona</a>
         <a href={`${base}#compradores`} className="hover:text-foreground">Para quien compra</a>
         <a href={`${base}#proveedores`} className="hover:text-foreground">Para quien vende</a>
+        <a href={`${base}#finanzas`} className="hover:text-foreground">Finanzas</a>
         <a href={`${base}#integraciones`} className="hover:text-foreground">Integraciones</a>
         <a href={`${base}#precios`} className="hover:text-foreground">Precios</a>
         <a href={`${base}#preguntas`} className="hover:text-foreground">Preguntas</a>
