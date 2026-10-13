@@ -41,6 +41,22 @@ function DocList({ title, dot, rows, currency, empty }: { title: string; dot: st
   );
 }
 
+const Caption = ({ children }: { children: React.ReactNode }) => <p className="mt-3 text-xs text-muted-foreground">{children}</p>;
+
+/** Descripciones de cada gráfica con los datos reales del periodo (nada inventado: solo lo que muestran las barras y los sectores). */
+function describe(c: ChartData, cur: string) {
+  const last = c.months[c.months.length - 1], prev = c.months[c.months.length - 2];
+  const m = (v: number) => money(v, cur);
+  const name = (ym?: string) => (ym ? new Intl.DateTimeFormat("es-MX", { month: "long", timeZone: "UTC" }).format(new Date(`${ym}-01T00:00:00Z`)) : "");
+  const registered = last ? `En ${name(last.month)}: ${m(last.sales)} vendidos y ${m(last.expenses)} gastados${prev ? `. En ${name(prev.month)}: ${m(prev.sales)} y ${m(prev.expenses)}` : ""}. Lo registrado cuenta aunque aún no se cobre o pague.` : "";
+  const cash = last ? `En ${name(last.month)}: entraron ${m(last.collected)} por cobros y salieron ${m(last.paid)} por pagos${prev ? `; en ${name(prev.month)}, ${m(prev.collected)} y ${m(prev.paid)}` : ""}. Es dinero que ya se movió, no lo pendiente.` : "";
+  const spent = c.docs.with + c.docs.without, topCat = c.categories[0], topSup = c.suppliers[0];
+  const categories = topCat && spent > 0 ? `La categoría más grande es «${topCat.label}»: ${Math.round((topCat.total_minor / spent) * 100)}% de lo gastado en el periodo (${m(topCat.total_minor)}).` : "Sin gastos en el periodo elegido.";
+  const suppliers = topSup && spent > 0 ? `${topSup.label} concentra ${Math.round((topSup.total_minor / spent) * 100)}% de lo gastado en el periodo (${m(topSup.total_minor)}). Se muestran los ${c.suppliers.length} proveedores con más gasto.` : "Sin gastos en el periodo elegido.";
+  const coverage = spent > 0 ? `${Math.round((c.docs.with / spent) * 100)}% de lo gastado en el periodo ya tiene CFDI. ${c.without_list.length === 0 ? "No hay gastos sin factura." : `Los ${c.without_list.length} gastos sin CFDI suman ${m(c.docs.without)}: pídeles su factura o carga el XML; abajo está la lista.`}` : "Sin gastos en el periodo elegido.";
+  return { registered, cash, categories, suppliers, coverage };
+}
+
 export default function FinanzasPage() {
   const session = useSession();
   const [range, setRange] = useState(monthRange(0));
@@ -57,7 +73,7 @@ export default function FinanzasPage() {
         <Input aria-label="Desde" type="date" className="w-40" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} />
         <Input aria-label="Hasta" type="date" className="w-40" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} />
       </div>
-      <p role="note" className="mb-6 flex items-start gap-2 text-sm text-muted-foreground"><Info className="mt-0.5 size-4 shrink-0" />No es utilidad fiscal, declaración de impuestos ni contabilidad definitiva. Ventas registradas, facturación emitida, cobros y gastos son conceptos distintos y no se suman entre sí.</p>
+      <p role="note" className="mb-6 flex items-start gap-2 text-xs text-muted-foreground"><Info className="mt-0.5 size-4 shrink-0" />No es utilidad fiscal, declaración de impuestos ni contabilidad definitiva. Ventas registradas, facturación emitida, cobros y gastos son conceptos distintos y no se suman entre sí.</p>
       {q.isLoading ? <div className="h-48 animate-pulse rounded-xl bg-muted" /> : q.error ? <p className="text-sm text-destructive">No se pudo cargar el resumen (revisa que el periodo sea válido).</p> : currencies.length === 0 ? (
         <div className="rounded-xl border border-dashed p-12 text-center"><p className="font-medium">Sin movimientos en este periodo</p><p className="mt-1 text-sm text-muted-foreground">Registra ventas y gastos para ver el resumen.</p></div>
       ) : currencies.map((cur) => {
@@ -65,6 +81,19 @@ export default function FinanzasPage() {
         return (
           <section key={cur} className="mb-8 space-y-4" aria-label={`Resumen en ${cur}`}>
             <h2 className="text-lg font-semibold">{cur}</h2>
+            {charts.data?.by_currency[cur] && (() => { const c = charts.data!.by_currency[cur]!; const t = describe(c, cur); return (
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card className="lg:col-span-2"><CardHeader><CardTitle>Últimos 6 meses</CardTitle></CardHeader><CardContent><div className="grid gap-6 md:grid-cols-2">
+                  <div><p className="mb-1 text-sm font-medium">Registrado</p><MonthlyBars data={c.months} currency={cur} series={[{ key: "sales", label: "Ventas", color: "#10b981" }, { key: "expenses", label: "Gastos", color: "#f59e0b" }]} /><Caption>{t.registered}</Caption></div>
+                  <div><p className="mb-1 text-sm font-medium">Dinero que entró y salió</p><MonthlyBars data={c.months} currency={cur} series={[{ key: "collected", label: "Cobros", color: "#6366f1" }, { key: "paid", label: "Pagos", color: "#ec4899" }]} /><Caption>{t.cash}</Caption></div></div></CardContent></Card>
+                <Card><CardHeader><CardTitle>Gastos por categoría</CardTitle></CardHeader><CardContent><Donut items={c.categories} currency={cur} centerLabel="Total" /><Caption>{t.categories}</Caption></CardContent></Card>
+                <Card><CardHeader><CardTitle>Principales proveedores</CardTitle></CardHeader><CardContent><HBars items={c.suppliers} currency={cur} /><Caption>{t.suppliers}</Caption></CardContent></Card>
+                <Card className="lg:col-span-2"><CardHeader><CardTitle>Gasto documentado</CardTitle></CardHeader><CardContent><Coverage withDoc={c.docs.with} withoutDoc={c.docs.without} currency={cur} /><Caption>{t.coverage}</Caption>
+                  <div className="mt-5 grid gap-5 md:grid-cols-2">
+                    <DocList title="Con CFDI" dot="bg-emerald-500" rows={c.with_list} currency={cur} empty="Ningún gasto del periodo tiene CFDI ligado." />
+                    <DocList title="Sin CFDI" dot="bg-amber-400" rows={c.without_list} currency={cur} empty="Todos los gastos del periodo tienen CFDI." />
+                  </div></CardContent></Card>
+              </div>); })()}
             <div><h3 className="mb-2 text-sm font-medium text-muted-foreground">Ingresos</h3><div className="grid gap-3 sm:grid-cols-3">
               <Stat title="Ventas registradas" hint="en el periodo" b={d.sales_registered} currency={cur} /><Stat title="Facturación emitida" hint="CFDI de ingreso vigentes" b={d.invoicing_issued} currency={cur} /><Stat title="Cobros recibidos" hint="en el periodo" b={d.collections_received} currency={cur} /></div></div>
             <div><h3 className="mb-2 text-sm font-medium text-muted-foreground">Egresos</h3><div className="grid gap-3 sm:grid-cols-3">
@@ -72,19 +101,6 @@ export default function FinanzasPage() {
             <div><h3 className="mb-2 text-sm font-medium text-muted-foreground">Pendientes (al {q.data!.period.to})</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Stat title="Ventas por cobrar" hint="saldo vivo" b={d.receivable} currency={cur} tone="warn" /><Stat title="Gastos por pagar" hint="saldo vivo" b={d.payable} currency={cur} tone="warn" />
               <Stat title="Ventas sin CFDI" hint="del periodo" b={d.sales_without_cfdi} currency={cur} tone="warn" /><Stat title="Gastos sin CFDI" hint="del periodo" b={d.expenses_without_cfdi} currency={cur} tone="warn" /></div></div>
-            {charts.data?.by_currency[cur] && (() => { const c = charts.data!.by_currency[cur]!; return (
-              <div className="grid gap-4 lg:grid-cols-2">
-                <Card className="lg:col-span-2"><CardHeader><CardTitle>Últimos 6 meses</CardTitle></CardHeader><CardContent><div className="grid gap-6 md:grid-cols-2">
-                  <div><p className="mb-1 text-sm font-medium">Registrado</p><MonthlyBars data={c.months} currency={cur} series={[{ key: "sales", label: "Ventas", color: "#10b981" }, { key: "expenses", label: "Gastos", color: "#f59e0b" }]} /></div>
-                  <div><p className="mb-1 text-sm font-medium">Dinero que entró y salió</p><MonthlyBars data={c.months} currency={cur} series={[{ key: "collected", label: "Cobros", color: "#6366f1" }, { key: "paid", label: "Pagos", color: "#ec4899" }]} /></div></div></CardContent></Card>
-                <Card><CardHeader><CardTitle>Gastos por categoría</CardTitle></CardHeader><CardContent><Donut items={c.categories} currency={cur} centerLabel="Total" /></CardContent></Card>
-                <Card><CardHeader><CardTitle>Principales proveedores</CardTitle></CardHeader><CardContent><HBars items={c.suppliers} currency={cur} /></CardContent></Card>
-                <Card className="lg:col-span-2"><CardHeader><CardTitle>Gasto documentado</CardTitle></CardHeader><CardContent><Coverage withDoc={c.docs.with} withoutDoc={c.docs.without} currency={cur} />
-                  <div className="mt-5 grid gap-5 md:grid-cols-2">
-                    <DocList title="Con CFDI" dot="bg-emerald-500" rows={c.with_list} currency={cur} empty="Ningún gasto del periodo tiene CFDI ligado." />
-                    <DocList title="Sin CFDI" dot="bg-amber-400" rows={c.without_list} currency={cur} empty="Todos los gastos del periodo tienen CFDI." />
-                  </div></CardContent></Card>
-              </div>); })()}
             <Card><CardHeader><CardTitle>Diferencias entre lo registrado y lo documentado</CardTitle></CardHeader><CardContent>
               {d.differences.length === 0 ? <p className="text-sm text-muted-foreground">Sin diferencias: lo que tiene CFDI coincide con su total.</p> : (
                 <ul className="divide-y text-sm">{d.differences.map((x) => (
