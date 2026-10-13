@@ -2,6 +2,7 @@
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, FileText, Info, Search, Upload } from "lucide-react";
+import { SatDownloadCard } from "@/components/app/sat-download";
 import { PageHeader } from "@/components/app/page-header";
 import { StatusBadge } from "@/components/app/status-badge";
 import { apiErr } from "@/components/app/finance-sections";
@@ -44,6 +45,7 @@ export default function FacturasPage() {
     <>
       <PageHeader title="Facturas" description="Comprobantes fiscales (CFDI) emitidos y recibidos. Ligarlos a ventas y gastos documenta tus operaciones."
         actions={session.can("cfdi.manage") ? <Button onClick={() => setUpload(true)}><Upload />Cargar CFDI</Button> : undefined} />
+      <SatDownloadCard onImported={refresh} />
       {provider.data && (
         <div role="status" className="mb-4 flex items-start gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm"><Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
           <div><span className="font-medium">Proveedor fiscal: {provider.data.configured ? "credenciales presentes" : "sin configurar"}.</span> La emisión de CFDI y la sincronización automática con el SAT o un proveedor aún no están disponibles; por ahora se cargan los XML manualmente y los que adjuntan tus proveedores a sus órdenes aparecen solos.</div></div>)}

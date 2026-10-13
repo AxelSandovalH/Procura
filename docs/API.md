@@ -282,7 +282,7 @@ Detalle del modelo y de lo que NO hace en [FINANZAS.md](FINANZAS.md). Importes e
 | GET | `/cfdi/{id}` (operaciones ligadas + URLs firmadas XML/PDF) | `cfdi.read` |
 | GET / POST | `/customers` | `sale.read` / `sale.manage` |
 | GET | `/finance/summary?from=&to=` — por moneda: ventas registradas, facturación emitida/recibida, cobros, gastos, pagos, por cobrar/pagar, operaciones sin CFDI y diferencias | `finance.read` |
-| GET / POST | `/fiscal/provider` (estado real y capacidades) · `POST /fiscal/test` (prueba de conexión de solo lectura) · `/fiscal/sync` (`501` mientras no esté implementada) | `cfdi.read` / `cfdi.manage` |
+| GET / POST | `/fiscal/provider` (estado real y capacidades) · `POST /fiscal/test` (prueba de conexión de solo lectura) · `GET /fiscal/downloads` (estado de la descarga masiva) · `POST /fiscal/downloads/rules` (activarla) · `POST /fiscal/sync` `{ from?, to? }` (pide el periodo al SAT vía el proveedor e importa lo listo) | `cfdi.read` / `cfdi.manage` |
 
 Cambios en gastos: `POST /expenses` acepta `cfdi_ids[]` (ya no `supplier_invoice_ids`) y devuelve estados `payment_status` / `invoicing_status`, `payments[]` y `cfdi[]`. Se retiraron `POST /expenses/{id}/invoices` y `DELETE …/invoices/{iid}` (sustituidos por `/cfdi`).
 

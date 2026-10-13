@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/dispatch-events",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/fiscal-sync",
+      "schedule": "7 * * * *"
     }
   ]
 }

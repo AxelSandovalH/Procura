@@ -2779,3 +2779,22 @@ model fiscal_issue_requests {
 
   @@schema("public")
 }
+
+model fiscal_sync_imports {
+  id                  String         @id @default(dbgenerated("app.uuid_v7()")) @db.Uuid
+  organization_id     String         @db.Uuid
+  provider            String
+  provider_request_id String
+  provider_rule_id    String?
+  direction           cfdi_direction
+  status              String
+  created_count       Int            @default(0)
+  duplicate_count     Int            @default(0)
+  error_count         Int            @default(0)
+  last_error          String?
+  created_at          DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime       @default(now()) @db.Timestamptz(6)
+
+  @@unique([organization_id, provider, provider_request_id])
+  @@schema("public")
+}

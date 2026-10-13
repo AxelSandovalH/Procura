@@ -33,8 +33,12 @@ Permisos nuevos: `sale.read`, `sale.manage`, `payment.manage`, `cfdi.read`, `cfd
 
 Cuando se verifique el contrato: implementar cada método del adaptador, declarar su capacidad, y mantener **separados** los flujos de emisión y de recuperación. Cada empresa deberá autorizar el acceso a su información fiscal; las credenciales de una no sirven para otra.
 
+## Descarga masiva del SAT (Fiscalapi)
+Verificado en `docs.fiscalapi.com` (`/download-info`, `/download-rules`, `/download-requests`): requiere el módulo de descarga masiva y la **e.firma** (no el CSD) cargada en el proveedor; se crean **reglas** (CFDI emitidos y recibidos vigentes), el proveedor genera **solicitudes** (una automática diaria; por API solo manuales, máximo 31 días por solicitud) y los XML listos se leen con `GET /api/v4/download-requests/{id}/xmls` (`base64Content`).
+Procura: `POST /fiscal/downloads/rules` (activa y crea las reglas que falten), `GET /fiscal/downloads` (estado), `POST /fiscal/sync` (con `from`/`to` pide periodos en ventanas de 30 días; siempre importa lo listo) y el cron horario `/api/cron/fiscal-sync`. Es idempotente (folio fiscal único por organización + registro de solicitudes importadas en `fiscal_sync_imports`). **Sin verificar:** parámetros de paginación de `/xmls` (se usa `pageNumber`/`pageSize` y se corta si el proveedor los ignora), valores de estado de reglas y solicitudes (se muestran tal cual), costo y plan.
+
 ## Qué no hace
-- No emite CFDI ni los timbra; no sincroniza con el SAT ni con un PAC; no consulta vigencia (`sat_status` queda `UNKNOWN` salvo que se registre).
+- No cancela CFDI ni descarga su PDF; no consulta vigencia de uno cargado a mano (`sat_status` queda `UNKNOWN`; los traídos por descarga masiva y los emitidos desde Procura se marcan vigentes al recibirlos).
 - No genera pólizas ni lleva catálogo contable. Lo que el resumen (`GET /finance/summary`) muestra **no es utilidad fiscal, declaración de impuestos ni contabilidad definitiva**.
 - No concilia con bancos.
 

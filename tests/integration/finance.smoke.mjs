@@ -163,8 +163,9 @@ try {
 
   console.log("Proveedor fiscal: sin simulaciones");
   r = await axel.call("/fiscal/provider");
-  check("declara solo lo que está implementado (emitir); recuperar, vigencia, PDF y XML siguen apagados", r.status === 200 && r.body.capabilities.issue === true && !r.body.capabilities.fetchIssued && !r.body.capabilities.fetchReceived && !r.body.capabilities.statusLookup && !r.body.capabilities.downloadPdf);
-  check("la sincronización responde 501, no finge", (await axel.call("/fiscal/sync", "POST", {})).status === 501);
+  check("declara solo lo implementado (emitir y descarga masiva); vigencia y PDF siguen apagados", r.status === 200 && r.body.capabilities.issue === true && r.body.capabilities.fetchReceived === true && !r.body.capabilities.statusLookup && !r.body.capabilities.downloadPdf);
+  const sy = await axel.call("/fiscal/sync", "POST", {});
+  check("la sincronización sin emisor configurado se rechaza con motivo, no finge (409)", sy.status === 409 && /emisor|reglas|configura/i.test(sy.body?.detail ?? ""), JSON.stringify(sy.body)?.slice(0, 160));
 } catch (e) {
   fail++; failures.push("excepción: " + e.message); console.error(e);
 } finally {

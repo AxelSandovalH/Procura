@@ -7,7 +7,7 @@
  */
 export interface FiscalCapabilities {
   issue: boolean;            // emitir CFDI
-  fetchIssued: boolean;      // recuperar CFDI emitidos
+  fetchIssued: boolean;      // recuperar CFDI emitidos (descarga masiva)
   fetchReceived: boolean;    // recuperar CFDI recibidos (requiere autorización fiscal de la empresa)
   statusLookup: boolean;     // consultar vigencia ante el SAT
   downloadXml: boolean;
@@ -33,6 +33,11 @@ export interface IssueRequest {
 export interface IssuedCfdi { providerInvoiceId: string; fiscalUuid: string | null; xml: Buffer | null }
 export interface ProviderIssuer { id: string; legalName: string; taxId: string; taxRegimeCode: string | null; zipCode: string | null }
 
+/** Descarga masiva de CFDI del SAT a través del proveedor (requiere e.firma de la persona cargada en el proveedor). */
+export interface DownloadRule { id: string; personId: string | null; tin: string | null; description: string; queryType: string | null; downloadType: string | null; invoiceStatus: string | null; status: string | null }
+export interface DownloadRequest { id: string; ruleId: string | null; ready: boolean; invoiceCount: number | null; status: string | null; startDate: string | null; endDate: string | null }
+export interface DownloadedXml { id: string; xml: Buffer }
+
 export class FiscalProviderError extends Error {
   constructor(public code: "NOT_CONFIGURED" | "NOT_SUPPORTED" | "RATE_LIMITED" | "UNAUTHORIZED" | "UPSTREAM", message: string, public retryAfterSeconds?: number) { super(message); }
 }
@@ -50,6 +55,11 @@ export interface FiscalProvider {
   listCfdi(orgExternalAccount: string, params: { direction: "ISSUED" | "RECEIVED"; from: Date; to: Date; cursor?: string }): Promise<{ items: NormalizedCfdi[]; nextCursor?: string }>;
   getCfdiStatus(fiscalUuid: string): Promise<NormalizedCfdi["satStatus"]>;
   /** Comprueba que las credenciales del servidor funcionan, sin modificar nada en el proveedor. */
+  listDownloadRules(): Promise<DownloadRule[]>;
+  createDownloadRule(input: { personId: string; description: string; downloadType: "Emitidos" | "Recibidos" }): Promise<DownloadRule>;
+  listDownloadRequests(maxPages?: number): Promise<DownloadRequest[]>;
+  createDownloadRequest(input: { ruleId: string; start: Date; end: Date }): Promise<DownloadRequest>;
+  listDownloadedXml(requestId: string, page: number): Promise<{ items: DownloadedXml[]; hasNext: boolean }>;
   testConnection(): Promise<{ ok: true; environment: "test" | "live" | "custom" }>;
 }
 

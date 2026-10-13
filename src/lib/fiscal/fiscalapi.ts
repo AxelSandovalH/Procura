@@ -1,5 +1,5 @@
 import { env } from "@/lib/env";
-import { FiscalProviderError, type FiscalCapabilities, type FiscalProvider, type IssueRequest, type IssuedCfdi, type ProviderIssuer } from "@/lib/fiscal/provider";
+import { FiscalProviderError, type DownloadRequest, type DownloadRule, type DownloadedXml, type FiscalCapabilities, type FiscalProvider, type IssueRequest, type IssuedCfdi, type ProviderIssuer } from "@/lib/fiscal/provider";
 
 /**
  * Adaptador de Fiscalapi.
@@ -14,9 +14,9 @@ import { FiscalProviderError, type FiscalCapabilities, type FiscalProvider, type
  */
 class FiscalapiProvider implements FiscalProvider {
   readonly name = "fiscalapi";
-  readonly capabilities: FiscalCapabilities = { issue: true, fetchIssued: false, fetchReceived: false, statusLookup: false, downloadXml: false, downloadPdf: false };
+  readonly capabilities: FiscalCapabilities = { issue: true, fetchIssued: true, fetchReceived: true, statusLookup: false, downloadXml: false, downloadPdf: false };
   get notes() {
-    const out = ["Implementado: prueba de conexión, listado de emisores y emisión de factura de ingreso (el XML timbrado se guarda en Procura). Falta verificar y construir: cancelación, consulta de estado, PDF y recuperación de CFDI emitidos y recibidos."];
+    const out = ["Implementado: prueba de conexión, listado de emisores, emisión de factura de ingreso y descarga masiva de CFDI del SAT (reglas, solicitudes e importación). Falta verificar y construir: cancelación, consulta de estado y PDF."];
     if (!this.isConfigured()) out.push("Faltan las variables de entorno FISCALAPI_API_KEY y FISCALAPI_TENANT en el servidor.");
     out.push("Cada empresa debe autorizar el acceso a su información fiscal; las credenciales de una no permiten consultar las de otra.");
     return out;
@@ -61,6 +61,54 @@ class FiscalapiProvider implements FiscalProvider {
    * por valores. Respuesta: data.id, data.uuid y data.responses[].invoiceBase64 (XML en base64). Los errores del proveedor se devuelven
    * con su mensaje, que el usuario necesita para corregir datos fiscales.
    */
+  // ---- Descarga masiva (docs.fiscalapi.com: /download-rules y /download-requests). Los campos de estado se leen con tolerancia: la documentación
+  // no detalla todos los valores, y se muestran tal cual al usuario. Los periodos de una solicitud no pueden exceder 31 días (CFDI).
+  private rule(r: Record<string, unknown>): DownloadRule {
+    const nested = (k: string) => (r[k] && typeof r[k] === "object" ? String((r[k] as Record<string, unknown>).id ?? (r[k] as Record<string, unknown>).description ?? "") || null : null);
+    const flat = (k: string) => (r[k] != null && typeof r[k] !== "object" ? String(r[k]) : null);
+    return { id: String(r.id), personId: flat("personId") ?? nested("person"), tin: flat("tin"), description: String(r.description ?? ""),
+      queryType: flat("satQueryTypeId") ?? nested("satQueryType"), downloadType: flat("downloadTypeId") ?? nested("downloadType"), invoiceStatus: flat("satInvoiceStatusId") ?? nested("satInvoiceStatus"),
+      status: flat("downloadRuleStatusId") ?? nested("downloadRuleStatus") };
+  }
+  private req(r: Record<string, unknown>): DownloadRequest {
+    const flat = (k: string) => (r[k] != null && typeof r[k] !== "object" ? String(r[k]) : null);
+    return { id: String(r.id), ruleId: flat("downloadRuleId"), ready: r.isReadyToDownload === true, invoiceCount: typeof r.invoiceCount === "number" ? r.invoiceCount : null,
+      status: flat("downloadRequestStatusId") ?? flat("satRequestStatusId"), startDate: flat("startDate"), endDate: flat("endDate") };
+  }
+  private async page(path: string): Promise<{ items: Record<string, unknown>[]; hasNext: boolean }> {
+    const r = await this.request("GET", path);
+    if (r.status === 425) return { items: [], hasNext: false };
+    if (r.status < 200 || r.status >= 300) throw new FiscalProviderError("UPSTREAM", `Fiscalapi respondió ${r.status} en ${path.split("?")[0]}.`);
+    const d = (r.json as { data?: { items?: Record<string, unknown>[]; hasNextPage?: boolean } } | null)?.data;
+    return { items: d?.items ?? [], hasNext: d?.hasNextPage === true };
+  }
+  async listDownloadRules(): Promise<DownloadRule[]> {
+    const out: DownloadRule[] = [];
+    for (let n = 1; n <= 10; n++) { const p = await this.page(`/api/v4/download-rules?pageNumber=${n}&pageSize=50`); out.push(...p.items.map((i) => this.rule(i))); if (!p.hasNext) break; }
+    return out;
+  }
+  async createDownloadRule(input: { personId: string; description: string; downloadType: "Emitidos" | "Recibidos" }): Promise<DownloadRule> {
+    const r = await this.request("POST", "/api/v4/download-rules", { personId: input.personId, description: input.description.slice(0, 100), satQueryTypeId: "CFDI", downloadTypeId: input.downloadType, satInvoiceStatusId: "Vigente" });
+    const j = r.json as { succeeded?: boolean; details?: unknown; data?: Record<string, unknown> } | null;
+    if (r.status < 200 || r.status >= 300 || j?.succeeded === false || !j?.data?.id) throw new FiscalProviderError("UPSTREAM", `Fiscalapi no pudo crear la regla de descarga (${r.status}): ${typeof j?.details === "string" ? j.details : "sin detalle"}`.slice(0, 600));
+    return this.rule(j.data);
+  }
+  async listDownloadRequests(maxPages = 6): Promise<DownloadRequest[]> {
+    const out: DownloadRequest[] = [];
+    for (let n = 1; n <= maxPages; n++) { const p = await this.page(`/api/v4/download-requests?pageNumber=${n}&pageSize=50`); out.push(...p.items.map((i) => this.req(i))); if (!p.hasNext) break; }
+    return out;
+  }
+  async createDownloadRequest(input: { ruleId: string; start: Date; end: Date }): Promise<DownloadRequest> {
+    const r = await this.request("POST", "/api/v4/download-requests", { downloadRuleId: input.ruleId, downloadRequestTypeId: "Manual", startDate: input.start.toISOString(), endDate: input.end.toISOString() });
+    const j = r.json as { succeeded?: boolean; details?: unknown; data?: Record<string, unknown> } | null;
+    if (r.status < 200 || r.status >= 300 || j?.succeeded === false || !j?.data?.id) throw new FiscalProviderError("UPSTREAM", `Fiscalapi no pudo crear la solicitud de descarga (${r.status}): ${typeof j?.details === "string" ? j.details : "sin detalle"}`.slice(0, 600));
+    return this.req(j.data);
+  }
+  /** GET /api/v4/download-requests/{id}/xmls: cada elemento trae el CFDI completo en base64 (base64Content). */
+  async listDownloadedXml(requestId: string, page: number): Promise<{ items: DownloadedXml[]; hasNext: boolean }> {
+    const p = await this.page(`/api/v4/download-requests/${encodeURIComponent(requestId)}/xmls?pageNumber=${page}&pageSize=50`);
+    return { hasNext: p.hasNext, items: p.items.filter((i) => typeof i.base64Content === "string" && i.base64Content).map((i) => ({ id: String(i.id), xml: Buffer.from(String(i.base64Content), "base64") })) };
+  }
   async issueCfdi(req: IssueRequest): Promise<IssuedCfdi> {
     const body = {
       versionCode: "4.0", typeCode: "I", series: req.series, date: req.date, currencyCode: req.currency, exchangeRate: 1, exportCode: "01",
