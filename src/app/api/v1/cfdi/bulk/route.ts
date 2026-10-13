@@ -11,6 +11,7 @@ import { sanitizeFilename, validateFile } from "@/lib/attachments/validate";
 import { parseCfdi } from "@/lib/billing/cfdi";
 import { createCfdiDocument } from "@/lib/billing/cfdi-docs";
 import { baseName, collectCfdiFiles } from "@/lib/billing/cfdi-bulk";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 type Result = { file: string; status: "CREATED" | "DUPLICATE" | "ERROR" | "IGNORED"; message?: string; cfdi_id?: string; fiscal_uuid?: string; direction?: string; total_minor?: string; currency?: string };
 
@@ -22,6 +23,7 @@ export const POST = route(async (req) => {
   const actor = await requireActor(req);
   await rateLimit("cfdi-bulk", actor.userId ?? actor.organizationId, { windowSeconds: 3600, max: 20 });
   authorize(actor, "cfdi.manage");
+  await assertFeature(actor.organizationId, "cfdi");
   const form = await req.formData();
   const files = form.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
   if (files.length === 0) throw Problem.badRequest("Sube al menos un archivo XML o ZIP (campo 'files', multipart/form-data)");

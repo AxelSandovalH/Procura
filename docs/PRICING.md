@@ -6,8 +6,8 @@ Este documento acompaña a `src/lib/commercial/plans.ts` (planes, límites y paq
 
 | Tema | Estado |
 |---|---|
-| Pasarela de pago / Stripe / suscripciones | **No existe.** Sin dependencia, tablas ni rutas. No se creó ningún producto ni precio en Stripe. |
-| Créditos de timbrado, saldos, prepago | **No existen.** La emisión usa la cuenta de Fiscalapi de la organización y deja registro en `fiscal_issue_requests`. |
+| Pasarela de pago / Stripe / suscripciones | Al momento del diagnóstico **no existía**. Después se implementó (ver `docs/BILLING.md`), en modo de prueba y sin crear nada en tu cuenta de Stripe. |
+| Créditos de timbrado, saldos, prepago | Al momento del diagnóstico **no existían** (ahora hay libro de créditos, ver `docs/BILLING.md`). La emisión usa la cuenta de Fiscalapi de la organización y deja registro en `fiscal_issue_requests`. |
 | Límites por plan (usuarios, almacenamiento, descargas) | **No existen.** Solo topes técnicos: 10 MB por archivo, 60 escaneos/hora por organización, tamaño de adjuntos por organización. |
 | Emisión y timbrado | Implementada (Fiscalapi): emisión, PDF, cancelación, retenciones de RESICO y portal de autofacturación. **Aún sin probar con un timbrado real.** |
 | Recuperación de CFDI del SAT | Implementada (Fiscalapi), registrada por solicitud en `fiscal_sync_imports`. Es independiente de la emisión. |

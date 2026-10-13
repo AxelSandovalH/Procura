@@ -6,6 +6,7 @@ import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { getFiscalProvider } from "@/lib/fiscal/fiscalapi";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 const Body = z.object({
   enabled: z.boolean().optional(), window_days: z.number().int().min(1).max(365).optional(), daily_limit: z.number().int().min(1).max(5000).optional(),
@@ -35,6 +36,7 @@ export const PUT = route(async (req) => {
   const actor = await requireActor(req);
   authorize(actor, "organization.update");
   const body = await json(req, (d) => Body.parse(d));
+  if (body.enabled === true) await assertFeature(actor.organizationId, "issuing");
   const out = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
     if (body.enabled === true) {
       const v = await view(tx, actor.organizationId);

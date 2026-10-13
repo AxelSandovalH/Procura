@@ -4,11 +4,13 @@ import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { publicCfdi, signedCfdiUrls } from "@/lib/billing/cfdi-docs";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 /** Detalle del CFDI, a qué operaciones está ligado y URLs firmadas de corta vida (el XML nunca es público). */
 export const GET = route(async (req, params) => {
   const actor = await requireActor(req);
   authorize(actor, "cfdi.read");
+  await assertFeature(actor.organizationId, "cfdi");
   const out = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
     const d = await tx.cfdi_documents.findFirst({ where: { id: params.id, organization_id: actor.organizationId } });
     if (!d) throw Problem.notFound();

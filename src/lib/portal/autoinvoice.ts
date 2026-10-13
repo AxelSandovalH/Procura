@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { withContext } from "@/lib/db/client";
 import { Problem } from "@/lib/http/problem";
 import { parseAmount } from "@/lib/bank/parse";
+import { hasFeature } from "@/lib/billing/entitlements";
 
 export interface AutoinvoiceInfo { organization_id: string; slug: string; display_name: string; welcome_text: string | null; window_days: number; daily_limit: number; default_payment_form: string }
 /** Formas de pago que el cliente puede elegir en el portal (las de un ticket de mostrador). */
@@ -11,7 +12,7 @@ export const PORTAL_PAYMENT_FORMS: [string, string][] = [["01", "Efectivo"], ["0
 export async function findAutoinvoice(slug: string): Promise<AutoinvoiceInfo> {
   if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(slug)) throw Problem.notFound("Portal no encontrado");
   const [row] = await withContext({}, (tx) => tx.$queryRaw<AutoinvoiceInfo[]>`select * from app.autoinvoice_public_info(${slug})`);
-  if (!row) throw Problem.notFound("Portal no encontrado");
+  if (!row || !(await hasFeature(row.organization_id, "issuing"))) throw Problem.notFound("Portal no encontrado");
   return row;
 }
 
@@ -38,6 +39,6 @@ export async function verifyCaptcha(token: string | undefined, ip: string): Prom
 export function customerSafeMessage(detail: string | undefined): string {
   const generic = "El comercio no puede emitir facturas en este momento. Inténtalo más tarde o acude al establecimiento.";
   if (!detail) return generic;
-  if (/saldo|cr[eé]dito|credencial|api key|tenant|timbres|certificad|csd|no configur|emisor|clave de producto|unidad sat|sin configurar|proveedor fiscal/i.test(detail)) return generic;
+  if (/saldo|cr[eé]dito|sin cr[eé]ditos|plan|suscripci|credencial|api key|tenant|timbres|certificad|csd|no configur|emisor|clave de producto|unidad sat|sin configurar|proveedor fiscal/i.test(detail)) return generic;
   return detail.slice(0, 300);
 }

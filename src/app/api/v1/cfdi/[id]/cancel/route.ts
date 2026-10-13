@@ -8,6 +8,7 @@ import { idempotent } from "@/lib/http/idempotency";
 import { FiscalProviderError } from "@/lib/fiscal/provider";
 import { getFiscalProvider } from "@/lib/fiscal/fiscalapi";
 import { assertCancelable } from "@/lib/billing/cancel";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 const Body = z.object({
   reason_code: z.enum(["01", "02", "03"], { message: "Elige el motivo: 01, 02 o 03" }),
@@ -22,6 +23,7 @@ const Body = z.object({
 export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
   authorize(actor, "cfdi.manage");
+  await assertFeature(actor.organizationId, "issuing");
   const body = await json(req, (d) => Body.parse(d));
   const provider = getFiscalProvider();
   return idempotent(req, actor, { id: params.id, ...body }, async () => {

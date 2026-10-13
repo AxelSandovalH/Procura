@@ -11,11 +11,13 @@ import { sanitizeFilename, validateFile } from "@/lib/attachments/validate";
 import { parseCfdi } from "@/lib/billing/cfdi";
 import { createCfdiDocument, materializeReceived, publicCfdi } from "@/lib/billing/cfdi-docs";
 import type { Prisma } from "@prisma/client";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 /** CFDI emitidos y recibidos de la organización. Filtros: direction, q (UUID, folio, nombre, RFC), from, to, unlinked=1 (nada documentado). */
 export const GET = route(async (req) => {
   const actor = await requireActor(req);
   authorize(actor, "cfdi.read");
+  await assertFeature(actor.organizationId, "cfdi");
   const sp = new URL(req.url).searchParams;
   const q = sp.get("q")?.trim(); const dir = sp.get("direction");
   const where: Prisma.cfdi_documentsWhereInput = {
@@ -37,6 +39,7 @@ export const POST = route(async (req) => {
   const actor = await requireActor(req);
   await rateLimit("cfdi-upload", actor.userId ?? actor.organizationId, { windowSeconds: 3600, max: 100 });
   authorize(actor, "cfdi.manage");
+  await assertFeature(actor.organizationId, "cfdi");
   const form = await req.formData();
   const xmlFile = form.get("xml"), pdfFile = form.get("pdf"), dirField = form.get("direction");
   if (!(xmlFile instanceof File)) throw Problem.badRequest("Falta el archivo XML (campo 'xml', multipart/form-data)");

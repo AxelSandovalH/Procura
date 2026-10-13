@@ -3,6 +3,7 @@ import { route, Problem } from "@/lib/http/problem";
 import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 const zero = () => BigInt(0);
 type Bucket = { count: number; total_minor: bigint };
@@ -16,6 +17,7 @@ const empty = (): Bucket => ({ count: 0, total_minor: zero() });
 export const GET = route(async (req) => {
   const actor = await requireActor(req);
   authorize(actor, "finance.read");
+  await assertFeature(actor.organizationId, "finance_reports");
   const sp = new URL(req.url).searchParams;
   const now = new Date();
   const from = sp.get("from") ? new Date(sp.get("from")!) : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));

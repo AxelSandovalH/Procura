@@ -5,12 +5,14 @@ import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { assertFeature } from "@/lib/billing/entitlements";
 const Body = z.object({ ignored: z.boolean().default(true) });
 
 /** Ignora un movimiento (traspaso propio, comisión ya conocida…) o lo devuelve a «por conciliar». */
 export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
   authorize(actor, "payment.manage");
+  await assertFeature(actor.organizationId, "bank");
   const { ignored } = await json(req, (d) => Body.parse(d));
   await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
     const t = await tx.bank_transactions.findFirst({ where: { id: params.id, organization_id: actor.organizationId } });

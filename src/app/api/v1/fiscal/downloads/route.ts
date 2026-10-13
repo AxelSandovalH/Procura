@@ -6,11 +6,13 @@ import { withContext } from "@/lib/db/client";
 import { FiscalProviderError } from "@/lib/fiscal/provider";
 import { getFiscalProvider } from "@/lib/fiscal/fiscalapi";
 import { findRules } from "@/lib/fiscal/download";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 /** Estado de la descarga masiva (solo lectura): reglas, solicitudes pendientes/listas e importaciones ya hechas. */
 export const GET = route(async (req) => {
   const actor = await requireActor(req);
   authorize(actor, "cfdi.read");
+  await assertFeature(actor.organizationId, "sat_recovery");
   const p = getFiscalProvider();
   const ctx = { userId: actor.userId, organizationId: actor.organizationId };
   const { conn, org, imports } = await withContext(ctx, async (tx) => ({

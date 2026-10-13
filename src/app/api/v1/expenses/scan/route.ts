@@ -7,6 +7,7 @@ import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { assertExpensesManagedHere } from "@/lib/billing/expenses";
 import { readReceipt, sniffReceiptFile } from "@/lib/expenses/receipt-ocr";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 export const maxDuration = 60;
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -18,6 +19,7 @@ const MAX_BYTES = 10 * 1024 * 1024;
 export const POST = route(async (req) => {
   const actor = await requireActor(req);
   authorize(actor, "expense.manage");
+  await assertFeature(actor.organizationId, "ocr");
   await rateLimit("expense-scan", actor.organizationId, { windowSeconds: 3600, max: 60 });
   const form = await req.formData();
   const file = form.get("file");

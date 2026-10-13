@@ -6,6 +6,7 @@ import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { parseBankCsv, withDedupeKeys } from "@/lib/bank/parse";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 const Body = z.object({ csv: z.string().min(10).max(5_000_000), dry_run: z.boolean().default(false) });
 
@@ -13,6 +14,7 @@ const Body = z.object({ csv: z.string().min(10).max(5_000_000), dry_run: z.boole
 export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
   authorize(actor, "payment.manage");
+  await assertFeature(actor.organizationId, "bank");
   const body = await json(req, (d) => Body.parse(d));
   let parsed; try { parsed = parseBankCsv(body.csv); } catch (e) { throw Problem.badRequest((e as Error).message); }
   const keyed = withDedupeKeys(parsed.rows);

@@ -7,6 +7,7 @@ import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { assertExpensesManagedHere } from "@/lib/billing/expenses";
 import { linkCfdi } from "@/lib/finance/ops";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 const Body = z.object({ cfdi_ids: z.array(z.uuid()).min(1).max(100), category: z.string().trim().max(80).optional() });
 
@@ -17,6 +18,7 @@ const Body = z.object({ cfdi_ids: z.array(z.uuid()).min(1).max(100), category: z
 export const POST = route(async (req) => {
   const actor = await requireActor(req);
   authorize(actor, "expense.manage"); authorize(actor, "cfdi.manage");
+  await assertFeature(actor.organizationId, "cfdi");
   const body = await json(req, (d) => Body.parse(d));
   const ctx = { userId: actor.userId, organizationId: actor.organizationId };
   await withContext(ctx, (tx) => assertExpensesManagedHere(tx, actor.organizationId));

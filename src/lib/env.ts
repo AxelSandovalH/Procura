@@ -16,6 +16,9 @@ const schema = z.object({
   FISCALAPI_URL: z.string().url().optional(),
   // Lectura de tickets con visión de Claude (opcional). Solo servidor.
   ANTHROPIC_API_KEY: z.string().optional(),
+  // Cobro con Stripe (opcional; sin STRIPE_SECRET_KEY el cobro queda apagado). Solo servidor. Los precios los define Procura (lib/commercial/plans.ts).
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
 });
 
 let cached: z.infer<typeof schema> | null = null;

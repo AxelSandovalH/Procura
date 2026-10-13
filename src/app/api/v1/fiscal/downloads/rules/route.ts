@@ -8,6 +8,7 @@ import { audit, auditBase } from "@/lib/audit";
 import { FiscalProviderError } from "@/lib/fiscal/provider";
 import { getFiscalProvider } from "@/lib/fiscal/fiscalapi";
 import { ensureRules } from "@/lib/fiscal/download";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 const Body = z.object({ directions: z.array(z.enum(["Recibidos", "Emitidos"])).min(1).default(["Recibidos"]) });
 
@@ -15,6 +16,7 @@ const Body = z.object({ directions: z.array(z.enum(["Recibidos", "Emitidos"])).m
 export const POST = route(async (req) => {
   const actor = await requireActor(req);
   authorize(actor, "cfdi.manage");
+  await assertFeature(actor.organizationId, "sat_recovery");
   const { directions } = await json(req, (d) => Body.parse(d ?? {}));
   const p = getFiscalProvider(); const ctx = { userId: actor.userId, organizationId: actor.organizationId };
   const { conn, org } = await withContext(ctx, async (tx) => ({

@@ -5,6 +5,7 @@ import { runDownloadSync } from "@/lib/fiscal/download";
 import { getFiscalProvider } from "@/lib/fiscal/fiscalapi";
 import { withContext } from "@/lib/db/client";
 import { refreshInvoiceState } from "@/lib/billing/cancel";
+import { hasFeature } from "@/lib/billing/entitlements";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -19,6 +20,7 @@ export async function GET(req: Request) {
   const started = Date.now(); const out: { org: string; created?: number; duplicates?: number; errors?: number; error?: string }[] = [];
   for (const { organization_id } of orgs) {
     if (Date.now() - started > 40_000) break;
+    if (!(await hasFeature(organization_id, "sat_recovery"))) { out.push({ org: organization_id, error: "plan sin recuperación del SAT: se omite" }); continue; }
     try { const r = await runDownloadSync(organization_id, null, { budgetMs: 40_000 - (Date.now() - started) }); out.push({ org: organization_id, created: r.created, duplicates: r.duplicates, errors: r.errors }); if (r.errors) Sentry.captureMessage(`Descarga masiva con errores (${r.errors}) en ${organization_id}: ${r.last_error}`, "warning"); }
     catch (e) { out.push({ org: organization_id, error: (e as Error).message }); Sentry.captureException(e); }
   }

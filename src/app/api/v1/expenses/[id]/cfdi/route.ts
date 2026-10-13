@@ -8,6 +8,7 @@ import { audit, auditBase } from "@/lib/audit";
 import { linkCfdi } from "@/lib/finance/ops";
 import { materializeReceived } from "@/lib/billing/cfdi-docs";
 import { expenseView } from "@/lib/billing/expenses";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 const Body = z.object({ cfdi_id: z.uuid(), amount_minor: z.number().int().positive().optional() });
 
@@ -15,6 +16,7 @@ const Body = z.object({ cfdi_id: z.uuid(), amount_minor: z.number().int().positi
 export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
   authorize(actor, "expense.manage"); authorize(actor, "cfdi.manage");
+  await assertFeature(actor.organizationId, "cfdi");
   const body = await json(req, (d) => Body.parse(d));
   const out = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
     await materializeReceived(tx, actor.organizationId, actor.membershipId);

@@ -4,10 +4,12 @@ import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { assertFeature } from "@/lib/billing/entitlements";
 /** Deshace la conciliación. El pago registrado se conserva (se anula desde el gasto o la venta si hace falta). */
 export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
   authorize(actor, "payment.manage");
+  await assertFeature(actor.organizationId, "bank");
   await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
     const t = await tx.bank_transactions.findFirst({ where: { id: params.id, organization_id: actor.organizationId } });
     if (!t) throw Problem.notFound("El movimiento no existe");

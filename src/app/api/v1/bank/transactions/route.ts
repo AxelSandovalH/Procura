@@ -5,11 +5,13 @@ import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { loadCandidates } from "@/lib/bank/ops";
 import { suggest } from "@/lib/bank/match";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 /** Movimientos de una cuenta por estado; los que faltan por conciliar traen sugerencias. */
 export const GET = route(async (req) => {
   const actor = await requireActor(req);
   authorize(actor, "finance.read");
+  await assertFeature(actor.organizationId, "bank");
   const sp = new URL(req.url).searchParams;
   const accountId = sp.get("account_id"); const status = ["UNMATCHED", "MATCHED", "IGNORED"].includes(sp.get("status") ?? "") ? sp.get("status")! : "UNMATCHED";
   const data = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {

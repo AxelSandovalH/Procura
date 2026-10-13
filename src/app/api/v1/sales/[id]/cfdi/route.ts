@@ -7,6 +7,7 @@ import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { linkCfdi } from "@/lib/finance/ops";
 import { saleView } from "@/lib/finance/views";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 const Body = z.object({ cfdi_id: z.uuid(), amount_minor: z.number().int().positive().optional() });
 
@@ -14,6 +15,7 @@ const Body = z.object({ cfdi_id: z.uuid(), amount_minor: z.number().int().positi
 export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
   authorize(actor, "cfdi.manage");
+  await assertFeature(actor.organizationId, "cfdi");
   const body = await json(req, (d) => Body.parse(d));
   const out = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
     const { link, cfdi } = await linkCfdi(tx, actor.organizationId, actor.membershipId, "sale", params.id, body.cfdi_id, body.amount_minor);

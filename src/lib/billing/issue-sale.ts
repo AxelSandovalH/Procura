@@ -12,6 +12,8 @@ import { saleView } from "@/lib/finance/views";
 import { FiscalProviderError } from "@/lib/fiscal/provider";
 import { getFiscalProvider } from "@/lib/fiscal/fiscalapi";
 import { tryGeneratePdf, type StoredPdf } from "@/lib/billing/cfdi-pdf";
+import { addLedger, availableCredits, creditsRequired } from "@/lib/billing/credits";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 export const IssueBody = z.object({
   payment_form_code: z.string().regex(/^\d{2}$/, "La forma de pago SAT son 2 dígitos (01, 03, 04…)"),
@@ -54,9 +56,12 @@ export async function issueSaleCfdi(input: IssueSaleInput) {
   const { organizationId, userId, membershipId, saleId, body } = input;
   const provider = getFiscalProvider();
   const ctx = { userId: userId ?? undefined, organizationId };
+  await assertFeature(organizationId, "issuing");
 
   // 1) Validar y reservar (un bloqueo evita el doble timbrado ante un reintento o doble clic).
   const prep = await withContext(ctx, async (tx) => {
+    // Serializa las emisiones de la organización mientras se reserva: dos a la vez no pueden gastar el mismo crédito.
+    await tx.$executeRaw`select pg_advisory_xact_lock(hashtext(${organizationId}))`;
     const sale = await tx.sales.findFirst({ where: { id: saleId, organization_id: organizationId } });
     if (!sale) throw Problem.notFound();
     if (sale.voided_at) throw Problem.conflict("La venta está anulada");
@@ -81,11 +86,14 @@ export async function issueSaleCfdi(input: IssueSaleInput) {
     if (missing.length) throw Problem.badRequest(`Faltan la clave de producto/servicio o de unidad SAT en: ${missing.join(", ")}.`);
     const live = await tx.fiscal_issue_requests.findFirst({ where: { sale_id: sale.id, status: { in: ["PENDING", "DONE"] } }, select: { status: true } });
     if (live) throw Problem.conflict(live.status === "DONE" ? "Esta venta ya fue facturada." : "Ya hay una emisión en curso para esta venta; espera su resultado.");
+    // Créditos de timbrado: si la organización los usa, debe tener al menos uno disponible (saldo menos emisiones en curso). Se descuentan SOLO tras un timbrado exitoso.
+    const needsCredit = await creditsRequired(tx, organizationId);
+    if (needsCredit && (await availableCredits(tx, organizationId)) < 1) throw new Problem(402, "Sin créditos de timbrado", "No hay créditos de timbrado disponibles. Compra un paquete en Administración → Plan.", { code: "NO_CREDITS" });
     if (input.precheck) await input.precheck(tx, sale);
     if (body.save_recipient && body.recipient && customer) await tx.customers.update({ where: { id: customer.id }, data: { tax_id: body.recipient.tax_id.toUpperCase(), tax_regime_code: body.recipient.tax_regime_code, zip_code: body.recipient.zip_code, cfdi_use_code: body.recipient.cfdi_use_code, email: body.recipient.email ?? customer.email, updated_at: new Date() } });
     for (const r of resolved) await tx.sale_lines.update({ where: { id: r.l.id }, data: { sat_product_code: r.product, sat_unit_code: r.unit } });
     const reqRow = await tx.fiscal_issue_requests.create({ data: { organization_id: organizationId, sale_id: sale.id, provider: provider.name, status: "PENDING", created_by_membership_id: membershipId, source: input.source ?? "USER", requester_email: input.requester?.email ?? null, requester_ip_hash: input.requester?.ipHash ?? null } });
-    return { sale, reqRow, rec, resolved, cfg, issuerId: conn.external_account_id, series: cfg.series ?? "A" };
+    return { sale, needsCredit, reqRow, rec, resolved, cfg, issuerId: conn.external_account_id, series: cfg.series ?? "A" };
   });
 
   const settle = (status: "FAILED" | "DONE", data: { error?: string; provider_invoice_id?: string; cfdi_id?: string }) => withContext(ctx, (tx) => tx.fiscal_issue_requests.update({ where: { id: prep.reqRow.id }, data: { status, ...data, updated_at: new Date() } }));
@@ -126,6 +134,7 @@ export async function issueSaleCfdi(input: IssueSaleInput) {
       await tx.cfdi_documents.update({ where: { id: doc.id }, data: { provider: provider.name, provider_external_id: issued.providerInvoiceId, sat_status: "VIGENTE", sat_status_checked_at: new Date(), last_synced_at: new Date() } });
       await linkCfdi(tx, organizationId, membershipId, "sale", prep.sale.id, doc.id);
       await tx.fiscal_issue_requests.update({ where: { id: prep.reqRow.id }, data: { status: "DONE", cfdi_id: doc.id, provider_invoice_id: issued.providerInvoiceId, updated_at: new Date() } });
+      if (prep.needsCredit) await addLedger(tx, organizationId, -1, "CONSUME", prep.reqRow.id, `Timbrado de ${prep.sale.folio}`);
       await audit(tx, { ...input.auditBase, action: "cfdi.issued", resourceType: "sale", resourceId: prep.sale.id, resourceLabel: prep.sale.folio, metadata: { cfdi_id: doc.id, fiscal_uuid: parsed.fiscalUuid, provider: provider.name, provider_invoice_id: issued.providerInvoiceId, total_minor: parsed.totalMinor.toString(), source: input.source ?? "USER" } });
       return { sale: await saleView(tx, await tx.sales.findUniqueOrThrow({ where: { id: prep.sale.id } })), cfdi: { id: doc.id, fiscal_uuid: parsed.fiscalUuid, xml_key: key, xml: issued.xml! } };
     });

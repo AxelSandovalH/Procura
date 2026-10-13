@@ -48,11 +48,11 @@ export const POST = route(async (req, params) => {
       },
     });
   } catch (e) {
-    if (e instanceof Problem && (e.status === 502 || e.status === 409 || e.status === 400)) {
+    if (e instanceof Problem && (e.status === 502 || e.status === 409 || e.status === 400 || e.status === 402)) {
       const detail = typeof e.detail === "string" ? e.detail : undefined;
       // Los avisos propios del portal (ya facturado, plazo, datos del cliente) se muestran; los del proveedor y la configuración, no.
       if (e.status === 409 && detail && /ya fue facturada|emisión en curso|Ya pasó el plazo/.test(detail)) throw e;
-      throw new Problem(e.status === 502 || e.status === 409 ? 503 : e.status, e.status === 400 ? e.title : "No se pudo facturar", customerSafeMessage(detail));
+      throw new Problem(e.status === 502 || e.status === 409 || e.status === 402 ? 503 : e.status, e.status === 400 ? e.title : "No se pudo facturar", customerSafeMessage(detail));
     }
     throw e;
   }

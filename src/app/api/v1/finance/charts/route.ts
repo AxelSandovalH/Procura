@@ -3,6 +3,7 @@ import { route } from "@/lib/http/problem";
 import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 const ym = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 
@@ -13,6 +14,7 @@ const ym = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).pad
 export const GET = route(async (req) => {
   const actor = await requireActor(req);
   authorize(actor, "finance.read");
+  await assertFeature(actor.organizationId, "finance_reports");
   const sp = new URL(req.url).searchParams;
   const now = new Date();
   const end = sp.get("to") && !isNaN(+new Date(sp.get("to")!)) ? new Date(sp.get("to")!) : now;
