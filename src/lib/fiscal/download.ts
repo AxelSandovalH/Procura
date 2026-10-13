@@ -113,8 +113,13 @@ export async function runDownloadSync(orgId: string, membershipId: string | null
       }
       sum.imported_requests++;
     } catch (e) { errors++; lastError = (e as Error).message.slice(0, 300); }
+    // «Lista» no garantiza que sus XML ya estén disponibles: el proveedor los llena después. Si el SAT reportó más CFDI de los que llegaron,
+    // la solicitud NO se da por importada y se reintenta en la siguiente sincronización (los ya importados salen como duplicados).
+    const expected = rq.invoiceCount ?? 0, got = created + dups;
+    const short = errors === 0 && expected > 0 && got < expected;
+    if (short) { lastError = `El SAT reporta ${expected} CFDI y el proveedor entregó ${got} por ahora; se reintenta en la siguiente sincronización.`; sum.pending_requests++; sum.imported_requests--; }
     sum.created += created; sum.duplicates += dups; sum.errors += errors; sum.last_error = lastError ?? sum.last_error;
-    await withContext({ organizationId: orgId }, (tx) => tx.fiscal_sync_imports.update({ where: { id: claimed.id }, data: { status: errors === 0 ? "IMPORTED" : "PARTIAL", created_count: created, duplicate_count: dups, error_count: errors, last_error: lastError, updated_at: new Date() } }));
+    await withContext({ organizationId: orgId }, (tx) => tx.fiscal_sync_imports.update({ where: { id: claimed.id }, data: { status: errors === 0 && !short ? "IMPORTED" : "PARTIAL", created_count: created, duplicate_count: dups, error_count: errors, last_error: lastError, updated_at: new Date() } }));
   }
   await withContext({ organizationId: orgId }, async (tx) => {
     await tx.fiscal_provider_connections.update({ where: { organization_id_provider: { organization_id: orgId, provider: provider.name } }, data: { last_synced_at: new Date(), last_error: sum.errors ? sum.last_error : null, updated_at: new Date() } });

@@ -78,8 +78,9 @@ class FiscalapiProvider implements FiscalProvider {
   }
   private req(r: Record<string, unknown>): DownloadRequest {
     const flat = (k: string) => (r[k] != null && typeof r[k] !== "object" ? String(r[k]) : null);
+    const desc = (k: string) => { const o = r[k]; return o && typeof o === "object" ? String((o as Record<string, unknown>).description ?? (o as Record<string, unknown>).id ?? "") || null : null; };
     return { id: String(r.id), ruleId: flat("downloadRuleId"), ready: r.isReadyToDownload === true, invoiceCount: typeof r.invoiceCount === "number" ? r.invoiceCount : null,
-      status: flat("downloadRequestStatusId") ?? flat("satRequestStatusId"), startDate: flat("startDate"), endDate: flat("endDate") };
+      status: desc("downloadRequestStatus") ?? flat("downloadRequestStatusId") ?? desc("satRequestStatus") ?? flat("satRequestStatusId"), startDate: flat("startDate"), endDate: flat("endDate") };
   }
   private async page(path: string): Promise<{ items: Record<string, unknown>[]; hasNext: boolean }> {
     const r = await this.request("GET", path);
