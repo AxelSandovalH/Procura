@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { useSession } from "@/hooks/use-session";
 import { api, ApiError } from "@/lib/api-client";
 import { money } from "@/lib/format";
+import { SAT_PAYMENT_FORMS as FORMS, SAT_REGIMES as REGIMES, SAT_USES as USES } from "@/lib/ui/sat-catalogs";
 
 interface Customer { id: string; name: string; tax_id: string | null; tax_regime_code: string | null; zip_code: string | null; cfdi_use_code: string | null; email: string | null }
 export interface IssueSale { id: string; folio: string; currency: string; total_minor: number | string; voided_at: string | null; documented_minor: number | string; customer: Customer | null;
@@ -16,9 +17,6 @@ export interface IssueSale { id: string; folio: string; currency: string; total_
   fiscal_issue: { status: string; error: string | null; provider_invoice_id: string | null } | null }
 interface Provider { configured: boolean; environment: "test" | "live" | "custom" | null; capabilities: { issue: boolean }; connection: { external_account_id: string | null; settings: { default_product_code?: string; default_unit_code?: string; issuer_name?: string; issuer_tax_id?: string } } | null }
 
-const REGIMES = [["601", "General de Ley Personas Morales"], ["603", "Personas Morales con Fines no Lucrativos"], ["605", "Sueldos y Salarios"], ["606", "Arrendamiento"], ["612", "Personas Físicas con Actividades Empresariales y Profesionales"], ["616", "Sin obligaciones fiscales"], ["621", "Incorporación Fiscal"], ["625", "Plataformas Tecnológicas"], ["626", "Régimen Simplificado de Confianza"]];
-const USES = [["G01", "Adquisición de mercancías"], ["G03", "Gastos en general"], ["I01", "Construcciones"], ["I04", "Equipo de cómputo"], ["P01", "Por definir"], ["S01", "Sin efectos fiscales"]];
-const FORMS = [["01", "Efectivo"], ["02", "Cheque nominativo"], ["03", "Transferencia electrónica"], ["04", "Tarjeta de crédito"], ["28", "Tarjeta de débito"], ["99", "Por definir"]];
 const sel = "h-9 w-full rounded-lg border bg-background px-2 text-sm";
 
 /** Emite el CFDI de ingreso de la venta con el proveedor fiscal. En producción exige confirmar que el timbrado es real. */

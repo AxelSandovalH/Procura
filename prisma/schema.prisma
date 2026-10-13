@@ -2798,3 +2798,20 @@ model fiscal_sync_imports {
   @@unique([organization_id, provider, provider_request_id])
   @@schema("public")
 }
+
+model organization_fiscal_profiles {
+  organization_id String   @id @db.Uuid
+  tax_regime_code String?
+  zip_code        String?
+  cfdi_use_code   String   @default("G03")
+  street          String?
+  exterior_number String?
+  interior_number String?
+  neighborhood    String?
+  municipality    String?
+  state           String?
+  invoice_email   String?
+  updated_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}

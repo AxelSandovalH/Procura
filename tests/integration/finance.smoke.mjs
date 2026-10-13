@@ -151,6 +151,14 @@ try {
   check("repetir no duplica pagos", (await axel.call("/expenses/mark-paid", "POST", { expense_ids: [e1.id, e2.id] })).body?.summary?.skipped === 2);
   check("un solicitante no puede marcar pagos (403)", (await luis.call("/expenses/mark-paid", "POST", { expense_ids: [e1.id] })).status === 403);
 
+  console.log("Datos fiscales para pedir facturas");
+  r = await axel.call("/organization/fiscal-profile", "PUT", { tax_regime_code: "626", zip_code: "28200", cfdi_use_code: "G03", street: "Calle de prueba", exterior_number: "10", neighborhood: "Centro", municipality: "Los Cabos", state: "Baja California Sur", invoice_email: "facturas@example.com" });
+  check("guarda el perfil fiscal (régimen, CP, uso de CFDI, domicilio y correo)", r.status === 200 && r.body.zip_code === "28200", JSON.stringify(r.body)?.slice(0, 160));
+  r = await axel.call("/organization/fiscal-profile"); check("lo devuelve junto con la razón social y el RFC de la organización", r.status === 200 && !!r.body.legal_name && r.body.profile.tax_regime_code === "626" && r.body.profile.invoice_email === "facturas@example.com");
+  check("valida el código postal y el régimen (422)", (await axel.call("/organization/fiscal-profile", "PUT", { zip_code: "123" })).status === 422 && (await axel.call("/organization/fiscal-profile", "PUT", { tax_regime_code: "62" })).status === 422);
+  check("quien no administra no lo edita (403) pero sí lo consulta", (await luis.call("/organization/fiscal-profile", "PUT", { zip_code: "28200" })).status === 403 && (await luis.call("/organization/fiscal-profile")).status === 200);
+  check("otra organización no ve estos datos", (await ricardo.call("/organization/fiscal-profile")).body?.profile?.invoice_email !== "facturas@example.com");
+
   console.log("Lectura de tickets (OCR)");
   const png1 = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
   const scan = async (who, bytes, name, type) => { const f = new FormData(); f.append("file", new Blob([bytes], { type }), name); const r = await fetch(`${APP}/api/v1/expenses/scan`, { method: "POST", headers: { cookie: who.cookie() }, body: f }); return { status: r.status, body: await r.json().catch(() => null) }; };
@@ -206,6 +214,7 @@ try {
     await c.query("delete from sales where id = any($1)", [sales]); await c.query("delete from expenses where id = any($1)", [exps]);
     await c.query("delete from cfdi_documents where id = any($1)", [docs.map((d) => d.id)]);
     await c.query("delete from supplier_invoices where id = any($1)", [invs]);
+    await c.query("delete from organization_fiscal_profiles where organization_id = $1", [meridian]);
     await c.query("delete from audit_logs where resource_id = any($1) or (action like 'invoice.%' and metadata->>'invoice_id' = any($2))", [ids, invs]);
     await c.query("delete from domain_events where type like 'invoice.%' and aggregate_id in (select order_id from (select unnest($1::uuid[]) as order_id) x) and occurred_at > now() - interval '1 hour'", [[]]);
     await c.query("commit");

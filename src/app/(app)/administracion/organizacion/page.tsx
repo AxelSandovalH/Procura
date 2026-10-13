@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { SAT_REGIMES, SAT_USES } from "@/lib/ui/sat-catalogs";
 import { useSyncedState } from "@/hooks/use-synced-state";
 import { useSession } from "@/hooks/use-session";
 import { api, ApiError } from "@/lib/api-client";
@@ -30,6 +31,7 @@ export default function Organizacion() {
     <div className="grid gap-6 lg:grid-cols-2">
       {session.can("organization.update") && <General org={q.data.organization} />}
       {session.can("settings.manage") && q.data.settings && <SettingsCard s={q.data.settings} />}
+      {session.can("expense.read") && <FiscalProfileCard canEdit={session.can("organization.update")} />}
       {session.can("cfdi.read") && <FiscalCard />}
     </div>
   );
@@ -161,5 +163,40 @@ function EmitterConfig({ conn, onSaved }: { conn: FiscalInfo["connection"]; onSa
           <div className="flex gap-2"><Button type="submit" size="sm" disabled={busy || !f.issuer || !f.zip}>Guardar emisor</Button><Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button></div>
         </form>)}
     </div>
+  );
+}
+
+interface ProfileResp { legal_name: string; tax_id: string | null; profile: { tax_regime_code: string | null; zip_code: string | null; cfdi_use_code: string; street: string | null; exterior_number: string | null; interior_number: string | null; neighborhood: string | null; municipality: string | null; state: string | null; invoice_email: string | null } }
+
+/** Datos con los que pides facturas a tus proveedores (se muestran, listos para copiar, en cada gasto). La razón social y el RFC se editan arriba, en «Datos de la organización». */
+function FiscalProfileCard({ canEdit }: { canEdit: boolean }) {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["fiscal-profile"], queryFn: () => api<ProfileResp>("/organization/fiscal-profile") });
+  const d = q.data;
+  const [f, setF] = useSyncedState(() => ({ regime: d?.profile.tax_regime_code ?? "", zip: d?.profile.zip_code ?? "", use: d?.profile.cfdi_use_code ?? "G03", street: d?.profile.street ?? "", ext: d?.profile.exterior_number ?? "", int: d?.profile.interior_number ?? "", col: d?.profile.neighborhood ?? "", mun: d?.profile.municipality ?? "", state: d?.profile.state ?? "", mail: d?.profile.invoice_email ?? "" }), JSON.stringify(d?.profile ?? {}));
+  const { busy, msg, save } = useSave(async () => {
+    await api("/organization/fiscal-profile", { method: "PUT", body: { tax_regime_code: f.regime || null, zip_code: f.zip || null, cfdi_use_code: f.use, street: f.street.trim() || null, exterior_number: f.ext.trim() || null, interior_number: f.int.trim() || null, neighborhood: f.col.trim() || null, municipality: f.mun.trim() || null, state: f.state.trim() || null, invoice_email: f.mail.trim() || null } });
+    await qc.invalidateQueries({ queryKey: ["fiscal-profile"] });
+  });
+  if (!d) return <div className="h-40 animate-pulse rounded-xl bg-muted" />;
+  const sel = "h-9 w-full rounded-lg border bg-background px-2 text-sm";
+  return (
+    <Card><CardHeader><CardTitle>Datos para pedir facturas</CardTitle></CardHeader><CardContent>
+      <form className="space-y-3" onSubmit={save}>
+        <p className="text-xs text-muted-foreground">Razón social: <span className="font-medium text-foreground">{d.legal_name}</span> · RFC: <span className="font-medium text-foreground">{d.tax_id ?? "sin capturar"}</span> (se editan en «Datos de la organización»). Estos datos aparecen, listos para copiar, en cada gasto.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5"><Label htmlFor="fp-reg">Régimen fiscal</Label><select id="fp-reg" disabled={!canEdit} className={sel} value={f.regime} onChange={(e) => setF({ ...f, regime: e.target.value })}><option value="">Elige…</option>{SAT_REGIMES.map(([k, v]) => <option key={k} value={k}>{k} · {v}</option>)}</select></div>
+          <div className="space-y-1.5"><Label htmlFor="fp-use">Uso de CFDI</Label><select id="fp-use" disabled={!canEdit} className={sel} value={f.use} onChange={(e) => setF({ ...f, use: e.target.value })}>{SAT_USES.map(([k, v]) => <option key={k} value={k}>{k} · {v}</option>)}</select></div>
+          <div className="space-y-1.5"><Label htmlFor="fp-zip">Código postal fiscal</Label><Input id="fp-zip" disabled={!canEdit} inputMode="numeric" maxLength={5} value={f.zip} onChange={(e) => setF({ ...f, zip: e.target.value })} /></div>
+          <div className="space-y-1.5"><Label htmlFor="fp-mail">Correo para recibir facturas</Label><Input id="fp-mail" disabled={!canEdit} type="email" value={f.mail} onChange={(e) => setF({ ...f, mail: e.target.value })} /></div>
+          <div className="col-span-2 space-y-1.5"><Label htmlFor="fp-st">Calle</Label><Input id="fp-st" disabled={!canEdit} maxLength={120} value={f.street} onChange={(e) => setF({ ...f, street: e.target.value })} /></div>
+          <div className="space-y-1.5"><Label htmlFor="fp-ext">Número exterior</Label><Input id="fp-ext" disabled={!canEdit} maxLength={20} value={f.ext} onChange={(e) => setF({ ...f, ext: e.target.value })} /></div>
+          <div className="space-y-1.5"><Label htmlFor="fp-int">Número interior</Label><Input id="fp-int" disabled={!canEdit} maxLength={20} value={f.int} onChange={(e) => setF({ ...f, int: e.target.value })} /></div>
+          <div className="space-y-1.5"><Label htmlFor="fp-col">Colonia</Label><Input id="fp-col" disabled={!canEdit} maxLength={120} value={f.col} onChange={(e) => setF({ ...f, col: e.target.value })} /></div>
+          <div className="space-y-1.5"><Label htmlFor="fp-mun">Municipio o alcaldía</Label><Input id="fp-mun" disabled={!canEdit} maxLength={120} value={f.mun} onChange={(e) => setF({ ...f, mun: e.target.value })} /></div>
+          <div className="col-span-2 space-y-1.5"><Label htmlFor="fp-state">Estado</Label><Input id="fp-state" disabled={!canEdit} maxLength={80} value={f.state} onChange={(e) => setF({ ...f, state: e.target.value })} /></div>
+        </div>
+        {canEdit && <div className="flex items-center gap-3"><Button type="submit" disabled={busy}>Guardar datos fiscales</Button>{msg && <span role="status" className="text-xs text-muted-foreground">{msg}</span>}</div>}
+      </form></CardContent></Card>
   );
 }

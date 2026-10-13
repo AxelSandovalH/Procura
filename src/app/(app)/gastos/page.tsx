@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Receipt } from "lucide-react";
+import { BillingDataCard } from "@/components/app/billing-data";
 import { ScanReceiptButton } from "@/components/app/scan-receipt";
 import { PageHeader } from "@/components/app/page-header";
 import { StatusBadge } from "@/components/app/status-badge";
@@ -119,6 +120,7 @@ function ExpenseSheet({ id, onClose, canManage, onChange }: { id: string | null;
           {e.voided_at && <p className="rounded-lg bg-muted px-3 py-2">Gasto anulado: {e.void_reason}</p>}
           {e.order_id && <Link href={`/ordenes/${e.order_id}`} className="inline-block underline">Ver la orden</Link>}
           {(receipts.data?.data.length ?? 0) > 0 && <p className="flex flex-wrap items-center gap-2"><span className="text-muted-foreground">Ticket:</span>{receipts.data!.data.map((r) => <button key={r.id} className="underline" onClick={() => void openReceipt(r.id)}>{r.filename}</button>)}</p>}
+          <BillingDataCard paymentMethod={e.payments.find((p) => !p.voided_at)?.method} />
           <PaymentsSection base={`/expenses/${e.id}`} payments={e.payments} currency={e.currency} pendingMinor={e.pending_to_pay_minor} voided={!!e.voided_at} kind="expense" onChange={onChange} />
           <CfdiSection base={`/expenses/${e.id}`} links={e.cfdi} currency={e.currency} totalMinor={e.amount_minor} documentedMinor={e.documented_minor} direction="RECEIVED" voided={!!e.voided_at} onChange={onChange} />
         </div>
