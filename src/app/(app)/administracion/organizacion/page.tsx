@@ -97,14 +97,23 @@ const CAPS: [string, string][] = [["issue", "Emitir CFDI"], ["fetchIssued", "Rec
 
 /** Estado real de la facturación electrónica: qué está configurado y qué capacidades existen de verdad. */
 function FiscalCard() {
+  const session = useSession(); const qc = useQueryClient();
+  const [test, setTest] = useState<{ ok: boolean; text: string } | null>(null); const [busy, setBusy] = useState(false);
   const q = useQuery({ queryKey: ["fiscal-provider"], queryFn: () => api<FiscalInfo>("/fiscal/provider"), staleTime: 60_000 });
   if (!q.data) return null;
+  async function probe() {
+    setBusy(true); setTest(null);
+    try { const r = await api<{ environment: string }>("/fiscal/test", { body: {} }); setTest({ ok: true, text: `Conexión correcta con Fiscalapi (ambiente de ${r.environment === "live" ? "producción" : r.environment === "test" ? "pruebas" : "personalizado"}).` }); }
+    catch (e) { setTest({ ok: false, text: e instanceof ApiError ? (e.detail ?? e.title) : "No se pudo probar la conexión." }); }
+    finally { setBusy(false); await qc.invalidateQueries({ queryKey: ["fiscal-provider"] }); }
+  }
   const p = q.data;
   return (
     <Card><CardHeader><CardTitle>Facturación electrónica (CFDI)</CardTitle></CardHeader><CardContent className="space-y-3 text-sm">
       <p>Proveedor fiscal: <span className="font-medium capitalize">{p.provider}</span> · {p.configured ? "credenciales presentes en el servidor" : "sin configurar"}</p>
       <ul className="grid gap-1 sm:grid-cols-2">{CAPS.map(([k, name]) => <li key={k} className="flex items-center gap-2"><span aria-hidden className={p.capabilities[k] ? "text-emerald-600" : "text-muted-foreground"}>{p.capabilities[k] ? "●" : "○"}</span><span className={p.capabilities[k] ? "" : "text-muted-foreground"}>{name}{p.capabilities[k] ? "" : " — no disponible"}</span></li>)}</ul>
       <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">{p.notes.map((n) => <li key={n}>{n}</li>)}</ul>
+      {session.can("cfdi.manage") && <div className="flex flex-wrap items-center gap-3"><Button size="sm" variant="outline" onClick={() => void probe()} disabled={busy || !p.configured}>{busy ? "Probando…" : "Probar conexión"}</Button>{test && <span role={test.ok ? "status" : "alert"} className={`text-xs ${test.ok ? "text-emerald-700" : "text-destructive"}`}>{test.text}</span>}</div>}
       <p className="text-xs text-muted-foreground">Mientras tanto puedes cargar XML manualmente en Facturas; los de tus proveedores aparecen solos.</p>
     </CardContent></Card>
   );

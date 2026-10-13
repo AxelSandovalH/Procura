@@ -38,6 +38,8 @@ export interface FiscalProvider {
   issueCfdi(req: IssueRequest): Promise<NormalizedCfdi>;
   listCfdi(orgExternalAccount: string, params: { direction: "ISSUED" | "RECEIVED"; from: Date; to: Date; cursor?: string }): Promise<{ items: NormalizedCfdi[]; nextCursor?: string }>;
   getCfdiStatus(fiscalUuid: string): Promise<NormalizedCfdi["satStatus"]>;
+  /** Comprueba que las credenciales del servidor funcionan, sin modificar nada en el proveedor. */
+  testConnection(): Promise<{ ok: true; environment: "test" | "live" | "custom" }>;
 }
 
 /** Reintento con espera exponencial solo para errores transitorios (límite de API / fallo del proveedor). */

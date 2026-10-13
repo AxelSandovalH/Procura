@@ -59,6 +59,7 @@ describe("capa fiscal", () => {
     expect(Object.values(p.capabilities).some(Boolean)).toBe(false);
     expect(p.isConfigured()).toBe(false);
     await expect(p.issueCfdi({ organizationId: "o", saleId: "s", idempotencyKey: "k" })).rejects.toMatchObject({ code: "NOT_CONFIGURED" });
+    await expect(p.testConnection()).rejects.toMatchObject({ code: "NOT_CONFIGURED" });
   });
   it("reintenta solo errores transitorios y respeta el límite de intentos", async () => {
     let n = 0;
