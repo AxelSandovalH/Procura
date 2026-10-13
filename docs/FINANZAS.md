@@ -72,3 +72,15 @@ Una factura de una persona física en RESICO a una **persona moral** suele lleva
 - **Cobro**: `sales.withheld_minor` (calculado de los CFDI ligados vigentes) es lo que el cliente no paga: lo que el vínculo documenta **por encima del total neto** del CFDI, hasta lo retenido. Si la venta se registra en bruto (subtotal + IVA), se descuenta todo lo retenido; si se registra por lo que de verdad se cobra (≈ el neto), no se resta nada más. Se cobra `total − retenido`: el estado de cobro, el tope de cobro, lo «por cobrar» del resumen y las sugerencias de conciliación bancaria ya lo descuentan. Si el CFDI se cancela, deja de contar.
 - **Emisión**: en «Emitir factura» hay una sección de retenciones (solo con receptor persona moral, RFC de 12 caracteres): `retentions: {isr, iva}` en `POST /api/v1/sales/{id}/invoice`. Se envían a Fiscalapi como `itemTaxes` con `taxFlagCode: "R"` (ISR `001` a 0.0125, IVA `002` a 0.106667). **Quién decide si aplican es el emisor con su contador**: Procura no las activa sola, y el portal público de autofacturación nunca las aplica (vende a público).
 - **Pendiente de verificar**: la primera emisión real con retenciones (el formato de `itemTaxes` con `R` viene de la documentación de Fiscalapi; el cálculo de importes lo hace el proveedor).
+
+## Importar ventas desde un punto de venta
+
+En **Ventas → Importar ventas** se sube el CSV que exporta el punto de venta (o el corte diario). No hay POS propio: se evita el doble registro.
+
+- Detecta el encabezado (fecha + total obligatorios; folio, descripción, forma de pago, estatus y cliente opcionales). Acepta `,` o `;` y UTF-8 / Windows-1252.
+- Omite ventas canceladas, devoluciones (negativas) y filas inválidas; lo informa en la vista previa.
+- El total del ticket se toma como IVA incluido (16 %, 8 % o 0 %); subtotal + IVA suma exactamente el total.
+- Conserva el folio del ticket como folio de la venta (sirve para el portal de autofacturación); sin folio se asigna `VTA-xxxxx`.
+- Idempotente: cada fila lleva `external_ref` (`F:<folio>` o hash), reimportar no duplica. Un folio ya usado por otra venta se informa y no se crea.
+- Por omisión quedan cobradas (crea el cobro con la forma de pago); se puede desmarcar.
+- Límite: 1,000 ventas por archivo. Solo CSV por ahora. Permiso `sale.manage` (+ `payment.manage` si cobra). Endpoint: `POST /api/v1/sales/import` (`dry_run` para la vista previa).

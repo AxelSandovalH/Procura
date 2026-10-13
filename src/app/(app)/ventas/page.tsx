@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Trash2, TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
+import { ImportSalesButton } from "@/components/app/import-sales";
 import { StatusBadge } from "@/components/app/status-badge";
 import { apiErr } from "@/components/app/finance-sections";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ export default function VentasPage() {
   return (
     <>
       <PageHeader title="Ventas" description="Ingresos de tu organización. Una venta puede existir antes de facturarse y de cobrarse."
-        actions={session.can("sale.manage") ? <Button onClick={() => setCreating(true)}><Plus />Registrar venta</Button> : undefined} />
+        actions={session.can("sale.manage") ? <div className="flex gap-2"><ImportSalesButton /><Button onClick={() => setCreating(true)}><Plus />Registrar venta</Button></div> : undefined} />
       <div className="mb-4 flex flex-wrap items-end gap-2">
         <div className="relative min-w-52 flex-1 sm:max-w-xs"><Search className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" /><Input aria-label="Buscar" className="pl-8" placeholder="Folio o descripción" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} /></div>
         <Input aria-label="Desde" type="date" className="w-40" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} />

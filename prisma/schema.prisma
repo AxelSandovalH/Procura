@@ -2648,6 +2648,7 @@ model sales {
   collected_minor          BigInt    @default(0)
   documented_minor         BigInt    @default(0)
   withheld_minor           BigInt    @default(0)
+  external_ref             String?
   created_by_membership_id String?   @db.Uuid
   voided_at                DateTime? @db.Timestamptz(6)
   void_reason              String?
