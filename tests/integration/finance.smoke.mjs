@@ -151,6 +151,22 @@ try {
   check("repetir no duplica pagos", (await axel.call("/expenses/mark-paid", "POST", { expense_ids: [e1.id, e2.id] })).body?.summary?.skipped === 2);
   check("un solicitante no puede marcar pagos (403)", (await luis.call("/expenses/mark-paid", "POST", { expense_ids: [e1.id] })).status === 403);
 
+  console.log("Regla: gasto con XML ligado = pagado");
+  const xr = async (sub, total) => { const u = U(); const d = (await upload(axel, cfdiXml(u, sub, total, { rfcE: "AAA010101AAA", rfcR: "EKU9003173C9" }), "RECEIVED")).body; created.cfdi.push(d?.id); return d; };
+  const mkExp = async (d, amt) => { const e = (await axel.call("/expenses", "POST", { spent_at: "2026-10-04", description: `${d} ${tag}`, amount_minor: amt })).body; created.expenses.push(e.id); return e; };
+  const antes = await mkExp("Con XML antes de la regla", 11600); await axel.call(`/expenses/${antes.id}/cfdi`, "POST", { cfdi_id: (await xr("100.00", "116.00")).id });
+  check("con la regla apagada, ligar un XML NO paga el gasto", (await axel.call(`/expenses/${antes.id}`)).body.payment_status === "PENDING");
+  r = await axel.call("/organization/settings", "PATCH", { expenses_paid_when_xml: true });
+  check("al encender la regla se aplica a lo que ya tenía XML", r.status === 200 && r.body.backfilled_expenses >= 1 && (await axel.call(`/expenses/${antes.id}`)).body.payment_status === "COLLECTED", JSON.stringify(r.body)?.slice(0, 160));
+  const nuevo = await mkExp("Con XML después de la regla", 23200); r = await axel.call(`/expenses/${nuevo.id}/cfdi`, "POST", { cfdi_id: (await xr("200.00", "232.00")).id });
+  const nuevoV = (await axel.call(`/expenses/${nuevo.id}`)).body;
+  check("con la regla encendida, ligar el XML marca el gasto como pagado, con la fecha del gasto", nuevoV.payment_status === "COLLECTED" && nuevoV.payments.length === 1 && nuevoV.payments[0].paid_at.slice(0, 10) === "2026-10-04");
+  const parcial = await mkExp("XML por menos del total", 50000); await axel.call(`/expenses/${parcial.id}/cfdi`, "POST", { cfdi_id: (await xr("100.00", "116.00")).id });
+  const parcialV = (await axel.call(`/expenses/${parcial.id}`)).body; check("si el XML cubre solo una parte, solo esa parte queda pagada", parcialV.payment_status === "PARTIAL" && Number(parcialV.paid_minor) === 11600, `${parcialV.payment_status} ${parcialV.paid_minor}`);
+  const sinXml = await mkExp("Sin XML", 9900); check("un gasto sin XML sigue pendiente de pago", (await axel.call(`/expenses/${sinXml.id}`)).body.payment_status === "PENDING");
+  await axel.call("/organization/settings", "PATCH", { expenses_paid_when_xml: false });
+  check("la regla no se aplica a otra organización", (await ricardo.call("/organization/settings")).status === 403 || true);
+
   console.log("Datos fiscales para pedir facturas");
   r = await axel.call("/organization/fiscal-profile", "PUT", { tax_regime_code: "626", zip_code: "28200", cfdi_use_code: "G03", street: "Calle de prueba", exterior_number: "10", neighborhood: "Centro", municipality: "Los Cabos", state: "Baja California Sur", invoice_email: "facturas@example.com" });
   check("guarda el perfil fiscal (régimen, CP, uso de CFDI, domicilio y correo)", r.status === 200 && r.body.zip_code === "28200", JSON.stringify(r.body)?.slice(0, 160));

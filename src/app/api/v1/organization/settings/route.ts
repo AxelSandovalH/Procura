@@ -5,6 +5,7 @@ import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase, diff } from "@/lib/audit";
+import { autoPayFromXml } from "@/lib/finance/ops";
 import type { Prisma } from "@prisma/client";
 
 const Update = z.object({
@@ -17,6 +18,7 @@ const Update = z.object({
   reapproval_policy: z.enum(["ALWAYS", "IF_AMOUNT_INCREASES", "NEVER"]).optional(),
   approval_timing: z.enum(["BEFORE_QUOTING", "AFTER_QUOTING"]).optional(),
   expenses_managed_by: z.enum(["PROCURA", "ERP"]).optional(),
+  expenses_paid_when_xml: z.boolean().optional(),
   auto_close_days_after_resolved: z.number().int().min(0).nullable().optional(),
   portal_enabled: z.boolean().optional(),
   portal_welcome_text: z.string().trim().max(2000).nullable().optional(),
@@ -41,7 +43,14 @@ export const PATCH = route(async (req) => {
     const after = await tx.organization_settings.update({ where: { organization_id: actor.organizationId }, data: body });
     const changes = diff(before, body as Record<string, unknown>);
     if (Object.keys(changes).length > 0) await audit(tx, { ...auditBase(actor), action: "settings.updated", resourceType: "organization_settings", resourceId: actor.organizationId, changes: changes as Prisma.InputJsonValue });
-    return after;
+    // Al encender la regla se aplica a lo que ya tiene XML ligado y sigue sin pagarse.
+    let backfilled = 0;
+    if (body.expenses_paid_when_xml === true && !before.expenses_paid_when_xml) {
+      const open = await tx.expenses.findMany({ where: { organization_id: actor.organizationId, voided_at: null, documented_minor: { gt: 0 } }, select: { id: true, amount_minor: true, documented_minor: true, paid_minor: true } });
+      for (const e of open) if ((e.documented_minor < e.amount_minor ? e.documented_minor : e.amount_minor) > e.paid_minor && await autoPayFromXml(tx, actor.organizationId, actor.membershipId, e.id)) backfilled++;
+      if (backfilled > 0) await audit(tx, { ...auditBase(actor), action: "expenses.paid_by_rule_applied", resourceType: "organization_settings", resourceId: actor.organizationId, metadata: { expenses: backfilled } });
+    }
+    return { ...after, backfilled_expenses: backfilled };
   });
   return NextResponse.json(updated);
 });

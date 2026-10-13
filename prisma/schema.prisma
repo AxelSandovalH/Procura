@@ -1297,6 +1297,7 @@ model organization_settings {
   requester_can_self_approve     Boolean                     @default(false)
   approval_timing                approval_timing             @default(AFTER_QUOTING)
   expenses_managed_by                String                       @default("PROCURA")
+  expenses_paid_when_xml               Boolean                      @default(false)
   reapproval_policy              reapproval_policy           @default(IF_AMOUNT_INCREASES)
   auto_close_days_after_resolved Int?
   portal_enabled                 Boolean                     @default(false)

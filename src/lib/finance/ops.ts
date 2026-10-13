@@ -1,5 +1,6 @@
 import type { Tx } from "@/lib/db/client";
 import { Problem } from "@/lib/http/problem";
+import { audit } from "@/lib/audit";
 import { assertAllocation, defaultAllocation } from "@/lib/finance/calc";
 
 export type OpKind = "sale" | "expense";
@@ -48,7 +49,7 @@ export async function linkCfdi(tx: Tx, organizationId: string, membershipId: str
   assertAllocation(amount, Number(total), Number(documented), Number(cfdi.total_minor), Number(cfdi.allocated_minor));
   const link = await tx.cfdi_links.create({ data: { organization_id: organizationId, cfdi_id: cfdi.id, ...(kind === "sale" ? { sale_id: opId } : { expense_id: opId }), amount_minor: BigInt(amount), created_by_membership_id: membershipId } });
   await recomputeCfdi(tx, cfdi.id);
-  if (kind === "sale") await recomputeSale(tx, opId); else await recomputeExpense(tx, opId);
+  if (kind === "sale") await recomputeSale(tx, opId); else { await recomputeExpense(tx, opId); await autoPayFromXml(tx, organizationId, membershipId, opId); }
   return { link, cfdi };
 }
 
@@ -77,4 +78,26 @@ export async function addPayment(tx: Tx, organizationId: string, membershipId: s
   } });
   const updated = kind === "sale" ? await recomputeSale(tx, opId) : await recomputeExpense(tx, opId);
   return { payment, operation: updated };
+}
+
+const FORM_TO_METHOD: Record<string, string> = { "01": "CASH", "03": "TRANSFER", "04": "CARD", "28": "CARD" };
+
+/**
+ * Regla opcional de la organización («gasto con XML = pagado»): registra el pago de lo documentado que aún no esté pagado, con la fecha del
+ * gasto y la forma de pago del propio CFDI cuando la trae. Es un pago normal (se puede anular); desligar el XML no lo revierte.
+ */
+export async function autoPayFromXml(tx: Tx, organizationId: string, membershipId: string | null, expenseId: string): Promise<boolean> {
+  const settings = await tx.organization_settings.findUnique({ where: { organization_id: organizationId }, select: { expenses_paid_when_xml: true } });
+  if (!settings?.expenses_paid_when_xml) return false;
+  const e = await tx.expenses.findFirst({ where: { id: expenseId, organization_id: organizationId } });
+  if (!e || e.voided_at) return false;
+  const target = e.documented_minor < e.amount_minor ? e.documented_minor : e.amount_minor;
+  const owed = target - e.paid_minor;
+  if (owed <= BigInt(0)) return false;
+  const link = await tx.cfdi_links.findFirst({ where: { expense_id: e.id }, orderBy: { created_at: "asc" } });
+  const cfdi = link ? await tx.cfdi_documents.findUnique({ where: { id: link.cfdi_id }, select: { fiscal_payment_form: true } }) : null;
+  const method = (cfdi?.fiscal_payment_form && FORM_TO_METHOD[cfdi.fiscal_payment_form]) || undefined;
+  const { payment } = await addPayment(tx, organizationId, membershipId, "expense", e.id, { paid_at: e.spent_at, amount_minor: Number(owed), method, notes: "Pagado por regla: el gasto tiene XML ligado" });
+  await audit(tx, { actorType: membershipId ? "USER" : "SYSTEM", membershipId, organizationId, action: "payment.created", resourceType: "expense", resourceId: e.id, resourceLabel: e.description, metadata: { payment_id: payment.id, amount_minor: owed.toString(), auto: "expenses_paid_when_xml" } });
+  return true;
 }
