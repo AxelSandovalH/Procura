@@ -21,13 +21,16 @@ export const GET = route(async (req, params) => {
     return found;
   });
 
+  // `?inline=1` devuelve además una URL para ver el archivo en pantalla (sin forzar la descarga), pensada para vistas previas.
+  const inline = new URL(req.url).searchParams.get("inline") === "1";
   const signed = await supabaseAdmin().storage.from(a.storage_bucket).createSignedUrl(a.storage_key, URL_TTL_SECONDS, { download: a.filename });
+  const preview = inline ? await supabaseAdmin().storage.from(a.storage_bucket).createSignedUrl(a.storage_key, URL_TTL_SECONDS) : null;
   if (signed.error || !signed.data) throw new Problem(502, "Storage no disponible", signed.error?.message);
 
   return NextResponse.json({
     id: a.id, filename: a.filename, mime_type: a.mime_type, size_bytes: a.size_bytes, kind: a.kind, visibility: a.visibility,
     anchor_type: a.anchor_type, anchor_id: a.anchor_id, mine: a.owner_organization_id === actor.organizationId, created_at: a.created_at,
-    download_url: signed.data.signedUrl, download_url_expires_in: URL_TTL_SECONDS,
+    download_url: signed.data.signedUrl, download_url_expires_in: URL_TTL_SECONDS, ...(preview?.data ? { preview_url: preview.data.signedUrl } : {}),
   });
 });
 

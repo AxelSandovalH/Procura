@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileCheck2, FileClock, FileX2, Plus, Receipt } from "lucide-react";
+import { ReceiptPreview } from "@/components/app/receipt-preview";
 import { BillingDataCard } from "@/components/app/billing-data";
 import { ScanReceiptButton } from "@/components/app/scan-receipt";
 import { PageHeader } from "@/components/app/page-header";
@@ -109,18 +110,16 @@ function ExpenseSheet({ id, onClose, canManage, onChange }: { id: string | null;
   const [voiding, setVoiding] = useState(false);
   const q = useQuery({ queryKey: ["expense", id], queryFn: () => api<ExpenseDetail>(`/expenses/${id}`), enabled: !!id });
   const e = q.data;
-  const receipts = useQuery({ queryKey: ["expense-receipts", id], queryFn: () => api<{ data: { id: string; filename: string }[] }>(`/attachments?anchor_type=EXPENSE&anchor_id=${id}`), enabled: !!id });
-  async function openReceipt(aid: string) { const a = await api<{ download_url: string }>(`/attachments/${aid}`); window.open(a.download_url, "_blank", "noopener"); }
   return (
-    <Dialog open={!!id} onOpenChange={(o) => !o && onClose()}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+    <Dialog open={!!id} onOpenChange={(o) => !o && onClose()}><DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden sm:max-w-xl">
       {!e ? <div className="h-32 animate-pulse rounded bg-muted" /> : (<>
-        <DialogHeader><DialogTitle>{e.description}</DialogTitle><DialogDescription>{dateShort(e.spent_at)} · {e.category ?? "Sin categoría"}{e.supplier_name ? ` · ${e.supplier_name}` : ""}</DialogDescription></DialogHeader>
-        <div className="space-y-5 text-sm">
-          <div className="flex items-baseline justify-between"><span className="text-muted-foreground">Monto</span><span className="text-lg font-semibold tabular-nums">{money(e.amount_minor, e.currency)}</span></div>
+        <DialogHeader><DialogTitle className="break-words pr-6">{e.description}</DialogTitle><DialogDescription>{dateShort(e.spent_at)} · {e.category ?? "Sin categoría"}{e.supplier_name ? ` · ${e.supplier_name}` : ""}</DialogDescription></DialogHeader>
+        <div className="min-w-0 space-y-5 text-sm">
+          <div className="flex items-baseline justify-between gap-3"><span className="text-muted-foreground">Monto</span><span className="text-lg font-semibold tabular-nums">{money(e.amount_minor, e.currency)}</span></div>
           <div className="flex flex-wrap gap-1.5"><StatusBadge {...(PAYMENT_STATUS[e.payment_status] ?? { label: e.payment_status, tone: "neutral" as const })} /><StatusBadge {...(INVOICING_STATUS[e.invoicing_status] ?? { label: e.invoicing_status, tone: "neutral" as const })} /></div>
           {e.voided_at && <p className="rounded-lg bg-muted px-3 py-2">Gasto anulado: {e.void_reason}</p>}
           {e.order_id && <Link href={`/ordenes/${e.order_id}`} className="inline-block underline">Ver la orden</Link>}
-          {(receipts.data?.data.length ?? 0) > 0 && <p className="flex flex-wrap items-center gap-2"><span className="text-muted-foreground">Ticket:</span>{receipts.data!.data.map((r) => <button key={r.id} className="underline" onClick={() => void openReceipt(r.id)}>{r.filename}</button>)}</p>}
+          <ReceiptPreview expenseId={e.id} />
           <BillingDataCard paymentMethod={e.payments.find((p) => !p.voided_at)?.method} />
           <PaymentsSection base={`/expenses/${e.id}`} payments={e.payments} currency={e.currency} pendingMinor={e.pending_to_pay_minor} voided={!!e.voided_at} kind="expense" onChange={onChange} />
           <CfdiSection base={`/expenses/${e.id}`} links={e.cfdi} currency={e.currency} totalMinor={e.amount_minor} documentedMinor={e.documented_minor} direction="RECEIVED" voided={!!e.voided_at} onChange={onChange} />

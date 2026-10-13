@@ -263,6 +263,7 @@ El proveedor adjunta el CFDI (XML timbrado, PDF opcional) a una orden suya; Proc
 | POST | `/expenses/scan` multipart `file` (JPG/PNG/WebP ≤ 8 MB) — lee un ticket con visión de Claude y devuelve `{ draft, possible_duplicates[] }`; **no guarda nada**. Requiere `ANTHROPIC_API_KEY` en el servidor (409 si falta) | `expense.manage` |
 | PATCH | `/organization/settings` `{ expenses_paid_when_xml: true }` — regla opcional: un gasto con XML ligado se marca como pagado por lo documentado (pago normal, anulable); al encenderla se aplica a los gastos que ya tienen XML (`backfilled_expenses`) | `settings.manage` |
 | POST | `/expenses/mark-paid` `{ expense_ids[] (≤100), method? }` — registra el pago de lo que falte de cada gasto con su propia fecha; omite anulados y ya pagados | `payment.manage` + `expense.manage` |
+| GET | `/attachments/{id}?inline=1` — además de `download_url` devuelve `preview_url` (URL firmada de corta vida para ver el archivo en pantalla) | participante del recurso |
 | POST | `/expenses/{id}/receipt` multipart `file` — guarda la foto como evidencia interna del gasto (se lista con `GET /attachments?anchor_type=EXPENSE&anchor_id=`) | `expense.manage` |
 | GET / PUT | `/organization/fiscal-profile` — datos para pedir facturas: razón social y RFC (de la organización) más régimen, CP, uso de CFDI, domicilio y correo | `organization.read` / `organization.update` |
 | GET / PATCH | `/expenses/{id}` | `expense.read` / `expense.manage` |
