@@ -25,6 +25,8 @@ class FiscalapiProvider implements FiscalProvider {
   private unsupported(what: string): never {
     throw new FiscalProviderError(this.isConfigured() ? "NOT_SUPPORTED" : "NOT_CONFIGURED", `${what}: ${this.isConfigured() ? "aún no implementado en el adaptador de Fiscalapi" : "el proveedor fiscal no está configurado"}.`);
   }
+  /** Ambiente al que apunta este servidor, para diagnosticar credenciales cruzadas (pruebas contra producción). */
+  private envLabel() { const b = this.baseUrl(); return b === "https://test.fiscalapi.com" ? "ambiente de pruebas" : b === "https://live.fiscalapi.com" ? "ambiente de producción" : `ambiente ${b}`; }
   private baseUrl() { return (env().FISCALAPI_URL ?? "https://test.fiscalapi.com").replace(/\/+$/, ""); }
   private async request(method: "GET" | "POST", path: string, body?: unknown, timeZone = "America/Mazatlan"): Promise<{ status: number; json: unknown }> {
     if (!this.isConfigured()) throw new FiscalProviderError("NOT_CONFIGURED", "Faltan FISCALAPI_API_KEY y FISCALAPI_TENANT en el servidor.");
@@ -34,7 +36,7 @@ class FiscalapiProvider implements FiscalProvider {
       res = await fetch(`${this.baseUrl()}${path}`, { method, headers: { "X-API-KEY": e.FISCALAPI_API_KEY!, "X-TENANT-KEY": e.FISCALAPI_TENANT!, "X-TIME-ZONE": timeZone, ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(30_000) });
     } catch { throw new FiscalProviderError("UPSTREAM", "No se pudo contactar a Fiscalapi (red o tiempo de espera)."); }
     // 401 = credenciales; un 403 puede ser otra cosa (p. ej. saldo insuficiente): se deja pasar para mostrar el motivo que da el proveedor.
-    if (res.status === 401) throw new FiscalProviderError("UNAUTHORIZED", "Fiscalapi rechazó las credenciales (API key o tenant).");
+    if (res.status === 401) throw new FiscalProviderError("UNAUTHORIZED", `Fiscalapi (${this.envLabel()}) rechazó las credenciales: la API key o el TID no corresponden a ese ambiente.`);
     if (res.status === 429) throw new FiscalProviderError("RATE_LIMITED", "Fiscalapi limitó las peticiones; reintenta en unos segundos.", Number(res.headers.get("retry-after")) || undefined);
     const text = await res.text(); let json: unknown = null; try { json = text ? JSON.parse(text) : null; } catch { /* respuesta no JSON */ }
     return { status: res.status, json };
