@@ -9,7 +9,7 @@ import { useSession } from "@/hooks/use-session";
 import { api, ApiError } from "@/lib/api-client";
 import { dateTime } from "@/lib/format";
 
-interface Status { configured: boolean; has_issuer: boolean; sync_enabled: boolean; rules: { id: string; downloadType: string | null; status: string | null }[]; requests: { total: number; ready: number; pending: number }; imports: { id: string; status: string; created_count: number; duplicate_count: number; error_count: number; updated_at: string }[]; last_synced_at: string | null }
+interface Status { configured: boolean; has_issuer: boolean; sync_enabled: boolean; rules: { id: string; downloadType: string | null; status: string | null }[]; request_list?: { id: string; rule: string | null; status: string | null; ready: boolean; invoice_count: number | null; start: string | null; end: string | null; imported: boolean }[]; requests: { total: number; ready: number; pending: number }; imports: { id: string; status: string; created_count: number; duplicate_count: number; error_count: number; updated_at: string }[]; last_synced_at: string | null }
 interface Summary { rules: number; requested: number; request_errors: string[]; imported_requests: number; pending_requests: number; created: number; duplicates: number; errors: number; last_error: string | null; time_limited: boolean }
 const err = (e: unknown, f: string) => (e instanceof ApiError ? (e.detail ?? e.title) : f);
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -63,6 +63,10 @@ export function SatDownloadCard({ onImported }: { onImported: () => Promise<unkn
           <Button size="sm" variant="outline" onClick={() => void sync(true)} disabled={!!busy || !from || !to}>{busy === "period" ? "Pidiendo…" : "Pedir al SAT"}</Button>
           <p className="basis-full text-xs text-muted-foreground">El SAT entrega los paquetes con retraso (a veces horas). Pide el periodo ahora y las facturas aparecerán solas en Facturas cuando estén listas.</p>
         </div>)}
+      {s.sync_enabled && (s.request_list?.length ?? 0) > 0 && (
+        <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">Ver solicitudes al SAT ({s.request_list!.length})</summary>
+          <ul className="mt-1 space-y-0.5">{s.request_list!.map((r) => (
+            <li key={r.id}>{r.rule ?? "?"} · {r.start?.slice(0, 10) ?? "?"} → {r.end?.slice(0, 10) ?? "?"} · {r.status ?? (r.ready ? "lista" : "en proceso")} · {r.invoice_count == null ? "sin conteo" : `${r.invoice_count} CFDI`}{r.imported ? " · importada" : r.ready ? " · lista para importar" : ""}</li>))}</ul></details>)}
       {msg && <p role={msg.ok ? "status" : "alert"} className={msg.ok ? "text-emerald-700" : "text-destructive"}>{msg.text}</p>}
     </div>
   );

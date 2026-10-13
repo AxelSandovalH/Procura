@@ -25,6 +25,6 @@ export const GET = route(async (req) => {
     const ids = new Set(rules.all.map((r) => r.id));
     const reqs = (await p.listDownloadRequests(2)).filter((r) => r.ruleId && ids.has(r.ruleId));
     const done = new Set(imports.filter((i) => i.status === "IMPORTED").map((i) => i.provider_request_id));
-    return NextResponse.json({ configured: true, has_issuer: true, sync_enabled, rules: rules.all, requests: { total: reqs.length, ready: reqs.filter((r) => r.ready && !done.has(r.id)).length, pending: reqs.filter((r) => !r.ready).length }, imports, last_synced_at: conn.last_synced_at });
+    return NextResponse.json({ configured: true, has_issuer: true, sync_enabled, rules: rules.all, request_list: reqs.slice(0, 8).map((r) => ({ id: r.id, rule: rules.all.find((x) => x.id === r.ruleId)?.downloadType ?? null, status: r.status, ready: r.ready, invoice_count: r.invoiceCount, start: r.startDate, end: r.endDate, imported: done.has(r.id) })), requests: { total: reqs.length, ready: reqs.filter((r) => r.ready && !done.has(r.id)).length, pending: reqs.filter((r) => !r.ready).length }, imports, last_synced_at: conn.last_synced_at });
   } catch (e) { if (e instanceof FiscalProviderError) throw new Problem(e.code === "NOT_CONFIGURED" ? 409 : 502, "Proveedor fiscal", e.message, { code: e.code }); throw e; }
 });
