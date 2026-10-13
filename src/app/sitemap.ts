@@ -1,8 +1,14 @@
 import type { MetadataRoute } from "next";
+import { PLANS } from "./_landing/pricing-data";
 
 const base = process.env.APP_URL ?? "https://www.procuraos.app";
 
+/** Solo páginas públicas e indexables: la portada, el detalle de cada plan y el registro. La app (con sesión) y la API no entran. */
 export default function sitemap(): MetadataRoute.Sitemap {
-  const plans = ["starter", "business", "enterprise", "custom"].map((id) => ({ url: `${base}/precios/${id}`, changeFrequency: "monthly" as const, priority: 0.7 }));
-  return [{ url: `${base}/`, changeFrequency: "monthly", priority: 1 }, ...plans];
+  const lastModified = new Date();
+  return [
+    { url: `${base}/`, lastModified, changeFrequency: "weekly", priority: 1 },
+    ...PLANS.map((p) => ({ url: `${base}/precios/${p.id}`, lastModified, changeFrequency: "monthly" as const, priority: 0.7 })),
+    { url: `${base}/registro`, lastModified, changeFrequency: "yearly", priority: 0.5 },
+  ];
 }
