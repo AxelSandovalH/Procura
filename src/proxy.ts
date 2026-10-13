@@ -10,7 +10,7 @@ const PUBLIC = ["/login", "/registro", "/olvide-contrasena"];
 const NEUTRAL = ["/auth/callback", "/restablecer", "/opengraph-image"];
 /** Portal público de un proveedor: /{slug}/solicitar. Lo ven tanto anónimos como con sesión (la API decide el siguiente paso). */
 const SESSION_COOKIE = /^sb-[a-z0-9]+-auth-token(\.\d+)?$/;
-const PORTAL = /^\/[^/]+\/solicitar\/?$/;
+const PORTAL = /^\/[^/]+\/(solicitar|facturar)\/?$/;
 /** Detalle público de cada plan: /precios/starter, /precios/business… */
 const PRECIOS = /^\/precios\/[a-z]+\/?$/;
 

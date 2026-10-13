@@ -2781,6 +2781,9 @@ model fiscal_issue_requests {
   cfdi_id                  String?  @db.Uuid
   error                    String?
   created_by_membership_id String?  @db.Uuid
+  source                   String   @default("USER")
+  requester_email          String?
+  requester_ip_hash        String?
   created_at               DateTime @default(now()) @db.Timestamptz(6)
   updated_at               DateTime @default(now()) @db.Timestamptz(6)
 
@@ -2866,5 +2869,17 @@ model bank_transactions {
 
   @@unique([bank_account_id, dedupe_key])
   @@index([organization_id, bank_account_id, status, posted_at(sort: Desc)])
+  @@schema("public")
+}
+
+model autoinvoice_settings {
+  organization_id      String   @id @db.Uuid
+  enabled              Boolean  @default(false)
+  window_days          Int      @default(30)
+  daily_limit          Int      @default(50)
+  default_payment_form String   @default("01")
+  welcome_text         String?
+  updated_at           DateTime @default(now()) @db.Timestamptz(6)
+
   @@schema("public")
 }

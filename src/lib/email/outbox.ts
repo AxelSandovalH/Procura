@@ -7,14 +7,14 @@ const TIMEOUT_MS = 10_000;
 
 interface Claimed extends EmailNotification { id: string; email: string }
 
-export async function sendViaResend(apiKey: string, from: string, to: string, msg: { subject: string; html: string; text: string }): Promise<{ ok: boolean; error?: string }> {
+export async function sendViaResend(apiKey: string, from: string, to: string, msg: { subject: string; html: string; text: string; attachments?: { filename: string; content: Buffer }[] }): Promise<{ ok: boolean; error?: string }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     const res = await fetch(`${process.env.RESEND_API_URL ?? "https://api.resend.com"}/emails`, {
       method: "POST", signal: controller.signal,
       headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ from, to: [to], subject: msg.subject, html: msg.html, text: msg.text }),
+      body: JSON.stringify({ from, to: [to], subject: msg.subject, html: msg.html, text: msg.text, ...(msg.attachments?.length ? { attachments: msg.attachments.map((a) => ({ filename: a.filename, content: a.content.toString("base64") })) } : {}) }),
     });
     if (res.ok) return { ok: true };
     return { ok: false, error: `HTTP ${res.status}: ${(await res.text().catch(() => "")).slice(0, 300)}` };
@@ -44,10 +44,10 @@ export async function sendPendingEmails(): Promise<{ enabled: boolean; sent: num
 }
 
 /** Envía un correo suelto (invitaciones). Devuelve false si el envío está apagado o falla; nunca lanza. */
-export async function sendEmailNow(to: string, msg: { subject: string; html: string; text: string }): Promise<boolean> {
+export async function sendEmailNow(to: string, msg: { subject: string; html: string; text: string; attachments?: { filename: string; content: Buffer }[] }): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY, from = process.env.EMAIL_FROM;
   if (!apiKey || !from) return false;
   const r = await sendViaResend(apiKey, from, to, msg);
-  if (!r.ok) console.warn("[email] invitación no enviada:", r.error);
+  if (!r.ok) console.warn("[email] no enviado:", r.error);
   return r.ok;
 }

@@ -52,3 +52,14 @@ Se evitó lo que lo dificultaría: todo registro lleva organización, fecha, mon
 ## Pruebas
 - `npm test` — pruebas unitarias (Vitest) de cálculo de ventas e impuestos, estados, asignación de importes, lectura/validación de CFDI, capa fiscal y reintentos.
 - `npm run test:integration` — recorrido completo contra un servidor en marcha (requiere `.env.local`; **escribe y luego retira datos** en la base configurada): ventas, cobros parciales, CFDI (duplicados, parcial, varias operaciones), gastos, resumen, aislamiento entre organizaciones, permisos y estado del proveedor fiscal.
+
+## Portal de autofacturación (público, sin sesión)
+
+El cliente final pide su CFDI en `/{slug}/facturar` con el **folio y el total exactos** de su ticket (la venta debe existir en Procura: a mano o por la API desde el punto de venta).
+
+- **Configuración** (Administración → Organización → «Portal de autofacturación», permiso `organization.update`): activar, plazo en días desde la venta, tope diario de facturas pedidas por el público, forma de pago por omisión y texto de bienvenida. Para encenderlo hace falta el emisor fiscal y la clave de producto/unidad SAT por omisión (el cliente no las captura). Cada factura consume un timbre de la organización.
+- **API pública** (`/api/v1/portal/{slug}/autoinvoice`): `GET` (datos mínimos del portal), `POST /lookup {folio, total}` y `POST /issue {folio, total, payment_form_code, recipient{tax_id, legal_name, tax_regime_code, zip_code, cfdi_use_code, email}, accept: true}`. Un folio o total incorrecto responde siempre lo mismo (no se pueden adivinar folios).
+- **Candados**: límite por IP (búsqueda 20/10 min, emisión 12/h), límite por organización, plazo, tope diario, una sola emisión por venta (el mismo bloqueo de la emisión interna) y captcha opcional (Cloudflare Turnstile: `NEXT_PUBLIC_TURNSTILE_SITE_KEY` y `TURNSTILE_SECRET_KEY`; sin ellas no se pide).
+- **Una sola ruta de emisión**: `src/lib/billing/issue-sale.ts` la comparten la app y el portal. Cada intento queda en `fiscal_issue_requests` con `source = PORTAL`, el correo y un hash de la IP.
+- **Errores seguros**: al cliente nunca se le muestran saldos, credenciales ni detalles del proveedor fiscal; ve un mensaje genérico.
+- **Entrega**: el XML se envía al correo del cliente (adjunto) y hay un enlace de descarga de 15 minutos. **Aún no hay PDF** (Procura no lo descarga del proveedor).

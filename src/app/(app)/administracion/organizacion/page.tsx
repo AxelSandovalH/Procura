@@ -33,6 +33,7 @@ export default function Organizacion() {
       {session.can("settings.manage") && q.data.settings && <SettingsCard s={q.data.settings} />}
       {session.can("expense.read") && <FiscalProfileCard canEdit={session.can("organization.update")} />}
       {session.can("cfdi.read") && <FiscalCard />}
+      {session.can("organization.update") && session.can("cfdi.read") && <AutoinvoiceCard />}
     </div>
   );
 }
@@ -170,6 +171,40 @@ function EmitterConfig({ conn, onSaved }: { conn: FiscalInfo["connection"]; onSa
 interface ProfileResp { legal_name: string; tax_id: string | null; profile: { tax_regime_code: string | null; zip_code: string | null; cfdi_use_code: string; street: string | null; exterior_number: string | null; interior_number: string | null; neighborhood: string | null; municipality: string | null; state: string | null; invoice_email: string | null } }
 
 /** Datos con los que pides facturas a tus proveedores (se muestran, listos para copiar, en cada gasto). La razón social y el RFC se editan arriba, en «Datos de la organización». */
+interface AutoResp { slug: string; enabled: boolean; window_days: number; daily_limit: number; default_payment_form: string; welcome_text: string | null; ready: { issuer: boolean; product_codes: boolean; live: boolean } }
+/** Portal público donde tus clientes piden su factura con el folio y el total de su ticket. Cada factura consume un timbre tuyo. */
+function AutoinvoiceCard() {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: ["autoinvoice"], queryFn: () => api<AutoResp>("/organization/autoinvoice") });
+  const d = q.data;
+  const [f, setF] = useSyncedState(() => ({ enabled: d?.enabled ?? false, days: String(d?.window_days ?? 30), limit: String(d?.daily_limit ?? 50), form: d?.default_payment_form ?? "01", welcome: d?.welcome_text ?? "" }), JSON.stringify(d ?? null));
+  const { busy, msg, save } = useSave(async () => {
+    await api("/organization/autoinvoice", { method: "PUT", body: { enabled: f.enabled, window_days: Number(f.days), daily_limit: Number(f.limit), default_payment_form: f.form, welcome_text: f.welcome.trim() || null } });
+    await qc.invalidateQueries({ queryKey: ["autoinvoice"] });
+  });
+  if (!d) return <div className="h-40 animate-pulse rounded-xl bg-muted" />;
+  const sel = "h-9 w-full rounded-lg border bg-background px-2 text-sm";
+  const link = typeof window !== "undefined" ? `${window.location.origin}/${d.slug}/facturar` : `/${d.slug}/facturar`;
+  return (
+    <Card><CardHeader><CardTitle>Portal de autofacturación</CardTitle></CardHeader><CardContent>
+      <form className="space-y-3" onSubmit={save}>
+        <p className="text-xs text-muted-foreground">Tus clientes piden su factura con el folio y el total de su ticket, sin crear cuenta. Cada factura que se emite aquí <b>consume un timbre tuyo</b>, y las ventas deben estar registradas en Procura (a mano o desde tu punto de venta por la API).</p>
+        {!d.ready.issuer && <p role="note" className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">Falta configurar el emisor fiscal (tarjeta «Facturación electrónica»).</p>}
+        {d.ready.issuer && !d.ready.product_codes && <p role="note" className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">Falta la clave de producto/servicio y de unidad SAT por omisión: el cliente no las captura. Defínelas con tu contadora en «Facturación electrónica».</p>}
+        {d.ready.issuer && !d.ready.live && <p role="note" className="rounded-lg border px-3 py-2 text-xs text-muted-foreground">El proveedor fiscal está en ambiente de pruebas: las facturas no son reales.</p>}
+        <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={f.enabled} onChange={(e) => setF({ ...f, enabled: e.target.checked })} />Activar el portal público</label>
+        {f.enabled && <p className="text-xs">Enlace para tus clientes: <a className="break-all font-mono underline" href={`/${d.slug}/facturar`} target="_blank" rel="noopener noreferrer">{link}</a></p>}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5"><Label htmlFor="ai-days">Plazo para facturar (días)</Label><Input id="ai-days" type="number" min={1} max={365} value={f.days} onChange={(e) => setF({ ...f, days: e.target.value })} /></div>
+          <div className="space-y-1.5"><Label htmlFor="ai-lim">Tope de facturas por día</Label><Input id="ai-lim" type="number" min={1} max={5000} value={f.limit} onChange={(e) => setF({ ...f, limit: e.target.value })} /></div>
+          <div className="col-span-2 space-y-1.5"><Label htmlFor="ai-form">Forma de pago si la venta no la trae</Label><select id="ai-form" className={sel} value={f.form} onChange={(e) => setF({ ...f, form: e.target.value })}><option value="01">01 · Efectivo</option><option value="03">03 · Transferencia electrónica</option><option value="04">04 · Tarjeta de crédito</option><option value="28">28 · Tarjeta de débito</option></select></div>
+          <div className="col-span-2 space-y-1.5"><Label htmlFor="ai-wel">Texto de bienvenida (opcional)</Label><Textarea id="ai-wel" rows={2} maxLength={500} value={f.welcome} onChange={(e) => setF({ ...f, welcome: e.target.value })} placeholder="Factura tus consumos del mes con tu folio y total." /></div>
+        </div>
+        <div className="flex items-center gap-3"><Button type="submit" disabled={busy}>Guardar</Button>{msg && <span role="status" className="text-xs text-muted-foreground">{msg}</span>}</div>
+      </form></CardContent></Card>
+  );
+}
+
 function FiscalProfileCard({ canEdit }: { canEdit: boolean }) {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["fiscal-profile"], queryFn: () => api<ProfileResp>("/organization/fiscal-profile") });
