@@ -44,6 +44,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const setOpen = (v: boolean) => setOpenAt(v ? pathname : null);
   useEffect(() => { if (session.noOrganization) router.replace("/onboarding"); }, [session.noOrganization, router]);
 
+  // Cobro: una organización nueva sin plan es llevada UNA vez a elegirlo; mientras no tenga plan activo ve un aviso.
+  const billing = useQuery({ queryKey: ["billing"], queryFn: () => api<{ access: "LEGACY" | "NEW" | "PLAN" | "LAPSED" }>("/billing"), enabled: !session.loading && !session.noOrganization && session.can("organization.read"), staleTime: 60_000, retry: false });
+  const needsPlan = billing.data?.access === "NEW" || billing.data?.access === "LAPSED";
+  const onPlanPage = pathname.startsWith("/administracion/plan");
+  useEffect(() => {
+    if (billing.data?.access !== "NEW" || onPlanPage || !session.org) return;
+    try { const k = `procura-plan-prompt-${session.org.id}`; if (window.localStorage.getItem(k)) return; window.localStorage.setItem(k, "1"); } catch { /* sin almacenamiento: se muestra solo el aviso */ return; }
+    router.replace("/administracion/plan");
+  }, [billing.data?.access, onPlanPage, session.org, router]);
+
   const canApprove = session.can("requisition.approve");
   const pending = useQuery({ queryKey: ["approvals-pending"], queryFn: () => api<{ data: unknown[] }>("/approvals/pending"), enabled: canApprove, refetchInterval: 60_000 });
   const pendingCount = pending.data?.data.length ?? 0;
@@ -101,6 +111,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
+        {needsPlan && !onPlanPage && <div role="note" className="border-b bg-amber-50 px-4 py-2 text-center text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">{billing.data?.access === "NEW" ? "Elige un plan para usar todas las funciones de Procura." : "Tu suscripción no está activa."} <Link href="/administracion/plan" className="font-medium underline underline-offset-2">Ver planes</Link></div>}
         <main id="contenido" tabIndex={-1} className="mx-auto outline-none w-full max-w-6xl flex-1 p-4 md:p-6">{children}</main>
       </div>
     </div>

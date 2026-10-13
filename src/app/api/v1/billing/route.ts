@@ -21,7 +21,7 @@ export const GET = route(async (req) => {
     return { sub, balance, available, ledger, canManage: !!member?.is_primary_admin };
   })]);
   return NextResponse.json({
-    access: eff.kind === "LEGACY" ? "LEGACY" : eff.kind === "LAPSED" ? "LAPSED" : "PLAN", plan: eff.kind === "PLAN" ? eff.plan : null,
+    access: eff.kind, plan: eff.kind === "PLAN" ? eff.plan : null,
     subscription: data.sub ? { plan: data.sub.plan, status: data.sub.status, current_period_end: data.sub.current_period_end, cancel_at_period_end: data.sub.cancel_at_period_end, grace_until: data.sub.grace_until, has_customer: !!data.sub.stripe_customer_id } : null,
     grace_days: GRACE_DAYS, can_manage: data.canManage, readiness: billingReadiness(),
     credits: { required: !!data.sub?.credits_required, balance: data.balance, available: data.available, history: data.ledger.map((l) => ({ id: l.id, delta: l.delta, kind: l.kind, note: l.note, created_at: l.created_at })) },

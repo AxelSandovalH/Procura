@@ -20,10 +20,18 @@ const send = async (type, object, { id = `evt_${randomUUID()}`, sign = true } = 
 const bill = async () => (await axel.call("/billing")).body;
 const setDb = async (sql, params = []) => { const c = await db(); try { return await c.query(sql, params); } finally { await c.end(); } };
 const uuidSale = []; const tag = `B${Date.now()}`;
+const createdAt = (await setDb("select created_at from organizations where id=$1", [meridian])).rows[0].created_at;
 try {
   check("(prep) la organización de prueba no tiene suscripción: acceso completo", (await bill()).access === "LEGACY");
   check("sin cliente en Stripe no hay portal de pago (409)", (await axel.call("/billing/portal", "POST", {})).status === 409);
   check("firma inválida: 400", (await send("checkout.session.completed", {}, { sign: false })).status === 400);
+
+  // Organización NUEVA (creada después del inicio del cobro): sin plan, solo lo básico
+  await setDb("update organizations set created_at = now() where id=$1", [meridian]);
+  let nb = await bill(); check("organización nueva sin suscripción: acceso «NEW» (a la espera de contratar)", nb.access === "NEW" && nb.plan === null, JSON.stringify(nb.access));
+  let rr = await axel.call("/bank/accounts"); check("la nueva no usa funciones de plan: 402 con instrucción de elegir plan", rr.status === 402 && /Elige un plan/.test(rr.body.detail), JSON.stringify(rr.body));
+  check("pero sí puede registrar gastos y ventas (lo básico)", (await axel.call("/expenses")).status === 200 && (await axel.call("/sales")).status === 200);
+  check("una nueva tampoco usa el reporte de Finanzas (402)", (await axel.call("/finance/summary")).status === 402);
 
   // Créditos
   const sid = `cs_test_${randomUUID()}`; sessions.push(sid);
@@ -34,6 +42,7 @@ try {
   r = await send("checkout.session.completed", pack); check("otro evento de la misma sesión no duplica los créditos", /ya abonado/.test(r.body?.result ?? "") && (await bill()).credits.balance === 50, JSON.stringify(r.body));
   r = await send("checkout.session.completed", { ...pack, id: `cs_test_${randomUUID()}`, payment_status: "unpaid" }); check("pago pendiente (OXXO/SPEI): no abona todavía", /no confirmado/.test(r.body?.result ?? "") && (await bill()).credits.balance === 50);
   r = await send("checkout.session.completed", { ...pack, id: `cs_test_${randomUUID()}`, metadata: { organization_id: randomUUID(), kind: "stamp_pack", pack_size: "50" } }); check("una organización inexistente no recibe nada", r.status === 500 || r.status === 200);
+  check("comprar créditos NO le da un plan (sigue «NEW»)", (await bill()).access === "NEW");
   b = await bill(); check("el historial registra la compra", b.credits.history.some((h) => h.kind === "PURCHASE" && h.delta === 50), JSON.stringify(b.credits.history));
 
   // Permisos del cobro
@@ -79,6 +88,7 @@ try {
 } finally {
   try {
     const d = await db();
+    await d.query("update organizations set created_at=$2 where id=$1", [meridian, createdAt]);
     await d.query("delete from stamp_credit_ledger where organization_id=$1", [meridian]); await d.query("delete from organization_subscriptions where organization_id=$1", [meridian]);
     await d.query("delete from fiscal_issue_requests where sale_id = any($1)", [uuidSale]); await d.query("delete from sale_lines where sale_id = any($1)", [uuidSale]); await d.query("delete from sales where id = any($1)", [uuidSale]);
     await d.query("delete from fiscal_provider_connections where organization_id=$1 and provider='fiscalapi'", [meridian]);

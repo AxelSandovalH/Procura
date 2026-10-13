@@ -11,7 +11,7 @@ import { FINANCE_PLANS, STAMP_PACKS, TAX_NOTE, chargeBreakdown } from "@/lib/com
 import { money } from "@/lib/format";
 
 interface Billing {
-  access: "LEGACY" | "PLAN" | "LAPSED"; plan: "esencial" | "control" | "negocio" | null; grace_days: number; can_manage: boolean;
+  access: "LEGACY" | "NEW" | "PLAN" | "LAPSED"; plan: "esencial" | "control" | "negocio" | null; grace_days: number; can_manage: boolean;
   subscription: { plan: string | null; status: string; current_period_end: string | null; cancel_at_period_end: boolean; grace_until: string | null; has_customer: boolean } | null;
   readiness: { enabled: boolean; webhook: boolean; tax_rate: boolean; plans: Record<string, boolean>; packs: Record<string, boolean> };
   credits: { required: boolean; balance: number; available: number; history: { id: string; delta: number; kind: string; note: string | null; created_at: string }[] };
@@ -53,6 +53,7 @@ function PlanInner() {
       {error && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</p>}
 
       <Card><CardHeader><CardTitle>Tu plan</CardTitle></CardHeader><CardContent className="space-y-3 text-sm">
+        {d.access === "NEW" && <p><b>Elige un plan para empezar.</b> Mientras tanto puedes registrar tus gastos y ventas; las demás funciones se activan al contratar. No hay periodo de prueba y no se cobra nada hasta que completes el pago en Stripe.</p>}
         {d.access === "LEGACY" && <p>Tu organización tiene <b>acceso completo</b> sin suscripción (cuenta anterior al cobro). Si contratas un plan, tu acceso será el de ese plan.</p>}
         {d.access === "PLAN" && <p>Plan <b>{FINANCE_PLANS.find((p) => p.id === d.plan)?.name ?? d.plan}</b> · {STATUS[sub?.status ?? "NONE"]}.{sub?.current_period_end ? ` Se renueva el ${dateShort(sub.current_period_end)}.` : ""}{sub?.cancel_at_period_end ? " Está programada para cancelarse al terminar el periodo." : ""}{sub?.status === "PAST_DUE" && sub.grace_until ? ` Tu pago falló: conservas el plan hasta el ${dateShort(sub.grace_until)}. Actualiza tu tarjeta para no perder el acceso.` : ""}</p>}
         {d.access === "LAPSED" && <p><b>Tu suscripción no está activa.</b> Conservas tus datos y las funciones básicas; las demás se reactivan al renovar tu plan. Nunca borramos tu información por falta de pago.</p>}
