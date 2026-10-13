@@ -14,6 +14,8 @@ const schema = z.object({
   FISCALAPI_API_KEY: z.string().optional(),
   FISCALAPI_TENANT: z.string().optional(),
   FISCALAPI_URL: z.string().url().optional(),
+  // Lectura de tickets con visión de Claude (opcional). Solo servidor.
+  ANTHROPIC_API_KEY: z.string().optional(),
 });
 
 let cached: z.infer<typeof schema> | null = null;

@@ -12,6 +12,7 @@
     "test:integration": "PROCURA_TEST_CONFIRM=yes node tests/integration/finance.smoke.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "@base-ui/react": "^1.8.0",
     "@hookform/resolvers": "^5.9.1",
     "@prisma/adapter-pg": "^7.10.0",

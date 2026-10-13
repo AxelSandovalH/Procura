@@ -3,6 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Receipt } from "lucide-react";
+import { ScanReceiptButton } from "@/components/app/scan-receipt";
 import { PageHeader } from "@/components/app/page-header";
 import { StatusBadge } from "@/components/app/status-badge";
 import { ActionDialog } from "@/components/app/action-dialog";
@@ -34,7 +35,7 @@ export default function GastosPage() {
   return (
     <>
       <PageHeader title="Gastos" description="Lo que gastó tu organización, su pago y los comprobantes fiscales que lo documentan."
-        actions={canManage ? <Button onClick={() => setCreating(true)}><Plus />Registrar gasto</Button> : undefined} />
+        actions={canManage ? <div className="flex gap-2"><ScanReceiptButton onSaved={refresh} /><Button onClick={() => setCreating(true)}><Plus />Registrar gasto</Button></div> : undefined} />
       {erp && <p role="status" className="mb-4 rounded-lg border bg-muted/40 px-3 py-2 text-sm">Los gastos de tu organización los lleva tu ERP. Procura le entrega la orden recibida y la factura ligada; aquí solo ves lo que el ERP te devuelva.</p>}
       {list.isLoading ? <div className="h-40 animate-pulse rounded-xl bg-muted" /> : rows.length === 0 ? (
         <div className="flex flex-col items-center rounded-xl border border-dashed p-12 text-center"><Receipt className="mb-2 size-8 text-muted-foreground" /><p className="font-medium">Aún no hay gastos</p>
@@ -98,6 +99,8 @@ function ExpenseSheet({ id, onClose, canManage, onChange }: { id: string | null;
   const [voiding, setVoiding] = useState(false);
   const q = useQuery({ queryKey: ["expense", id], queryFn: () => api<ExpenseDetail>(`/expenses/${id}`), enabled: !!id });
   const e = q.data;
+  const receipts = useQuery({ queryKey: ["expense-receipts", id], queryFn: () => api<{ data: { id: string; filename: string }[] }>(`/attachments?anchor_type=EXPENSE&anchor_id=${id}`), enabled: !!id });
+  async function openReceipt(aid: string) { const a = await api<{ download_url: string }>(`/attachments/${aid}`); window.open(a.download_url, "_blank", "noopener"); }
   return (
     <Dialog open={!!id} onOpenChange={(o) => !o && onClose()}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
       {!e ? <div className="h-32 animate-pulse rounded bg-muted" /> : (<>
@@ -107,6 +110,7 @@ function ExpenseSheet({ id, onClose, canManage, onChange }: { id: string | null;
           <div className="flex flex-wrap gap-1.5"><StatusBadge {...(PAYMENT_STATUS[e.payment_status] ?? { label: e.payment_status, tone: "neutral" as const })} /><StatusBadge {...(INVOICING_STATUS[e.invoicing_status] ?? { label: e.invoicing_status, tone: "neutral" as const })} /></div>
           {e.voided_at && <p className="rounded-lg bg-muted px-3 py-2">Gasto anulado: {e.void_reason}</p>}
           {e.order_id && <Link href={`/ordenes/${e.order_id}`} className="inline-block underline">Ver la orden</Link>}
+          {(receipts.data?.data.length ?? 0) > 0 && <p className="flex flex-wrap items-center gap-2"><span className="text-muted-foreground">Ticket:</span>{receipts.data!.data.map((r) => <button key={r.id} className="underline" onClick={() => void openReceipt(r.id)}>{r.filename}</button>)}</p>}
           <PaymentsSection base={`/expenses/${e.id}`} payments={e.payments} currency={e.currency} pendingMinor={e.pending_to_pay_minor} voided={!!e.voided_at} kind="expense" onChange={onChange} />
           <CfdiSection base={`/expenses/${e.id}`} links={e.cfdi} currency={e.currency} totalMinor={e.amount_minor} documentedMinor={e.documented_minor} direction="RECEIVED" voided={!!e.voided_at} onChange={onChange} />
         </div>

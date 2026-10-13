@@ -260,6 +260,8 @@ El proveedor adjunta el CFDI (XML timbrado, PDF opcional) a una orden suya; Proc
 | GET | `/invoices?status=&order_id=&unlinked=1` · `/invoices/{id}` (URLs firmadas XML/PDF) | `invoice.read` |
 | POST | `/invoices/{id}/accept` `{ reason? }` · `/reject` `{ reason }` | `invoice.review` (comprador). Aceptar solo aplica a `DISCREPANCY`; no se rechaza una factura ligada a un gasto |
 | GET / POST | `/expenses` `{ spent_at, description, category?, amount_minor, currency, supplier_organization_id?, supplier_name?, order_id?, external_reference?, supplier_invoice_ids[] }` | `expense.read` / `expense.manage` |
+| POST | `/expenses/scan` multipart `file` (JPG/PNG/WebP ≤ 8 MB) — lee un ticket con visión de Claude y devuelve `{ draft, possible_duplicates[] }`; **no guarda nada**. Requiere `ANTHROPIC_API_KEY` en el servidor (409 si falta) | `expense.manage` |
+| POST | `/expenses/{id}/receipt` multipart `file` — guarda la foto como evidencia interna del gasto (se lista con `GET /attachments?anchor_type=EXPENSE&anchor_id=`) | `expense.manage` |
 | GET / PATCH | `/expenses/{id}` | `expense.read` / `expense.manage` |
 | POST | `/expenses/{id}/void` `{ reason }` · `/expenses/{id}/invoices` `{ supplier_invoice_id }` · DELETE `/expenses/{id}/invoices/{invoiceId}` | `expense.manage` |
 

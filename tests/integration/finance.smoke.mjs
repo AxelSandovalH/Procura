@@ -140,6 +140,15 @@ try {
   check("un CFDI emitido no origina un gasto", (await axel.call("/cfdi/expenses", "POST", { cfdi_ids: [A.id] })).body?.summary?.errors === 1);
   check("solo con permiso: un solicitante no carga en masa (403)", (await luis.call("/cfdi/expenses", "POST", { cfdi_ids: ids3.slice(0, 1) })).status === 403);
 
+  console.log("Lectura de tickets (OCR)");
+  const png1 = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+  const scan = async (who, bytes, name, type) => { const f = new FormData(); f.append("file", new Blob([bytes], { type }), name); const r = await fetch(`${APP}/api/v1/expenses/scan`, { method: "POST", headers: { cookie: who.cookie() }, body: f }); return { status: r.status, body: await r.json().catch(() => null) }; };
+  r = await scan(axel, Buffer.from("%PDF-1.4 no es imagen"), "x.jpg", "image/jpeg");
+  check("un archivo que no es imagen se rechaza aunque diga ser JPG (400)", r.status === 400);
+  r = await scan(luis, png1, "t.png", "image/png"); check("un solicitante no puede escanear tickets (403)", r.status === 403);
+  r = await scan(axel, png1, "t.png", "image/png");
+  check("con clave del lector devuelve un borrador (200); sin clave explica que no está configurado (409)", r.status === 200 ? !!r.body?.draft : r.status === 409 && /ANTHROPIC_API_KEY/.test(r.body?.detail ?? ""), JSON.stringify(r.body)?.slice(0, 200));
+
   console.log("Resumen financiero");
   r = await axel.call("/finance/summary?from=2026-10-01&to=2026-10-31");
   const mx = r.body?.by_currency?.MXN;
