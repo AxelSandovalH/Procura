@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { FINANCE_PLANS, NOT_IMPLEMENTED, SAT_RECOVERY, STAMP_PACKS, TAX_NOTE, chargeBreakdown } from "@/lib/commercial/plans";
+import { COMPARISON, FEATURE_MIN_PLAN, FINANCE_PLANS, NOT_IMPLEMENTED, SAT_RECOVERY, STAMP_PACKS, TAX_NOTE, chargeBreakdown, planIncludes } from "@/lib/commercial/plans";
 import { contribution, creditRevenueMinor, stampCostMinor } from "@/lib/commercial/economics";
-import { FEATURE_MIN_PLAN, PLAN_NAME, allows } from "@/lib/billing/entitlements";
+import { PLAN_NAME, allows } from "@/lib/billing/entitlements";
 import { coveredByExisting } from "@/lib/fiscal/download";
 
 describe("estructura comercial", () => {
@@ -74,5 +74,17 @@ describe("un solo esquema: lo anunciado coincide con lo que el sistema aplica", 
     const e = FINANCE_PLANS.find((p) => p.id === "empresa")!; expect(e.priceFrom).toBe(true); expect(e.inherits).toBe("Negocio");
     const all = FINANCE_PLANS.flatMap((p) => p.features.map((f) => f.text)).join(" | ").toLowerCase();
     for (const bad of ["entregas parciales", "catálogos por proveedor", "usuarios ampliables", "organizaciones y sucursales"]) expect(all, bad).not.toContain(bad);
+  });
+});
+
+describe("tabla comparativa de la landing", () => {
+  it("usa la misma regla que el sistema: cada fila es una función aplicada", () => {
+    for (const r of COMPARISON) if (r.feature) expect(FEATURE_MIN_PLAN[r.feature], r.label).toBeTruthy();
+    const marks = (f: Parameters<typeof planIncludes>[1]) => FINANCE_PLANS.map((p) => planIncludes(p.id, f));
+    expect(marks(null)).toEqual([true, true, true, true]); expect(marks("procurement")).toEqual([false, true, true, true]); expect(marks("bank")).toEqual([false, false, true, true]); expect(marks("api")).toEqual([false, false, false, true]);
+  });
+  it("la tabla no promete nada fuera de FEATURE_MIN_PLAN y cubre todas las funciones aplicadas", () => {
+    const shown = new Set(COMPARISON.map((r) => r.feature).filter(Boolean));
+    for (const f of Object.keys(FEATURE_MIN_PLAN)) expect(shown.has(f as keyof typeof FEATURE_MIN_PLAN), f).toBe(true);
   });
 });

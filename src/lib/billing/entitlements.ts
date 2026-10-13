@@ -1,16 +1,9 @@
 import { withContext } from "@/lib/db/client";
 import { Problem } from "@/lib/http/problem";
 
-export type Feature = "finance_reports" | "cfdi" | "procurement" | "bank" | "sat_recovery" | "ocr" | "issuing" | "advanced_approvals" | "structure" | "api";
-export type PlanId = "esencial" | "control" | "negocio" | "empresa";
-const RANK: Record<PlanId, number> = { esencial: 1, control: 2, negocio: 3, empresa: 4 };
-/** Plan mínimo que incluye cada función (alineado con la página de precios, `lib/commercial/plans.ts`). */
-export const FEATURE_MIN_PLAN: Record<Feature, PlanId> = {
-  finance_reports: "control", cfdi: "control", procurement: "control",
-  bank: "negocio", sat_recovery: "negocio", ocr: "negocio", issuing: "negocio", advanced_approvals: "negocio", structure: "negocio",
-  api: "empresa",
-};
-export const PLAN_NAME: Record<PlanId, string> = { esencial: "Esencial", control: "Control", negocio: "Negocio", empresa: "Empresa" };
+import { FEATURE_MIN_PLAN, PLAN_NAME, planIncludes, type Feature, type PlanId } from "@/lib/commercial/plans";
+export { FEATURE_MIN_PLAN, PLAN_NAME };
+export type { Feature, PlanId };
 export const GRACE_DAYS = 7;
 
 /** Las organizaciones creadas ANTES de esta fecha conservan acceso completo sin suscripción; las creadas después empiezan sin plan y deben contratar. */
@@ -31,7 +24,7 @@ export async function effectivePlan(organizationId: string, now = new Date()): P
   if (plan && (s.status === "ACTIVE" || (s.status === "PAST_DUE" && s.grace_until && s.grace_until > now))) return { kind: "PLAN", plan };
   return { kind: "LAPSED" };
 }
-export const allows = (e: Effective, feature: Feature) => e.kind === "LEGACY" || (e.kind === "PLAN" && RANK[e.plan] >= RANK[FEATURE_MIN_PLAN[feature]]);
+export const allows = (e: Effective, feature: Feature) => e.kind === "LEGACY" || (e.kind === "PLAN" && planIncludes(e.plan, feature));
 export const hasFeature = async (organizationId: string, feature: Feature) => allows(await effectivePlan(organizationId), feature);
 
 /** 402 si el plan de la organización no incluye la función. */

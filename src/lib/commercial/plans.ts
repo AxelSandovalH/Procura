@@ -98,3 +98,32 @@ export const OBSERVED_COSTS = {
   downloadProratedWithTaxMinor: 9_894, // descarga masiva: $98.94 por «tiempo restante» (el mes completo NO se conoce)
   vatRate: 0.16,
 } as const;
+
+export type PlanId = FinancePlan["id"];
+export const PLAN_ORDER: PlanId[] = ["esencial", "control", "negocio", "empresa"];
+export type Feature = "finance_reports" | "cfdi" | "procurement" | "bank" | "sat_recovery" | "ocr" | "issuing" | "advanced_approvals" | "structure" | "api";
+/** Plan mínimo que incluye cada función. Lo aplica `lib/billing/entitlements.ts` y lo muestra la tabla comparativa de la página de precios: una sola fuente. */
+export const FEATURE_MIN_PLAN: Record<Feature, PlanId> = {
+  finance_reports: "control", cfdi: "control", procurement: "control",
+  bank: "negocio", sat_recovery: "negocio", ocr: "negocio", issuing: "negocio", advanced_approvals: "negocio", structure: "negocio",
+  api: "empresa",
+};
+export const PLAN_NAME: Record<PlanId, string> = { esencial: "Esencial", control: "Control", negocio: "Negocio", empresa: "Empresa" };
+
+/** Filas de la tabla comparativa. `feature: null` = incluido desde el plan más básico. */
+export const COMPARISON: { label: string; feature: Feature | null }[] = [
+  { label: "Ingresos, gastos y comprobantes", feature: null },
+  { label: "Compras: requisiciones, cotizaciones, órdenes y recepción", feature: "procurement" },
+  { label: "Carga de CFDI y vínculo con tus operaciones", feature: "cfdi" },
+  { label: "Finanzas con gráficas y exportaciones para tu contador", feature: "finance_reports" },
+  { label: "Recuperación de CFDI del SAT", feature: "sat_recovery" },
+  { label: "OCR de tickets y recibos", feature: "ocr" },
+  { label: "Conciliación bancaria (CSV)", feature: "bank" },
+  { label: "Emisión, PDF y cancelación de CFDI", feature: "issuing" },
+  { label: "Portal de autofacturación para tus clientes", feature: "issuing" },
+  { label: "Aprobaciones de varios niveles", feature: "advanced_approvals" },
+  { label: "Departamentos y ubicaciones", feature: "structure" },
+  { label: "API y webhooks", feature: "api" },
+];
+/** ¿El plan incluye esa función? (los planes son acumulativos). */
+export const planIncludes = (plan: PlanId, feature: Feature | null) => feature === null || PLAN_ORDER.indexOf(plan) >= PLAN_ORDER.indexOf(FEATURE_MIN_PLAN[feature]);

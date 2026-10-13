@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { CURRENCY, FINANCE_PLANS, SAT_RECOVERY, STAMP_PACKS, TAX_NOTE, type FinancePlan } from "@/lib/commercial/plans";
+import { COMPARISON, CURRENCY, FINANCE_PLANS, SAT_RECOVERY, STAMP_PACKS, TAX_NOTE, planIncludes, type FinancePlan } from "@/lib/commercial/plans";
 
 const mxn = new Intl.NumberFormat("es-MX", { style: "currency", currency: CURRENCY, maximumFractionDigits: 0 });
 
@@ -47,6 +47,21 @@ export function FinancePricing() {
           {FINANCE_PLANS.map((p) => <PlanCard key={p.id} plan={p} />)}
         </div>
         <p className="mt-6 text-center text-xs text-muted-foreground">{TAX_NOTE} Al crear tu cuenta no se realiza ningún cobro automático.</p>
+
+        <div className="mx-auto mt-16 max-w-5xl">
+          <h3 className="text-center text-xl font-semibold tracking-tight">Compara los planes</h3>
+          <div className="relative mt-6 overflow-x-auto rounded-2xl border">
+            <table className="w-full min-w-[34rem] border-collapse text-sm">
+              <caption className="sr-only">Qué incluye cada plan</caption>
+              <thead><tr className="border-b bg-muted/40"><th scope="col" className="px-4 py-3 text-left font-medium">Función</th>{FINANCE_PLANS.map((p) => <th key={p.id} scope="col" className={cn("px-3 py-3 text-center font-medium", p.featured && "text-foreground")}>{p.name}</th>)}</tr></thead>
+              <tbody>{COMPARISON.map((row) => (
+                <tr key={row.label} className="border-b last:border-b-0">
+                  <th scope="row" className="px-4 py-2.5 text-left font-normal">{row.label}</th>
+                  {FINANCE_PLANS.map((p) => <td key={p.id} className="px-3 py-2.5 text-center">{planIncludes(p.id, row.feature) ? <><Check className="mx-auto size-4" aria-hidden /><span className="sr-only">Incluido</span></> : <><span aria-hidden className="text-muted-foreground">—</span><span className="sr-only">No incluido</span></>}</td>)}
+                </tr>))}</tbody>
+            </table>
+          </div>
+        </div>
 
         <div className="mx-auto mt-16 max-w-5xl">
           <h3 className="text-center text-xl font-semibold tracking-tight">Tres conceptos, cada uno por separado</h3>
