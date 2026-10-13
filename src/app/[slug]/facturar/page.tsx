@@ -14,7 +14,7 @@ import { SAT_REGIMES, SAT_USES } from "@/lib/ui/sat-catalogs";
 
 interface Info { portal: { slug: string; display_name: string; welcome_text: string | null; window_days: number }; captcha_site_key: string | null }
 interface Found { folio: string; sold_at: string; currency: string; total_minor: number; payment_form_code: string; lines: { description: string; quantity: number; total_minor: number }[] }
-interface Done { folio: string; fiscal_uuid: string; xml_url: string | null; emailed: boolean }
+interface Done { folio: string; fiscal_uuid: string; xml_url: string | null; pdf_url: string | null; emailed: boolean }
 const FORMS: [string, string][] = [["01", "Efectivo"], ["03", "Transferencia electrónica"], ["04", "Tarjeta de crédito"], ["28", "Tarjeta de débito"]];
 const err = (e: unknown, f: string) => (e instanceof ApiError ? (e.fieldErrors[0]?.message ?? e.detail ?? e.title) : f);
 declare global { interface Window { turnstile?: { render: (el: HTMLElement, o: { sitekey: string; callback: (t: string) => void; "expired-callback": () => void }) => void } } }
@@ -88,8 +88,9 @@ export default function FacturarPage({ params }: { params: Promise<{ slug: strin
           <Card><CardContent className="space-y-3 pt-6 text-sm">
             <p className="flex items-center gap-2 text-lg font-semibold"><CheckCircle2 className="size-5 text-emerald-600" />Tu factura está lista</p>
             <p>Ticket {done.folio}. Folio fiscal: <span className="break-all font-mono text-xs">{done.fiscal_uuid}</span></p>
-            <p className="text-muted-foreground">{done.emailed ? `Te enviamos el XML a ${f.email}.` : "No pudimos enviarte el correo: descarga tu XML ahora, el enlace dura 15 minutos."}</p>
-            {done.xml_url && <a className="inline-block rounded-lg border px-3 py-2 font-medium underline-offset-2 hover:underline" href={done.xml_url} target="_blank" rel="noopener noreferrer">Descargar XML</a>}
+            <p className="text-muted-foreground">{done.emailed ? `Te enviamos tu factura a ${f.email}.` : "No pudimos enviarte el correo: descarga tus archivos ahora, los enlaces duran 15 minutos."}</p>
+            <div className="flex flex-wrap gap-2">{done.pdf_url && <a className="inline-block rounded-lg border px-3 py-2 font-medium underline-offset-2 hover:underline" href={done.pdf_url} target="_blank" rel="noopener noreferrer">Descargar PDF</a>}{done.xml_url && <a className="inline-block rounded-lg border px-3 py-2 font-medium underline-offset-2 hover:underline" href={done.xml_url} target="_blank" rel="noopener noreferrer">Descargar XML</a>}</div>
+            {!done.pdf_url && <p className="text-xs text-muted-foreground">El PDF no se pudo generar en este momento; con tu XML tienes tu comprobante fiscal y puedes pedir el PDF al comercio.</p>}
           </CardContent></Card>)}
       </>)}
     </main>

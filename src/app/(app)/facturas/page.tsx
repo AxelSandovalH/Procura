@@ -149,7 +149,7 @@ function ExpensesFromCfdi({ ids, open, onOpenChange, onDone }: { ids: string[]; 
 }
 
 function CfdiDetail({ id, onClose, canCreateExpense, onCreateExpense, canCancel, onChanged }: { id: string | null; onClose: () => void; canCreateExpense: boolean; onCreateExpense: (id: string) => void; canCancel: boolean; onChanged: () => Promise<unknown> }) {
-  const [cancelling, setCancelling] = useState(false); const [checking, setChecking] = useState(false); const [note, setNote] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false); const [pdfBusy, setPdfBusy] = useState(false); const [checking, setChecking] = useState(false); const [note, setNote] = useState<string | null>(null);
   const q = useQuery({ queryKey: ["cfdi", "detail", id], queryFn: () => api<Detail>(`/cfdi/${id}`), enabled: !!id });
   const c = q.data;
   return (
@@ -177,10 +177,12 @@ function CfdiDetail({ id, onClose, canCreateExpense, onCreateExpense, canCancel,
             {note && <p className="text-xs text-muted-foreground">{note}</p>}
           </div>)}
         {c.sat_status === "CANCELADO" && c.cancelled_at && <p className="text-sm text-muted-foreground">Cancelado el {dateShort(c.cancelled_at)}{c.cancel_reason_code ? ` (motivo ${c.cancel_reason_code})` : ""}.</p>}
+        {note && c.sat_status !== "CANCELANDO" && <p role="alert" className="text-sm text-destructive">{note}</p>}
         <DialogFooter>
           {canCancel && c.direction === "ISSUED" && c.provider_external_id && (c.sat_status === "VIGENTE" || c.sat_status === "UNKNOWN") && <Button variant="outline" className="text-destructive" onClick={() => setCancelling(true)}>Cancelar CFDI</Button>}
           {canCreateExpense && c.direction === "RECEIVED" && c.cfdi_type === "I" && c.sat_status !== "CANCELADO" && Number(c.allocated_minor) === 0 && <Button onClick={() => onCreateExpense(c.id)}><Receipt />Crear gasto</Button>}
           {c.downloads.xml_url && <Button variant="outline" onClick={() => window.open(c.downloads.xml_url!, "_blank", "noopener")}><Download />XML</Button>}
+          {!c.downloads.pdf_url && canCancel && c.direction === "ISSUED" && c.provider_external_id && <Button variant="outline" disabled={pdfBusy} onClick={async () => { setPdfBusy(true); setNote(null); try { const r = await api<{ pdf_url: string | null }>(`/cfdi/${c.id}/pdf`, { body: {} }); await q.refetch(); if (r.pdf_url) window.open(r.pdf_url, "_blank", "noopener"); } catch (e) { setNote(apiErr(e, "No se pudo generar el PDF.")); } finally { setPdfBusy(false); } }}><Download />{pdfBusy ? "Generando…" : "Generar PDF"}</Button>}
           {c.downloads.pdf_url && <Button variant="outline" onClick={() => window.open(c.downloads.pdf_url!, "_blank", "noopener")}><Download />PDF</Button>}
           <Button variant="outline" onClick={onClose}>Cerrar</Button></DialogFooter>
       </>)}

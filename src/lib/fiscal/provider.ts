@@ -62,6 +62,8 @@ export interface FiscalProvider {
   /** Solicita la cancelación de un CFDI emitido por este proveedor. No es inmediata: el CFDI pasa a «Cancelando» y luego a «Cancelado» (o vuelve a «Vigente»). */
   cancelCfdi(req: CancelRequest): Promise<CancelResult>;
   /** Estado actual de un CFDI emitido (consulta al SAT a través del proveedor). */
+  /** PDF (representación impresa) de un CFDI emitido por este proveedor. */
+  invoicePdf(providerInvoiceId: string): Promise<Buffer>;
   invoiceStatus(providerInvoiceId: string): Promise<{ state: InvoiceState; raw: string; cancelable: string | null }>;
   /** Comprueba que las credenciales del servidor funcionan, sin modificar nada en el proveedor. */
   listDownloadRules(): Promise<DownloadRule[]>;

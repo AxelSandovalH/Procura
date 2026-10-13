@@ -56,12 +56,12 @@ export const POST = route(async (req, params) => {
     }
     throw e;
   }
-  const urls = await signedCfdiUrls({ xml_storage_key: out.cfdi.xml_key, xml_filename: `${out.cfdi.fiscal_uuid}.xml`, pdf_storage_key: null, pdf_filename: null }, 900);
+  const urls = await signedCfdiUrls({ xml_storage_key: out.cfdi.xml_key, xml_filename: `${out.cfdi.fiscal_uuid}.xml`, pdf_storage_key: out.pdf?.key ?? null, pdf_filename: out.pdf?.filename ?? null }, 900);
   const emailed = await sendEmailNow(body.recipient.email, {
     subject: `Tu factura de ${info.display_name} (folio ${sale.folio})`,
-    html: `<p>Hola,</p><p>Adjuntamos el XML de tu factura (CFDI) de <b>${esc(info.display_name)}</b> por el ticket <b>${esc(sale.folio)}</b>.</p><p>Folio fiscal: <code>${out.cfdi.fiscal_uuid}</code></p><p>Guárdalo: es tu comprobante fiscal.</p>`,
+    html: `<p>Hola,</p><p>Adjuntamos el PDF y el XML de tu factura (CFDI) de <b>${esc(info.display_name)}</b> por el ticket <b>${esc(sale.folio)}</b>.</p><p>Folio fiscal: <code>${out.cfdi.fiscal_uuid}</code></p><p>Guarda ambos archivos: el XML es tu comprobante fiscal.</p>`,
     text: `Adjuntamos el XML de tu factura de ${info.display_name} por el ticket ${sale.folio}. Folio fiscal: ${out.cfdi.fiscal_uuid}.`,
-    attachments: [{ filename: `${out.cfdi.fiscal_uuid}.xml`, content: out.cfdi.xml }],
+    attachments: [...(out.pdf ? [{ filename: out.pdf.filename, content: out.pdf.buffer }] : []), { filename: `${out.cfdi.fiscal_uuid}.xml`, content: out.cfdi.xml }],
   });
-  return NextResponse.json({ folio: sale.folio, fiscal_uuid: out.cfdi.fiscal_uuid, xml_url: urls.xml_url, emailed }, { status: 201 });
+  return NextResponse.json({ folio: sale.folio, fiscal_uuid: out.cfdi.fiscal_uuid, xml_url: urls.xml_url, pdf_url: urls.pdf_url, emailed }, { status: 201 });
 });

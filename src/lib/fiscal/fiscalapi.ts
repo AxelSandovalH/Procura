@@ -14,9 +14,9 @@ import { FiscalProviderError, type CancelRequest, type CancelResult, type Downlo
  */
 class FiscalapiProvider implements FiscalProvider {
   readonly name = "fiscalapi";
-  readonly capabilities: FiscalCapabilities = { issue: true, fetchIssued: true, fetchReceived: true, statusLookup: true, downloadXml: false, downloadPdf: false, cancel: true };
+  readonly capabilities: FiscalCapabilities = { issue: true, fetchIssued: true, fetchReceived: true, statusLookup: true, downloadXml: false, downloadPdf: true, cancel: true };
   get notes() {
-    const out = ["Implementado: prueba de conexión, listado de emisores, emisión de factura de ingreso y descarga masiva de CFDI del SAT (reglas, solicitudes e importación). Cancelación y consulta de estado (verificadas contra su documentación; la cancelación solo aplica a facturas emitidas por referencia). Falta: PDF."];
+    const out = ["Implementado: prueba de conexión, listado de emisores, emisión de factura de ingreso y descarga masiva de CFDI del SAT (reglas, solicitudes e importación). Cancelación y consulta de estado (verificadas contra su documentación; la cancelación solo aplica a facturas emitidas por referencia). PDF de las facturas emitidas (POST /api/v4/invoices/pdf)."];
     if (!this.isConfigured()) out.push("Faltan las variables de entorno FISCALAPI_API_KEY y FISCALAPI_TENANT en el servidor.");
     out.push("Cada empresa debe autorizar el acceso a su información fiscal; las credenciales de una no permiten consultar las de otra.");
     return out;
@@ -151,6 +151,15 @@ class FiscalapiProvider implements FiscalProvider {
     }
     const codes = Object.values(j?.data?.invoiceUuids ?? {});
     return { satCode: codes[0] ?? null, acknowledgement: j?.data?.base64CancellationAcknowledgement ?? null };
+  }
+  /** POST /api/v4/invoices/pdf {invoiceId} → data.base64File. */
+  async invoicePdf(providerInvoiceId: string): Promise<Buffer> {
+    const r = await this.request("POST", "/api/v4/invoices/pdf", { invoiceId: providerInvoiceId });
+    const j = r.json as { succeeded?: boolean; data?: { base64File?: string } } | null;
+    if (r.status < 200 || r.status >= 300 || j?.succeeded === false || !j?.data?.base64File) throw new FiscalProviderError("UPSTREAM", `Fiscalapi no pudo generar el PDF (${r.status}): ${this.why(r.json)}`.slice(0, 400));
+    const pdf = Buffer.from(j.data.base64File, "base64");
+    if (pdf.subarray(0, 5).toString("ascii") !== "%PDF-") throw new FiscalProviderError("UPSTREAM", "Fiscalapi respondió algo que no es un PDF.");
+    return pdf;
   }
   /** POST /api/v4/invoices/status {id} → data.status («Vigente», «Cancelando», «Cancelado»), data.cancelableStatus. */
   async invoiceStatus(providerInvoiceId: string) {

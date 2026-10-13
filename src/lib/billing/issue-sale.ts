@@ -11,6 +11,7 @@ import { linkCfdi } from "@/lib/finance/ops";
 import { saleView } from "@/lib/finance/views";
 import { FiscalProviderError } from "@/lib/fiscal/provider";
 import { getFiscalProvider } from "@/lib/fiscal/fiscalapi";
+import { tryGeneratePdf, type StoredPdf } from "@/lib/billing/cfdi-pdf";
 
 export const IssueBody = z.object({
   payment_form_code: z.string().regex(/^\d{2}$/, "La forma de pago SAT son 2 dígitos (01, 03, 04…)"),
@@ -121,7 +122,9 @@ export async function issueSaleCfdi(input: IssueSaleInput) {
       await audit(tx, { ...input.auditBase, action: "cfdi.issued", resourceType: "sale", resourceId: prep.sale.id, resourceLabel: prep.sale.folio, metadata: { cfdi_id: doc.id, fiscal_uuid: parsed.fiscalUuid, provider: provider.name, provider_invoice_id: issued.providerInvoiceId, total_minor: parsed.totalMinor.toString(), source: input.source ?? "USER" } });
       return { sale: await saleView(tx, await tx.sales.findUniqueOrThrow({ where: { id: prep.sale.id } })), cfdi: { id: doc.id, fiscal_uuid: parsed.fiscalUuid, xml_key: key, xml: issued.xml! } };
     });
-    return out;
+    // El PDF no bloquea la factura: si el proveedor no responde, se genera después desde Facturas.
+    const pdf: StoredPdf | null = await tryGeneratePdf(organizationId, out.cfdi.id);
+    return { ...out, pdf };
   } catch (e) {
     if (keys.length) await supabaseAdmin().storage.from(ATTACHMENTS_BUCKET).remove(keys).catch(() => {});
     // El CFDI SÍ está timbrado: se conserva el bloqueo (PENDING con provider_invoice_id) para recuperarlo, no se emite otro.
