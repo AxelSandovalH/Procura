@@ -29,7 +29,7 @@ export const GET = route(async (req) => {
     await materializeReceived(tx, actor.organizationId, actor.membershipId); // copia propia de las facturas que los proveedores adjuntaron a sus órdenes
     return tx.cfdi_documents.findMany({ where, orderBy: [{ issued_at: "desc" }, { created_at: "desc" }], take: 300 });
   });
-  return NextResponse.json({ data: rows.map((d) => ({ ...publicCfdi(d), pending_to_allocate_minor: d.total_minor - d.allocated_minor })) });
+  return NextResponse.json({ data: rows.map((d) => ({ ...publicCfdi(d), pending_to_allocate_minor: d.total_minor + d.retained_minor - d.allocated_minor })) });
 });
 
 /** Carga manual de un CFDI (XML obligatorio, PDF opcional). La dirección se deduce comparando con el RFC de la organización. */

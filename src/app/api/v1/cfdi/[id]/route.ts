@@ -19,7 +19,7 @@ export const GET = route(async (req, params) => {
     ]);
     const sMap = new Map(sales.map((s) => [s.id, s])), eMap = new Map(expenses.map((e) => [e.id, e]));
     return {
-      ...publicCfdi(d), pending_to_allocate_minor: d.total_minor - d.allocated_minor, downloads: await signedCfdiUrls(d),
+      ...publicCfdi(d), pending_to_allocate_minor: d.total_minor + d.retained_minor - d.allocated_minor, downloads: await signedCfdiUrls(d),
       links: links.map((l) => ({ id: l.id, amount_minor: l.amount_minor, sale: l.sale_id ? sMap.get(l.sale_id) ?? null : null, expense: l.expense_id ? eMap.get(l.expense_id) ?? null : null })),
     };
   });

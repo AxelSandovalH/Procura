@@ -65,3 +65,13 @@ export function assertAllocation(amount: number, opTotal: number, opDocumented: 
   if (amount > opTotal - opDocumented + LINK_TOLERANCE_MINOR) throw Problem.badRequest("El importe excede lo que falta por documentar en la operación");
   if (amount > cfdiTotal - cfdiAllocated + LINK_TOLERANCE_MINOR) throw Problem.badRequest("El importe excede lo que le queda disponible al CFDI");
 }
+
+/**
+ * Parte de las retenciones de un CFDI que "contiene" lo que documenta una operación: lo que el vínculo documenta por ENCIMA del total neto del CFDI.
+ * Venta registrada en bruto (subtotal + IVA = neto + retenido): el cliente retiene todo y solo se cobra el neto. Venta registrada por lo que se cobra
+ * (≈ el neto del CFDI): no hay nada retenido que restar, porque el importe de la venta ya es lo que paga el cliente.
+ */
+export function retainedShare(linked: bigint, cfdiTotal: bigint, cfdiRetained: bigint): bigint {
+  const excess = linked - cfdiTotal;
+  return excess <= BigInt(0) ? BigInt(0) : excess > cfdiRetained ? cfdiRetained : excess;
+}

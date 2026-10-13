@@ -1,3 +1,4 @@
+import { retainedShare } from "@/lib/finance/calc";
 import { beforeAll, describe, expect, it } from "vitest";
 import { assertFiscalIdentity, decimalToMinor, evaluateInvoice, parseCfdi, type InvoiceContext } from "@/lib/billing/cfdi";
 import { FiscalProviderError, withRetry } from "@/lib/fiscal/provider";
@@ -76,5 +77,22 @@ describe("capa fiscal", () => {
     expect(n).toBe(1);
     let ok = 0;
     expect(await withRetry(async () => { if (ok++ < 1) throw new FiscalProviderError("RATE_LIMITED", "x", 0); return "ok"; }, { attempts: 3, baseMs: 1 })).toBe("ok");
+  });
+});
+
+describe("retenciones (RESICO)", () => {
+  const xml = `<?xml version="1.0"?><cfdi:Comprobante xmlns:cfdi="http://www.sat.gob.mx/cfd/4" xmlns:tfd="http://www.sat.gob.mx/TimbreFiscalDigital" Version="4.0" Fecha="2026-10-12T13:10:00" SubTotal="16717.38" Total="17400.00" Moneda="MXN" TipoDeComprobante="I"><cfdi:Emisor Rfc="SAHA040711DH6" Nombre="X"/><cfdi:Receptor Rfc="PYR240827SC0" Nombre="Y"/><cfdi:Impuestos TotalImpuestosRetenidos="1992.16" TotalImpuestosTrasladados="2674.78"><cfdi:Retenciones><cfdi:Retencion Impuesto="002" Importe="1783.19"/><cfdi:Retencion Impuesto="001" Importe="208.97"/></cfdi:Retenciones></cfdi:Impuestos><cfdi:Complemento><tfd:TimbreFiscalDigital Version="1.1" UUID="520C70C4-AAD8-456B-AEA2-2E9B36AED7AC"/></cfdi:Complemento></cfdi:Comprobante>`;
+  it("lee el total retenido y el neto", () => {
+    const c = parseCfdi(Buffer.from(xml));
+    expect(c.retainedMinor).toBe(BigInt(199216)); expect(c.totalMinor).toBe(BigInt(1740000)); expect(c.taxMinor).toBe(BigInt(267478));
+    expect(c.subtotalMinor + c.taxMinor - c.retainedMinor).toBe(c.totalMinor); // subtotal + IVA − retenciones = total neto
+  });
+  it("sin retenciones el retenido es cero", () => { expect(parseCfdi(Buffer.from(xml.replace(' TotalImpuestosRetenidos="1992.16"', ""))).retainedMinor).toBe(BigInt(0)); });
+  it("lo retenido es lo documentado por encima del neto del CFDI", () => {
+    expect(retainedShare(BigInt(1939216), BigInt(1740000), BigInt(199216))).toBe(BigInt(199216)); // venta en bruto: se retiene todo
+    expect(retainedShare(BigInt(1740000), BigInt(1740000), BigInt(199216))).toBe(BigInt(0));      // venta registrada por lo que se cobra: nada que restar
+    expect(retainedShare(BigInt(1800000), BigInt(1740000), BigInt(199216))).toBe(BigInt(60000));  // parcial: solo el excedente
+    expect(retainedShare(BigInt(2500000), BigInt(1740000), BigInt(199216))).toBe(BigInt(199216)); // nunca más de lo retenido
+    expect(retainedShare(BigInt(500000), BigInt(500000), BigInt(0))).toBe(BigInt(0));             // sin retenciones
   });
 });

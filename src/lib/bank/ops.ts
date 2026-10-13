@@ -18,7 +18,7 @@ export async function loadCandidates(tx: Tx, organizationId: string, currency: s
   } else {
     const customers = new Map((await tx.customers.findMany({ where: { organization_id: organizationId }, select: { id: true, name: true } })).map((c) => [c.id, c.name]));
     for (const s of await tx.sales.findMany({ where: { organization_id: organizationId, voided_at: null, currency }, orderBy: { sold_at: "desc" }, take: 500 })) {
-      const pending = Number(s.total_minor - s.collected_minor);
+      const pending = Number(s.total_minor - s.withheld_minor - s.collected_minor);
       if (pending > 0) out.push({ kind: "sale", id: s.id, label: `${s.folio} · ${s.description}`, date: iso(s.sold_at), amount_minor: pending, counterparty: s.customer_id ? customers.get(s.customer_id) ?? null : null });
     }
   }

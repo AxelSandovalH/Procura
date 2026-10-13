@@ -21,9 +21,14 @@ export const IssueBody = z.object({
     zip_code: z.string().regex(/^\d{5}$/), cfdi_use_code: z.string().regex(/^[A-Z]\d{2}$/), email: z.string().email().optional(),
   }).optional(),
   save_recipient: z.boolean().default(false),
+  /** Retenciones que el cliente (persona moral) hace al emisor: ISR 1.25% (RESICO) e IVA 2/3. Las decide quien emite, con su contador. */
+  retentions: z.object({ isr: z.boolean().default(false), iva: z.boolean().default(false) }).default({ isr: false, iva: false }),
   lines: z.array(z.object({ line_id: z.uuid(), product_code: z.string().regex(/^\d{8}$/).optional(), unit_code: z.string().regex(/^[A-Z0-9]{2,3}$/).optional() })).default([]),
 });
 export type IssueBodyInput = z.infer<typeof IssueBody>;
+
+/** Tasas de retención: ISR de RESICO persona física (1.25%) e IVA de dos terceras partes (10.6667%). */
+export const RETENTION_RATES = { isr: 0.0125, iva: 0.106667 } as const;
 
 /** Hora local del emisor, AAAA-MM-DDThh:mm:ss, unos minutos atrás para no caer en «fecha futura». */
 function localStamp(timeZone: string) {
@@ -64,6 +69,7 @@ export async function issueSaleCfdi(input: IssueSaleInput) {
     const rec = body.recipient ?? (customer?.tax_id && customer.tax_regime_code && customer.zip_code && customer.cfdi_use_code
       ? { tax_id: customer.tax_id, legal_name: customer.name, tax_regime_code: customer.tax_regime_code, zip_code: customer.zip_code, cfdi_use_code: customer.cfdi_use_code, email: customer.email ?? undefined } : null);
     if (!rec) throw Problem.badRequest("Faltan los datos fiscales del receptor (RFC, razón social, régimen, código postal y uso de CFDI).");
+    if ((body.retentions.isr || body.retentions.iva) && rec.tax_id.trim().length !== 12) throw Problem.badRequest("Las retenciones solo aplican cuando el receptor es persona moral (RFC de 12 caracteres).");
     const lines = await tx.sale_lines.findMany({ where: { sale_id: sale.id }, orderBy: { line_number: "asc" } });
     const over = new Map(body.lines.map((l) => [l.line_id, l]));
     const missing: string[] = [];
@@ -92,7 +98,8 @@ export async function issueSaleCfdi(input: IssueSaleInput) {
       issuerId: prep.issuerId, series: prep.series, date: localStamp(tz), currency: prep.sale.currency, expeditionZipCode: prep.cfg.expedition_zip_code!,
       paymentFormCode: body.payment_form_code, paymentMethodCode: body.payment_method_code, timeZone: tz,
       recipient: { taxId: prep.rec.tax_id.toUpperCase(), legalName: prep.rec.legal_name, taxRegimeCode: prep.rec.tax_regime_code, cfdiUseCode: prep.rec.cfdi_use_code, zipCode: prep.rec.zip_code, email: prep.rec.email },
-      items: prep.resolved.map(({ l, product, unit }) => ({ sku: `L${l.line_number}`, productCode: product, unitCode: unit, description: l.description, quantity: Number(l.quantity), unitPrice: Number(l.unit_price_minor) / 100, discount: Number(l.discount_minor) / 100, taxRate: Number(l.tax_rate) })),
+      items: prep.resolved.map(({ l, product, unit }) => ({ sku: `L${l.line_number}`, productCode: product, unitCode: unit, description: l.description, quantity: Number(l.quantity), unitPrice: Number(l.unit_price_minor) / 100, discount: Number(l.discount_minor) / 100, taxRate: Number(l.tax_rate),
+        withholdings: [...(body.retentions.isr ? [{ taxCode: "001" as const, rate: RETENTION_RATES.isr }] : []), ...(body.retentions.iva ? [{ taxCode: "002" as const, rate: RETENTION_RATES.iva }] : [])] })),
     });
   } catch (e) {
     const msg = e instanceof FiscalProviderError ? e.message : "Error inesperado al timbrar.";

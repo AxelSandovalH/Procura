@@ -124,7 +124,7 @@ class FiscalapiProvider implements FiscalProvider {
       recipient: { tin: req.recipient.taxId, legalName: req.recipient.legalName, taxRegimeCode: req.recipient.taxRegimeCode, cfdiUseCode: req.recipient.cfdiUseCode, zipCode: req.recipient.zipCode, ...(req.recipient.email ? { email: req.recipient.email } : {}) },
       items: req.items.map((i) => ({
         itemCode: i.productCode, itemSku: i.sku, quantity: i.quantity, unitOfMeasurementCode: i.unitCode, description: i.description, unitPrice: i.unitPrice, discount: i.discount, taxObjectCode: "02",
-        itemTaxes: [{ taxCode: "002", taxTypeCode: "Tasa", taxRate: i.taxRate, taxFlagCode: "T" }],
+        itemTaxes: [{ taxCode: "002", taxTypeCode: "Tasa", taxRate: i.taxRate, taxFlagCode: "T" }, ...i.withholdings.map((w) => ({ taxCode: w.taxCode, taxTypeCode: "Tasa", taxRate: w.rate, taxFlagCode: "R" }))],
       })),
     };
     const r = await this.request("POST", "/api/v4/invoices", body, req.timeZone);

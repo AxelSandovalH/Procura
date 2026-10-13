@@ -39,7 +39,7 @@ export const POST = route(async (req, params) => {
     out = await issueSaleCfdi({
       organizationId: info.organization_id, userId: null, membershipId: null, saleId: sale.id, source: "PORTAL", requester: { email: body.recipient.email, ipHash: hashIp(ip) },
       auditBase: { actorType: "SYSTEM", actorId: null, membershipId: null, apiKeyId: null, organizationId: info.organization_id },
-      body: { payment_form_code: body.payment_form_code, payment_method_code: "PUE", recipient: { tax_id: body.recipient.tax_id, legal_name: body.recipient.legal_name, tax_regime_code: body.recipient.tax_regime_code, zip_code: body.recipient.zip_code, cfdi_use_code: body.recipient.cfdi_use_code, email: body.recipient.email }, save_recipient: false, lines: [] },
+      body: { payment_form_code: body.payment_form_code, payment_method_code: "PUE", recipient: { tax_id: body.recipient.tax_id, legal_name: body.recipient.legal_name, tax_regime_code: body.recipient.tax_regime_code, zip_code: body.recipient.zip_code, cfdi_use_code: body.recipient.cfdi_use_code, email: body.recipient.email }, save_recipient: false, retentions: { isr: false, iva: false }, lines: [] },
       precheck: async (tx, s) => {
         const days = Math.floor((Date.now() - s.sold_at.getTime()) / 86_400_000);
         if (days > info.window_days) throw Problem.conflict(`Ya pasó el plazo para facturar este ticket (${info.window_days} días). Acude al establecimiento.`);

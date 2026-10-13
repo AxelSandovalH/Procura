@@ -14,7 +14,7 @@ export async function createCfdiDocument(tx: Tx, p: { organizationId: string; me
   const doc = await tx.cfdi_documents.create({ data: {
     organization_id: p.organizationId, direction: p.direction, fiscal_uuid: c.fiscalUuid, cfdi_version: c.version, cfdi_type: c.type || "I", series: c.series, folio: c.folio, issued_at: c.issuedAt,
     issuer_rfc: c.issuerRfc, issuer_name: c.issuerName, receiver_rfc: c.receiverRfc, receiver_name: c.receiverName, currency: c.currency, exchange_rate: c.exchangeRate,
-    subtotal_minor: c.subtotalMinor, discount_minor: c.discountMinor, tax_minor: c.taxMinor, total_minor: c.totalMinor, fiscal_payment_method: c.paymentMethod, fiscal_payment_form: c.paymentForm,
+    subtotal_minor: c.subtotalMinor, discount_minor: c.discountMinor, tax_minor: c.taxMinor, retained_minor: c.retainedMinor, total_minor: c.totalMinor, fiscal_payment_method: c.paymentMethod, fiscal_payment_form: c.paymentForm,
     xml_storage_key: p.files.xmlKey, xml_filename: p.files.xmlName, pdf_storage_key: p.files.pdfKey, pdf_filename: p.files.pdfName, source: p.source, created_by_membership_id: p.membershipId,
   } });
   // Gastos que subieron la factura en PDF y esperaban este XML: se ligan solos.

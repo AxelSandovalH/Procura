@@ -15,6 +15,8 @@ export interface ParsedCfdi {
   exchangeRate: number | null;
   subtotalMinor: bigint;
   taxMinor: bigint;
+  /** Impuestos retenidos al emisor (RESICO, honorarios…): el total neto del CFDI ya los descuenta. */
+  retainedMinor: bigint;
   totalMinor: bigint;
   discountMinor: bigint;
   paymentMethod: string | null;   // PUE / PPD
@@ -64,7 +66,7 @@ export function parseCfdi(xml: Buffer): ParsedCfdi {
   const dateText = attr(root, "Fecha");
   const issuedAt = dateText && !isNaN(Date.parse(dateText)) ? new Date(dateText) : null;
   const tc = attr(root, "TipoCambio");
-  const taxText = attr(root.Impuestos, "TotalImpuestosTrasladados");
+  const taxText = attr(root.Impuestos, "TotalImpuestosTrasladados"), retainedText = attr(root.Impuestos, "TotalImpuestosRetenidos");
   return {
     version: attr(root, "Version") ?? attr(root, "version") ?? "",
     type: attr(root, "TipoDeComprobante") ?? "",
@@ -76,6 +78,7 @@ export function parseCfdi(xml: Buffer): ParsedCfdi {
     exchangeRate: tc && !isNaN(Number(tc)) ? Number(tc) : null,
     subtotalMinor: decimalToMinor(attr(root, "SubTotal"), "SubTotal"),
     taxMinor: taxText ? decimalToMinor(taxText, "impuestos trasladados") : BigInt(0),
+    retainedMinor: retainedText ? decimalToMinor(retainedText, "impuestos retenidos") : BigInt(0),
     totalMinor: decimalToMinor(attr(root, "Total"), "Total"),
     discountMinor: attr(root, "Descuento") ? decimalToMinor(attr(root, "Descuento"), "Descuento") : BigInt(0),
     paymentMethod: attr(root, "MetodoPago"), paymentForm: attr(root, "FormaPago"),

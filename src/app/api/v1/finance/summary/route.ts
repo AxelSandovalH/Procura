@@ -40,8 +40,8 @@ export const GET = route(async (req) => {
     for (const r of await tx.payments.groupBy({ by: ["currency"], where: { organization_id: org, direction: "OUT", voided_at: null, paid_at: { gte: from, lte: to } }, _count: true, _sum: { amount_minor: true } })) put(r.currency, "payments_made", { count: r._count, total_minor: r._sum.amount_minor ?? zero() });
 
     // Pendientes: saldo vivo a la fecha final del periodo (no solo lo registrado en el periodo).
-    const openSales = await tx.sales.findMany({ where: { organization_id: org, voided_at: null, sold_at: { lte: to } }, select: { currency: true, total_minor: true, collected_minor: true } });
-    for (const s of openSales) if (s.total_minor > s.collected_minor) { const b = slot(s.currency).receivable as Bucket; b.count++; b.total_minor += s.total_minor - s.collected_minor; }
+    const openSales = await tx.sales.findMany({ where: { organization_id: org, voided_at: null, sold_at: { lte: to } }, select: { currency: true, total_minor: true, withheld_minor: true, collected_minor: true } });
+    for (const s of openSales) if (s.total_minor - s.withheld_minor > s.collected_minor) { const b = slot(s.currency).receivable as Bucket; b.count++; b.total_minor += s.total_minor - s.withheld_minor - s.collected_minor; }
     const openExp = await tx.expenses.findMany({ where: { organization_id: org, voided_at: null, spent_at: { lte: to } }, select: { currency: true, amount_minor: true, paid_minor: true } });
     for (const e of openExp) if (e.amount_minor > e.paid_minor) { const b = slot(e.currency).payable as Bucket; b.count++; b.total_minor += e.amount_minor - e.paid_minor; }
 

@@ -28,7 +28,9 @@ export interface IssueRequest {
   currency: string; expeditionZipCode: string;
   paymentFormCode: string; paymentMethodCode: "PUE" | "PPD";
   recipient: { taxId: string; legalName: string; taxRegimeCode: string; cfdiUseCode: string; zipCode: string; email?: string };
-  items: { sku: string; productCode: string; unitCode: string; description: string; quantity: number; unitPrice: number; discount: number; taxRate: number }[];
+  items: { sku: string; productCode: string; unitCode: string; description: string; quantity: number; unitPrice: number; discount: number; taxRate: number;
+    /** Impuestos RETENIDOS del concepto (001 ISR, 002 IVA) con su tasa: el cliente los retiene y el total de la factura queda neto. */
+    withholdings: { taxCode: "001" | "002"; rate: number }[] }[];
   timeZone: string;
 }
 /** Estado de un CFDI emitido según el proveedor/SAT. */

@@ -1,31 +1,37 @@
 import type { Tx } from "@/lib/db/client";
 import { Problem } from "@/lib/http/problem";
 import { audit } from "@/lib/audit";
-import { assertAllocation, defaultAllocation } from "@/lib/finance/calc";
+import { assertAllocation, defaultAllocation, retainedShare } from "@/lib/finance/calc";
 
 export type OpKind = "sale" | "expense";
 
 /** Recalcula la caché de importes (cobrado/pagado, documentado) de una venta o gasto y la del CFDI. Llamar en la misma transacción. */
 /** Importe documentado por CFDI: los comprobantes cancelados ante el SAT ya no documentan nada (el vínculo se conserva como historial). */
-async function documentedMinor(tx: Tx, where: { sale_id: string } | { expense_id: string }): Promise<bigint> {
+async function documentedMinor(tx: Tx, where: { sale_id: string } | { expense_id: string }): Promise<{ documented: bigint; withheld: bigint }> {
   const links = await tx.cfdi_links.findMany({ where, select: { cfdi_id: true, amount_minor: true } });
-  if (links.length === 0) return BigInt(0);
-  const cancelled = new Set((await tx.cfdi_documents.findMany({ where: { id: { in: links.map((l) => l.cfdi_id) }, sat_status: "CANCELADO" }, select: { id: true } })).map((d) => d.id));
-  return links.filter((l) => !cancelled.has(l.cfdi_id)).reduce((s, l) => s + l.amount_minor, BigInt(0));
+  if (links.length === 0) return { documented: BigInt(0), withheld: BigInt(0) };
+  const docs = new Map((await tx.cfdi_documents.findMany({ where: { id: { in: links.map((l) => l.cfdi_id) }, sat_status: { not: "CANCELADO" } }, select: { id: true, total_minor: true, retained_minor: true } })).map((d) => [d.id, d]));
+  let documented = BigInt(0), withheld = BigInt(0);
+  for (const l of links) {
+    const d = docs.get(l.cfdi_id); if (!d) continue; // CFDI cancelado: ya no documenta
+    documented += l.amount_minor;
+    withheld += retainedShare(l.amount_minor, d.total_minor, d.retained_minor);
+  }
+  return { documented, withheld };
 }
 export async function recomputeSale(tx: Tx, id: string) {
   const [pay, doc] = await Promise.all([
     tx.payments.aggregate({ where: { sale_id: id, voided_at: null }, _sum: { amount_minor: true } }),
     documentedMinor(tx, { sale_id: id }),
   ]);
-  return tx.sales.update({ where: { id }, data: { collected_minor: pay._sum.amount_minor ?? BigInt(0), documented_minor: doc, updated_at: new Date() } });
+  return tx.sales.update({ where: { id }, data: { collected_minor: pay._sum.amount_minor ?? BigInt(0), documented_minor: doc.documented, withheld_minor: doc.withheld, updated_at: new Date() } });
 }
 export async function recomputeExpense(tx: Tx, id: string) {
   const [pay, doc] = await Promise.all([
     tx.payments.aggregate({ where: { expense_id: id, voided_at: null }, _sum: { amount_minor: true } }),
     documentedMinor(tx, { expense_id: id }),
   ]);
-  return tx.expenses.update({ where: { id }, data: { paid_minor: pay._sum.amount_minor ?? BigInt(0), documented_minor: doc, updated_at: new Date() } });
+  return tx.expenses.update({ where: { id }, data: { paid_minor: pay._sum.amount_minor ?? BigInt(0), documented_minor: doc.documented, updated_at: new Date() } });
 }
 export async function recomputeCfdi(tx: Tx, id: string) {
   const agg = await tx.cfdi_links.aggregate({ where: { cfdi_id: id }, _sum: { amount_minor: true } });
@@ -52,8 +58,10 @@ export async function linkCfdi(tx: Tx, organizationId: string, membershipId: str
   const existing = await tx.cfdi_links.findFirst({ where: { cfdi_id: cfdi.id, ...(kind === "sale" ? { sale_id: opId } : { expense_id: opId }) }, select: { id: true } });
   if (existing) throw Problem.conflict("Ese CFDI ya está ligado a esta operación");
 
-  const amount = requestedAmount ?? defaultAllocation(Number(total), Number(documented), Number(cfdi.total_minor), Number(cfdi.allocated_minor));
-  assertAllocation(amount, Number(total), Number(documented), Number(cfdi.total_minor), Number(cfdi.allocated_minor));
+  // Lo que un CFDI puede documentar es su total NETO más lo retenido (subtotal + IVA trasladado).
+  const capacity = Number(cfdi.total_minor + cfdi.retained_minor);
+  const amount = requestedAmount ?? defaultAllocation(Number(total), Number(documented), capacity, Number(cfdi.allocated_minor));
+  assertAllocation(amount, Number(total), Number(documented), capacity, Number(cfdi.allocated_minor));
   const link = await tx.cfdi_links.create({ data: { organization_id: organizationId, cfdi_id: cfdi.id, ...(kind === "sale" ? { sale_id: opId } : { expense_id: opId }), amount_minor: BigInt(amount), created_by_membership_id: membershipId } });
   await recomputeCfdi(tx, cfdi.id);
   if (kind === "sale") await recomputeSale(tx, opId); else { await recomputeExpense(tx, opId); await autoPayFromXml(tx, organizationId, membershipId, opId); }
@@ -76,7 +84,8 @@ export async function addPayment(tx: Tx, organizationId: string, membershipId: s
     : await tx.expenses.findFirst({ where: { id: opId, organization_id: organizationId } });
   if (!op) throw Problem.notFound();
   if (op.voided_at) throw Problem.conflict("La operación está anulada");
-  const total = kind === "sale" ? (op as { total_minor: bigint }).total_minor : (op as { amount_minor: bigint }).amount_minor;
+  // Lo que el cliente retiene (RESICO…) no se le cobra: se cobra total − retenido.
+  const total = kind === "sale" ? (op as { total_minor: bigint; withheld_minor: bigint }).total_minor - (op as { withheld_minor: bigint }).withheld_minor : (op as { amount_minor: bigint }).amount_minor;
   const settled = kind === "sale" ? (op as { collected_minor: bigint }).collected_minor : (op as { paid_minor: bigint }).paid_minor;
   if (BigInt(input.amount_minor) > total - settled) throw Problem.badRequest(`El importe excede lo pendiente (${Number(total - settled) / 100}).`);
   const payment = await tx.payments.create({ data: {

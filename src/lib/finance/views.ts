@@ -15,9 +15,9 @@ const paymentsOf = (tx: Tx, where: { sale_id: string } | { expense_id: string })
 
 export function saleStatuses(s: sales) {
   return {
-    collection_status: collectionStatus({ total_minor: s.total_minor, settled_minor: s.collected_minor, voided_at: s.voided_at }),
+    collection_status: collectionStatus({ total_minor: s.total_minor - s.withheld_minor, settled_minor: s.collected_minor, voided_at: s.voided_at }),
     invoicing_status: invoicingStatus({ total_minor: s.total_minor, documented_minor: s.documented_minor, invoicing_flag: s.invoicing_flag }),
-    pending_to_collect_minor: s.voided_at ? BigInt(0) : s.total_minor - s.collected_minor,
+    pending_to_collect_minor: s.voided_at ? BigInt(0) : s.total_minor - s.withheld_minor - s.collected_minor,
     ...documentation(s.total_minor, s.documented_minor),
   };
 }

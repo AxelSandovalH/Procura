@@ -26,7 +26,7 @@ export function IssueInvoiceButton({ sale, onDone }: { sale: IssueSale; onDone: 
   const provider = useQuery({ queryKey: ["fiscal-provider"], queryFn: () => api<Provider>("/fiscal/provider"), staleTime: 60_000, enabled: can("cfdi.manage") });
   const p = provider.data;
   const c = sale.customer;
-  const [f, setF] = useState({ tax_id: c?.tax_id ?? "", legal_name: c?.name ?? "", regime: c?.tax_regime_code ?? "", zip: c?.zip_code ?? "", use: c?.cfdi_use_code ?? "G03", email: c?.email ?? "", form: "03", method: "PUE", save: !!c, confirm: false });
+  const [f, setF] = useState({ tax_id: c?.tax_id ?? "", legal_name: c?.name ?? "", regime: c?.tax_regime_code ?? "", zip: c?.zip_code ?? "", use: c?.cfdi_use_code ?? "G03", email: c?.email ?? "", form: "03", method: "PUE", save: !!c, confirm: false, isr: false, iva: false });
   const [codes, setCodes] = useState<Record<string, { product: string; unit: string }>>({});
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
 
@@ -40,13 +40,14 @@ export function IssueInvoiceButton({ sale, onDone }: { sale: IssueSale; onDone: 
   const def = p.connection?.settings ?? {};
   const code = (id: string, k: "product" | "unit", saved?: string | null, fallback?: string) => codes[id]?.[k] ?? saved ?? fallback ?? "";
   const lineOk = sale.lines.every((l) => /^\d{8}$/.test(code(l.id, "product", l.sat_product_code, def.default_product_code)) && /^[A-Z0-9]{2,3}$/.test(code(l.id, "unit", l.sat_unit_code, def.default_unit_code)));
+  const moral = f.tax_id.trim().length === 12;
   const valid = f.tax_id.trim().length >= 12 && f.legal_name.trim() && f.regime && /^\d{5}$/.test(f.zip) && f.use && lineOk && (!live || f.confirm);
 
   async function go() {
     setBusy(true); setError(null);
     try {
       await api(`/sales/${sale.id}/invoice`, { body: {
-        payment_form_code: f.form, payment_method_code: f.method, save_recipient: f.save && !!c,
+        payment_form_code: f.form, payment_method_code: f.method, save_recipient: f.save && !!c, retentions: { isr: moral && f.isr, iva: moral && f.iva },
         recipient: { tax_id: f.tax_id.trim().toUpperCase(), legal_name: f.legal_name.trim(), tax_regime_code: f.regime, zip_code: f.zip, cfdi_use_code: f.use, ...(f.email.trim() ? { email: f.email.trim() } : {}) },
         lines: sale.lines.map((l) => ({ line_id: l.id, product_code: code(l.id, "product", l.sat_product_code, def.default_product_code), unit_code: code(l.id, "unit", l.sat_unit_code, def.default_unit_code) })),
       } });
@@ -78,6 +79,10 @@ export function IssueInvoiceButton({ sale, onDone }: { sale: IssueSale; onDone: 
               <div className="space-y-1.5"><Label htmlFor="i-form">Forma de pago *</Label><select id="i-form" className={sel} value={f.form} onChange={(e) => setF({ ...f, form: e.target.value })}>{FORMS.map(([k, v]) => <option key={k} value={k}>{k} · {v}</option>)}</select></div>
               <div className="space-y-1.5"><Label htmlFor="i-met">Método de pago *</Label><select id="i-met" className={sel} value={f.method} onChange={(e) => setF({ ...f, method: e.target.value })}><option value="PUE">PUE · Pago en una sola exhibición</option><option value="PPD">PPD · Pago en parcialidades o diferido</option></select></div>
             </div></fieldset>
+          <fieldset className="space-y-2"><legend className="mb-1 text-sm font-medium">Retenciones (solo si el receptor es persona moral)</legend>
+            <label className={`flex items-start gap-2 text-sm ${moral ? "" : "text-muted-foreground"}`}><input type="checkbox" className="mt-1" disabled={!moral} checked={moral && f.isr} onChange={(e) => setF({ ...f, isr: e.target.checked })} />Retención de ISR 1.25% (RESICO)</label>
+            <label className={`flex items-start gap-2 text-sm ${moral ? "" : "text-muted-foreground"}`}><input type="checkbox" className="mt-1" disabled={!moral} checked={moral && f.iva} onChange={(e) => setF({ ...f, iva: e.target.checked })} />Retención de IVA 2/3 (10.6667%), en servicios personales independientes</label>
+            <p className="text-xs text-muted-foreground">{moral ? "Con retenciones, el total de la factura es menor al de la venta: tu cliente retiene esos impuestos y los entera al SAT, y tú solo cobras el neto. Si no sabes si te corresponden, pregúntale a tu contador." : "El RFC del receptor es de persona física (13 caracteres): no lleva retenciones."}</p></fieldset>
           <fieldset className="space-y-2"><legend className="mb-1 text-sm font-medium">Claves SAT por concepto</legend>
             {sale.lines.map((l) => (
               <div key={l.id} className="grid grid-cols-[1fr_7rem_5rem] items-center gap-2 text-sm">
