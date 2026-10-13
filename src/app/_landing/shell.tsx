@@ -10,12 +10,11 @@ export function LandingHeader({ base = "" }: { base?: string }) {
     <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 lg:gap-6">
       <Link href="/" aria-label="Procura, inicio"><Logo size={22} textClassName="text-lg" /></Link>
       <nav aria-label="Secciones" className="hidden flex-1 items-center gap-3 text-sm text-muted-foreground md:flex lg:gap-6">
-        <a href={`${base}#como-funciona`} className="hover:text-foreground">Cómo funciona</a>
-        <a href={`${base}#compradores`} className="hover:text-foreground">Para quien compra</a>
-        <a href={`${base}#proveedores`} className="hover:text-foreground">Para quien vende</a>
-        <a href={`${base}#finanzas`} className="hover:text-foreground">Finanzas</a>
-        <a href={`${base}#integraciones`} className="hover:text-foreground">Integraciones</a>
+        <a href={`${base}#problema`} className="hover:text-foreground">El problema</a>
+        <a href={`${base}#beneficios`} className="hover:text-foreground">Qué puedes hacer</a>
         <a href={`${base}#precios`} className="hover:text-foreground">Precios</a>
+        <a href={`${base}#costos`} className="hover:text-foreground">Costos adicionales</a>
+        <a href={`${base}#empezar`} className="hover:text-foreground">Cómo empezar</a>
         <a href={`${base}#preguntas`} className="hover:text-foreground">Preguntas</a>
       </nav>
       <div className="ml-auto flex items-center gap-2 md:ml-0">

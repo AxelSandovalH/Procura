@@ -85,11 +85,23 @@ export const SAT_RECOVERY = {
   unit: "RFC", // el proveedor cobra por RFC y dirección (recibidos / emitidos), no por CFDI
 } as const;
 
-/** Créditos de timbrado: propuesta comercial. `available: false` hasta que existan prepago, saldo y cobro; no se muestran precios al público. */
+/**
+ * Créditos de timbrado (paquetes de pago único, independientes de la suscripción). Ya se compran en Suscripción con Stripe; el precio lo define Procura.
+ * Precios sin IVA ni cargo por servicio de pago.
+ */
 export const STAMP_PACKS = {
-  available: false,
+  available: true,
   proposed: [{ cfdi: 50, priceMinor: 20_000 }, { cfdi: 100, priceMinor: 35_000 }, { cfdi: 500, priceMinor: 125_000 }],
 } as const;
+
+/** Beneficios del plan Negocio tal como se cuentan en la landing. Cada uno indica dónde existe en el producto; nada de aquí promete automatización total ni volúmenes ilimitados. */
+export const NEGOCIO_BENEFITS: { title: string; text: string; verified: string }[] = [
+  { title: "Reúne tus facturas del SAT", text: "Trae a ProcuraOS las facturas que te emitieron, mediante Fiscalapi, sin depender solo de cargas manuales. Sujeto a límites de uso y a las condiciones del servicio.", verified: "fiscal/downloads, lib/fiscal/download" },
+  { title: "Evita capturar tickets a mano", text: "Lee fotos y PDF de tickets y recibos y extrae fecha, total y comercio. Tú confirmas los datos antes de guardar.", verified: "gastos/scan" },
+  { title: "Te avisa de posibles duplicados", text: "Revisa lo que escaneas y lo que cargas: si un ticket o un CFDI parece repetido, lo marca antes de que lo registres dos veces.", verified: "gastos/scan, cfdi_documents unique" },
+  { title: "Concilia tu banco con tus registros", text: "Importa los movimientos de tu estado de cuenta en CSV y recibe sugerencias para relacionarlos con tus gastos y ventas. Tú decides cuáles conciliar.", verified: "/banco" },
+  { title: "Factura desde el mismo lugar", text: "Emite CFDI 4.0 con su PDF, gestiona cancelaciones y aplica retenciones de RESICO según tu configuración fiscal. Los timbres se pagan por separado.", verified: "sales/[id]/invoice, cfdi/[id]/cancel, cfdi/[id]/pdf" },
+];
 
 /** Costos reales observados en los gastos de la organización (ver docs/PRICING.md). Montos en centavos; los de Fiscalapi se capturaron con IVA incluido. */
 export const OBSERVED_COSTS = {

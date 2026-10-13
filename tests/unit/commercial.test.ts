@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { COMPARISON, FEATURE_MIN_PLAN, FINANCE_PLANS, NOT_IMPLEMENTED, SAT_RECOVERY, STAMP_PACKS, TAX_NOTE, chargeBreakdown, planIncludes } from "@/lib/commercial/plans";
+import { COMPARISON, FEATURE_MIN_PLAN, FINANCE_PLANS, NEGOCIO_BENEFITS, NOT_IMPLEMENTED, SAT_RECOVERY, STAMP_PACKS, TAX_NOTE, chargeBreakdown, planIncludes } from "@/lib/commercial/plans";
 import { contribution, creditRevenueMinor, stampCostMinor } from "@/lib/commercial/economics";
 import { PLAN_NAME, allows } from "@/lib/billing/entitlements";
 import { coveredByExisting } from "@/lib/fiscal/download";
@@ -19,7 +19,7 @@ describe("estructura comercial", () => {
     expect(SAT_RECOVERY.limits.requestsPerMonth).toBeNull(); expect(SAT_RECOVERY.limits.cfdiPerMonth).toBeNull(); expect(SAT_RECOVERY.overage.enabled).toBe(false);
     expect(SAT_RECOVERY.includedIn).toEqual(["negocio", "empresa"]);
   });
-  it("los paquetes de timbrado no están disponibles todavía", () => { expect(STAMP_PACKS.available).toBe(false); });
+  it("los paquetes de timbrado ya se pueden comprar (cobro con Stripe) y siguen sin IVA ni cargo en su precio de lista", () => { expect(STAMP_PACKS.available).toBe(true); expect(STAMP_PACKS.proposed.map((p) => p.priceMinor)).toEqual([20_000, 35_000, 125_000]); });
 });
 
 describe("rentabilidad", () => {
@@ -87,4 +87,15 @@ describe("tabla comparativa de la landing", () => {
     const shown = new Set(COMPARISON.map((r) => r.feature).filter(Boolean));
     for (const f of Object.keys(FEATURE_MIN_PLAN)) expect(shown.has(f as keyof typeof FEATURE_MIN_PLAN), f).toBe(true);
   });
+});
+
+describe("mensaje comercial de Negocio", () => {
+  it("cada beneficio indica dónde existe y ninguno promete lo que no hay", () => {
+    expect(NEGOCIO_BENEFITS).toHaveLength(5);
+    for (const b of NEGOCIO_BENEFITS) expect(b.verified.length, b.title).toBeGreaterThan(2);
+    const all = NEGOCIO_BENEFITS.map((b) => `${b.title} ${b.text}`).join(" ").toLowerCase();
+    for (const bad of ["ilimitad", "garantiz", "automático total", "100%", "sin errores", "cumplimiento"]) expect(all, bad).not.toContain(bad);
+    expect(all).toContain("límites de uso"); expect(all).toContain("timbres se pagan por separado"); expect(all).toContain("tú confirmas");
+  });
+  it("el total mostrado de Negocio sale del mismo cálculo que el cobro", () => { expect(chargeBreakdown(179_900)).toEqual({ price: 179_900, fee: 7_196, tax: 29_935, total: 217_031 }); });
 });

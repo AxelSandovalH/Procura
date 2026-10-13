@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowRight, BookOpen, ClipboardCheck, DownloadCloud, FilePlus2, FileSearch, Handshake, Landmark, LineChart, Lock, MessageSquareText, PackageCheck, Plug, Receipt, ScanLine, ShieldCheck, Store, Truck, Wallet, Webhook } from "lucide-react";
+import { ArrowRight, DownloadCloud, FileCheck2, FilePlus2, Landmark, LineChart, ScanLine, Store, Truck } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { FinancePricing } from "./_landing/finance-pricing";
@@ -8,218 +8,141 @@ import { LandingFooter, LandingHeader } from "./_landing/shell";
 import { ProductPreview } from "./_landing/product-preview";
 
 export const metadata: Metadata = {
-  title: { absolute: "Procura — Compras, gastos y facturación en un solo flujo" },
-  description: "Requisiciones, aprobaciones, cotizaciones y órdenes entre quien compra y quien vende, y además tus gastos, CFDI, ventas, cobros y conciliación bancaria. Cada organización conserva lo suyo en privado. Con API y webhooks para tu ERP.",
+  title: { absolute: "ProcuraOS — Las cuentas de tu negocio, en orden" },
+  description: "Controla tus gastos, organiza tus facturas y concilia tus movimientos bancarios desde un solo lugar. ProcuraOS mantiene tu información financiera organizada y lista para trabajar con tu contador.",
   alternates: { canonical: "/" },
 };
 
-const FLOW = ["Requisición", "Aprobación", "Cotización", "Orden", "Entrega", "Recepción", "Factura (CFDI)", "Pago", "Conciliación"];
+/** Dónde suele estar hoy la información de un negocio (el problema que se resuelve). */
+const SCATTERED = [
+  { what: "Facturas", where: "en un sistema aparte" },
+  { what: "Gastos", where: "en hojas de cálculo" },
+  { what: "Movimientos", where: "en el banco" },
+  { what: "Comprobantes", where: "entre correos, archivos y chats" },
+];
+
+/** Beneficios concretos. Cada uno cuenta qué problema quita; `plan` dice desde qué plan existe (lo aplica el sistema, ver lib/commercial/plans.ts). */
+const BENEFITS = [
+  { icon: ScanLine, title: "Registra gastos sin capturarlos", text: "Toma una foto o sube el PDF de un ticket o recibo: ProcuraOS extrae fecha, total y comercio para que no los teclees. Tú confirmas los datos antes de guardar.", plan: "Desde el plan Negocio" },
+  { icon: DownloadCloud, title: "Reúne tus facturas del SAT", text: "Trae a ProcuraOS las facturas que te emitieron, sin depender solo de cargas manuales. Está sujeto a los límites de uso del servicio.", plan: "Desde el plan Negocio" },
+  { icon: FileCheck2, title: "Cada gasto, con su factura", text: "Liga cada gasto o venta con su CFDI y ve de un vistazo cuáles ya están documentados y cuáles no. Si algo parece duplicado, te avisa.", plan: "Ligar facturas, desde Control · avisos de duplicados, desde Negocio" },
+  { icon: Landmark, title: "Concilia tu banco con tus registros", text: "Importa los movimientos de tu estado de cuenta en CSV y recibe sugerencias para relacionarlos con tus gastos y ventas. Tú decides cuáles conciliar.", plan: "Desde el plan Negocio" },
+  { icon: FilePlus2, title: "Factura desde el mismo lugar", text: "Emite CFDI 4.0 con su PDF, gestiona cancelaciones y aplica retenciones de RESICO según tu configuración fiscal. Los timbres se pagan por separado.", plan: "Desde el plan Negocio" },
+  { icon: LineChart, title: "Información lista para tu contador", text: "Consulta tu resumen con gráficas y descarga tus gastos, ventas, facturas y movimientos en archivos que abren en Excel, además de los XML.", plan: "Desde el plan Control" },
+];
 
 const STEPS = [
-  { icon: ClipboardCheck, title: "Pide", text: "Una persona autorizada crea la requisición: qué necesita, cuánto y para cuándo. Y si ya pidió algo parecido, puede duplicar la requisición anterior." },
-  { icon: ShieldCheck, title: "Aprueba", text: "Flujos de aprobación por monto, con uno o varios niveles y aprobadores por rol, persona o jefe de área. Todo queda registrado." },
-  { icon: FileSearch, title: "Cotiza y decide", text: "Compras pide cotización a sus proveedores y compara las respuestas lado a lado. Al aceptar una, la orden se genera sola." },
-  { icon: PackageCheck, title: "Recibe", text: "El proveedor confirma la orden y registra entregas, incluso parciales. Quien compra confirma la recepción y señala discrepancias." },
-];
-
-const FINANCE = [
-  { icon: ScanLine, title: "Gastos con una foto o un PDF", text: "Sube el ticket o el recibo (Vercel, Supabase, la gasolinera…). Procura lee fecha, total y comercio; tú revisas y confirmas antes de guardar. Si ya está pagado, lo marcas desde ahí.", plan: "Lectura automática desde Negocio · el registro, desde Esencial" },
-  { icon: Receipt, title: "CFDI recibidos y emitidos", text: "Carga XML, PDF o ZIP en bloque, o trae tus facturas recibidas del SAT con la descarga masiva. Cada CFDI se liga al gasto o a la venta que documenta, por el importe que cubre.", plan: "Carga y vínculo desde Control · emisión desde Negocio" },
-  { icon: DownloadCloud, title: "Facturas del SAT, sin capturarlas", text: "Con tu e.firma en tu proveedor, las facturas que te emiten llegan solas y se ligan a tus gastos. Si subiste solo el PDF, el gasto espera el XML y se liga cuando llega.", plan: "Desde Negocio" },
-  { icon: FilePlus2, title: "Emite tus facturas", text: "Desde una venta, emites el CFDI de ingreso con tu proveedor de timbrado (Fiscalapi). Revisas los datos y tú pulsas «Timbrar»: nada se emite sin tu confirmación. Si hay que corregir, solicitas la cancelación con su motivo.", plan: "Desde Negocio" },
-  { icon: Wallet, title: "Ventas, cobros y pagos", text: "Registra ventas y gastos, con cobros y pagos parciales. Los estados de cobro, pago y facturación se calculan solos. Marca varios gastos como pagados de una vez.", plan: "Desde Esencial · cobros parciales desde Control" },
-  { icon: Landmark, title: "Conciliación bancaria", text: "Importa el CSV de tu estado de cuenta. Procura sugiere con qué gasto, venta o pago corresponde cada movimiento; tú confirmas, y el pago queda con la fecha del banco.", plan: "Desde Negocio" },
-  { icon: LineChart, title: "Finanzas con gráficas", text: "Tendencia de 6 meses, gastos por categoría, principales proveedores y cuánto de tu gasto ya tiene CFDI, con la lista de cuáles sí y cuáles no.", plan: "Desde Control" },
-  { icon: MessageSquareText, title: "Todo con su rastro", text: "Notas con fecha y autor en cada gasto, datos para pedir tu factura listos para copiar (RFC, régimen, uso de CFDI, domicilio) y una bitácora de cada cambio.", plan: "Notas desde Esencial · exportaciones desde Control" },
-];
-
-const BUYERS = [
-  "Requisiciones con aprobación según tus reglas de monto: un nivel desde Control; varios niveles, departamentos y ubicaciones desde Negocio.",
-  "Comparativo de cotizaciones lado a lado, con el menor precio por concepto resaltado.",
-  "Tu presupuesto y precios estimados son privados: el proveedor nunca los ve.",
-  "Consulta el catálogo que tus proveedores comparten contigo.",
-  "Historial completo y bitácora de auditoría de cada decisión.",
-  "Las facturas que tus proveedores adjuntan a la orden quedan como tus CFDI recibidos, listas para ligarse a un gasto.",
-];
-const SUPPLIERS = [
-  "Bandeja de solicitudes de tus clientes y cotización desde la plataforma, con versiones.",
-  "Un portal propio (tuempresa/solicitar) para que tus clientes te pidan cotización.",
-  "Tu catálogo es privado: compartes solo lo que quieras con cada cliente. Impórtalo desde Excel o CSV.",
-  "Tus costos y notas internas nunca se muestran a quien compra.",
-  "Confirma órdenes, registra entregas parciales y da seguimiento a las recepciones.",
-  "Adjunta tu factura (CFDI) a la orden para que quien compra la tenga en su contabilidad.",
+  { title: "Crea tu cuenta", text: "Regístrate y crea tu organización. No se cobra nada al registrarte." },
+  { title: "Elige tu plan", text: "En Suscripción eliges el plan y pagas con Stripe. Tu plan se activa en cuanto se confirma el pago." },
+  { title: "Carga tu información", text: "Registra tus gastos, sube tus XML y fotos de tickets, e importa tus estados de cuenta. Para emitir facturas o traer tus CFDI del SAT configuras tu emisor fiscal; tu e.firma se carga en el panel del proveedor fiscal, nunca en ProcuraOS." },
 ];
 
 const FAQ = [
-  { q: "¿Mis proveedores también tienen que usar Procura?", a: "Para cotizar y recibir órdenes dentro de la plataforma, sí. Tú los invitas con un enlace o ellos te encuentran desde su portal, y siempre hace falta que ambas partes acepten la relación antes de operar." },
-  { q: "¿Otros pueden ver mi información?", a: "No. Cada organización ve solo lo suyo. Lo que se comparte con la contraparte (una solicitud de cotización, una orden, una conversación) es explícito, y tu presupuesto, costos y notas internas nunca salen de tu organización. El aislamiento se aplica en la propia base de datos, no solo en la interfaz." },
-  { q: "¿Se conecta con mi ERP?", a: "Sí, en el plan Empresa. Procura tiene una API para crear requisiciones y consultar órdenes y entregas, y webhooks firmados para que tu sistema se entere de cada evento. También hay un feed de eventos para quien no pueda recibir webhooks." },
-  { q: "¿Qué plan me conviene?", a: "Esencial si solo quieres registrar tus gastos y ventas. Control si además manejas compras con proveedores y quieres tus CFDI y tus reportes ligados. Negocio si quieres automatizar lo fiscal: descarga del SAT, lectura de tickets, conciliación bancaria y emisión de facturas. Empresa si necesitas conectar tu ERP o tu punto de venta por API." },
+  { q: "¿ProcuraOS es mi contabilidad?", a: "No. Te ayuda a mantener ordenados tus gastos, tus facturas y tus movimientos, y a preparar información para tu contador. No presenta declaraciones ni sustituye a tu contador, y no garantiza el cumplimiento fiscal: eso sigue siendo tuyo y de tu contador." },
+  { q: "¿Quién timbra mis facturas?", a: "Un proveedor autorizado de timbrado (PAC) conectado a ProcuraOS: hoy Fiscalapi. Tus certificados se guardan en su panel, nunca en ProcuraOS, y cada factura se timbra solo cuando tú pulsas «Timbrar». Los timbres se compran aparte." },
+  { q: "¿Se conecta directo a mi banco?", a: "No. La conciliación funciona con el archivo CSV de tu estado de cuenta: lo importas y ProcuraOS te sugiere con qué gasto o venta corresponde cada movimiento." },
+  { q: "¿Otras personas pueden ver mi información?", a: "No. Cada organización ve solo lo suyo, y el aislamiento se aplica en la propia base de datos. Lo que se comparte con otra organización (una solicitud de cotización, una orden) es siempre una decisión explícita." },
+  { q: "¿Qué plan me conviene?", a: "Esencial si solo quieres registrar tus gastos y ventas. Control si además compras a proveedores y quieres tus facturas ligadas y tus reportes. Negocio si quieres reunir tus CFDI del SAT, leer tickets, conciliar tu banco y facturar. Empresa si necesitas conectar tu ERP o tu punto de venta por API." },
   { q: "¿Mis proveedores pagan un plan?", a: "No. Cotizan, confirman órdenes y registran entregas dentro del flujo sin contratar nada. Solo paga quien compra y administra la organización." },
-  { q: "¿Una persona puede estar en varias organizaciones?", a: "Sí. Un mismo usuario puede pertenecer a varias organizaciones y cambiar de una a otra; cada organización aprueba a sus miembros y decide sus permisos." },
-  { q: "¿Procura maneja facturas y pagos?", a: "Sí. Registra gastos y ventas, sus pagos y cobros (también parciales), y los CFDI que los documentan: puedes cargarlos, traerlos del SAT con la descarga masiva o emitirlos desde una venta. También concilia tu estado de cuenta importando el CSV de tu banco." },
-  { q: "¿Quién timbra mis facturas?", a: "Un proveedor autorizado de timbrado (PAC) conectado a Procura: hoy Fiscalapi. Tú tienes tu propia cuenta con él, tus certificados se guardan en su panel (nunca en Procura) y cada factura se timbra solo cuando tú pulsas «Timbrar». La descarga masiva del SAT también depende de ese proveedor y de tu e.firma." },
-  { q: "¿Procura es mi contabilidad?", a: "No. El resumen de Finanzas es operativo: con lo registrado en Procura, no es utilidad fiscal ni declaración de impuestos. Los CFDI que emites desde Procura sí los puedes cancelar (con motivo y confirmación del SAT), pero Procura todavía no se conecta directo a tu banco: la conciliación es con el archivo CSV de tu estado de cuenta. Para lo fiscal, sigue apoyándote en tu contador." },
-  { q: "¿Se borra algo?", a: "No. Cancelar, rechazar o retirar deja el registro con su motivo y quién lo hizo. Todo cambio importante queda en la bitácora." },
+  { q: "¿Se borra algo?", a: "No. Cancelar, rechazar o retirar deja el registro con su motivo y quién lo hizo. Si tu suscripción deja de estar activa, conservas tus datos." },
 ];
 
 export default function Home() {
   return (
     <div className="min-h-screen scroll-smooth bg-background text-foreground">
       <LandingHeader />
-
       <main>
-        {/* Portada */}
+        {/* Hero */}
         <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:py-20 lg:grid-cols-[1.05fr_1fr]">
           <div className="space-y-6">
-            <p className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground"><Handshake className="size-3.5" />Compradores y proveedores, en la misma plataforma</p>
-            <h1 className="text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">Compras, gastos y facturación, en un solo flujo.</h1>
-            <p className="max-w-xl text-lg text-muted-foreground">Requisiciones, aprobaciones, cotizaciones, órdenes y entregas entre quien compra y quien vende. Y después, tus gastos, tus facturas (CFDI) y tu conciliación bancaria. Sin hojas de cálculo ni correos perdidos, y cada organización conserva lo suyo en privado.</p>
+            <h1 className="text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">Las cuentas de tu negocio, en orden.</h1>
+            <p className="max-w-xl text-lg text-muted-foreground">Controla tus gastos, organiza tus facturas y concilia tus movimientos bancarios desde un solo lugar. ProcuraOS te ayuda a mantener tu información financiera organizada y lista para trabajar con tu contador.</p>
             <div className="flex flex-wrap gap-3">
-              <Link href="/registro" className={cn(buttonVariants({ size: "lg" }), "h-11 px-5 text-base")}>Crear cuenta <ArrowRight className="size-4" /></Link>
-              <Link href="/login" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-11 px-5 text-base")}>Iniciar sesión</Link>
+              <a href="#precios" className={cn(buttonVariants({ size: "lg" }), "h-11 px-5 text-base")}>Conocer los planes <ArrowRight className="size-4" /></a>
+              <Link href="/registro" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "h-11 px-5 text-base")}>Crear mi cuenta</Link>
             </div>
-            <p className="text-sm text-muted-foreground">Pensado para empresas que compran de forma recurrente a los mismos proveedores.</p>
+            <p className="text-sm text-muted-foreground">Al crear tu cuenta no se realiza ningún cobro automático: tú eliges tu plan.</p>
           </div>
           <ProductPreview />
         </section>
 
-        {/* Flujo */}
-        <section aria-label="El flujo completo" className="border-y bg-muted/40">
-          <ol className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-2 gap-y-3 px-4 py-6 text-sm">
-            {FLOW.map((s, i) => (
-              <li key={s} className="flex items-center gap-2">
-                <span className="rounded-full border bg-background px-3 py-1 font-medium">{s}</span>
-                {i < FLOW.length - 1 && <ArrowRight className="size-4 text-muted-foreground" aria-hidden />}
-              </li>))}
-          </ol>
-        </section>
-
-        {/* Finanzas y fiscal */}
-        <section id="finanzas" className="scroll-mt-20 border-y bg-muted/40">
-          <div className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
-            <div className="max-w-2xl space-y-2">
-              <h2 className="text-3xl font-semibold tracking-tight">Y después de comprar: gastos, facturas y conciliación</h2>
-              <p className="text-muted-foreground">Lo que compras, lo que gastas y lo que facturas, en el mismo lugar y ligado entre sí.</p>
-            </div>
-            <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {FINANCE.map((f) => (
-                <li key={f.title} className="rounded-xl border bg-background p-5">
-                  <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground"><f.icon className="size-4" /></span>
-                  <h3 className="mt-4 font-semibold tracking-tight">{f.title}</h3>
-                  <p className="mt-1.5 text-sm text-muted-foreground">{f.text}</p>
-                  <p className="mt-3 text-xs font-medium text-foreground/70">{f.plan}</p>
-                </li>))}
-            </ul>
-            <p className="mt-6 text-xs text-muted-foreground">Finanzas es un resumen operativo con lo registrado en Procura; no sustituye a tu contabilidad ni a tu declaración de impuestos.</p>
-          </div>
-        </section>
-
-        {/* Cómo funciona */}
-        <section id="como-funciona" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-16 sm:py-20">
-          <div className="max-w-2xl space-y-2">
-            <h2 className="text-3xl font-semibold tracking-tight">Cómo funciona</h2>
-            <p className="text-muted-foreground">De la necesidad a la recepción, cada paso con su responsable y su registro.</p>
-          </div>
-          <ol className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {STEPS.map((s, i) => (
-              <li key={s.title} className="rounded-xl border p-5">
-                <div className="flex items-center gap-3"><span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground"><s.icon className="size-4" /></span><span className="text-xs font-medium text-muted-foreground">Paso {i + 1}</span></div>
-                <h3 className="mt-4 text-lg font-semibold tracking-tight">{s.title}</h3>
-                <p className="mt-1.5 text-sm text-muted-foreground">{s.text}</p>
-              </li>))}
-          </ol>
-        </section>
-
-        {/* Compradores y proveedores */}
-        <section className="border-y bg-muted/40">
-          <div className="mx-auto grid max-w-6xl gap-6 px-4 py-16 sm:py-20 lg:grid-cols-2">
-            <div id="compradores" className="scroll-mt-20 rounded-2xl border bg-background p-6 sm:p-8">
-              <span className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground"><BookOpen className="size-5" /></span>
-              <h2 className="mt-4 text-2xl font-semibold tracking-tight">Para quien compra</h2>
-              <ul className="mt-4 space-y-3 text-sm">{BUYERS.map((b) => <li key={b} className="flex gap-2.5"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-foreground" aria-hidden />{b}</li>)}</ul>
-            </div>
-            <div id="proveedores" className="scroll-mt-20 rounded-2xl border bg-background p-6 sm:p-8">
-              <span className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Store className="size-5" /></span>
-              <h2 className="mt-4 text-2xl font-semibold tracking-tight">Para quien vende</h2>
-              <ul className="mt-4 space-y-3 text-sm">{SUPPLIERS.map((b) => <li key={b} className="flex gap-2.5"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-foreground" aria-hidden />{b}</li>)}</ul>
-            </div>
-          </div>
-        </section>
-
-        {/* Privacidad */}
-        <section className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
-          <div className="grid gap-8 lg:grid-cols-[1fr_1.4fr] lg:items-center">
-            <div className="space-y-2">
-              <span className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Lock className="size-5" /></span>
-              <h2 className="text-3xl font-semibold tracking-tight">Privado por defecto</h2>
-              <p className="text-muted-foreground">Compartir con la contraparte es siempre una decisión explícita, nunca un efecto secundario.</p>
-            </div>
-            <dl className="grid gap-4 sm:grid-cols-3">
-              {[["Cada quien ve lo suyo", "Tus datos están aislados por organización a nivel de base de datos."], ["Lo compartido es explícito", "Una solicitud de cotización o una orden se comparte; tu presupuesto y tus costos, no."], ["Nada desaparece", "Se cancela o rechaza con motivo. La bitácora conserva quién hizo qué y cuándo."]].map(([t, d]) => (
-                <div key={t} className="rounded-xl border p-4"><dt className="font-medium">{t}</dt><dd className="mt-1 text-sm text-muted-foreground">{d}</dd></div>))}
-            </dl>
-          </div>
-        </section>
-
-        {/* Integraciones */}
-        <section id="integraciones" className="scroll-mt-20 border-y bg-muted/40">
+        {/* 1. El problema */}
+        <section id="problema" className="scroll-mt-20 border-y bg-muted/40">
           <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:py-20 lg:grid-cols-2 lg:items-center">
             <div className="space-y-4">
-              <span className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Plug className="size-5" /></span>
-              <h2 className="text-3xl font-semibold tracking-tight">Conéctalo con tu ERP</h2>
-              <p className="text-sm font-medium">Disponible en el plan Empresa.</p>
-              <p className="text-muted-foreground">Procura usa la misma API que su interfaz. Tu sistema puede originar requisiciones, consultar órdenes y entregas, y enterarse de todo lo que pasa.</p>
-              <ul className="space-y-2 text-sm">
-                <li className="flex items-center gap-2"><Webhook className="size-4 shrink-0" />Webhooks firmados con reintentos automáticos</li>
-                <li className="flex items-center gap-2"><Truck className="size-4 shrink-0" />Feed de eventos, si tu sistema no puede recibir webhooks</li>
-                <li className="flex items-center gap-2"><ShieldCheck className="size-4 shrink-0" />Llaves de API con permisos por rol, revocables y rotables</li>
-              </ul>
+              <h2 className="text-3xl font-semibold tracking-tight">Tu información financiera está repartida.</h2>
+              <p className="text-muted-foreground">Cuando cada cosa vive en un lugar distinto, buscar una factura, revisar tus cuentas o juntar todo para tu contador se convierte en trabajo cada mes. ProcuraOS centraliza esa información y relaciona cada operación con su comprobante fiscal y su movimiento bancario.</p>
             </div>
-            <pre className="overflow-x-auto rounded-xl border bg-background p-4 text-xs leading-relaxed sm:text-sm" tabIndex={0} aria-label="Ejemplo de llamada a la API"><code>{`POST /api/v1/requisitions
-Authorization: Bearer pk_live_…
-
-{
-  "title": "Refacciones de cubierta",
-  "external_reference": "PO-REQ-88213",
-  "submit": true,
-  "concepts": [{
-    "concept_type": "GOOD", "source": "FREE",
-    "name": "Ancla 15 kg",
-    "quantity": 2, "unit_label": "PZA"
-  }]
-}
-
-→ webhook: order.confirmed
-  Procura-Signature: v1=…`}</code></pre>
+            <ul className="grid gap-3 sm:grid-cols-2">{SCATTERED.map((s) => (
+              <li key={s.what} className="rounded-xl border bg-background p-4"><p className="text-sm text-muted-foreground">{s.what}</p><p className="mt-1 font-medium">{s.where}</p></li>))}</ul>
           </div>
         </section>
 
+        {/* 2 y 3. Qué puedes hacer y cuánto trabajo te ahorra */}
+        <section id="beneficios" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-16 sm:py-20">
+          <div className="max-w-2xl space-y-2">
+            <h2 className="text-3xl font-semibold tracking-tight">Todo en un lugar, y relacionado entre sí.</h2>
+            <p className="text-muted-foreground">Menos tiempo buscando facturas y capturando comprobantes; más claridad sobre lo que entra, lo que sale y lo que falta documentar.</p>
+          </div>
+          <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {BENEFITS.map((b) => (
+              <li key={b.title} className="flex flex-col rounded-2xl border p-6">
+                <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground"><b.icon className="size-4" aria-hidden /></span>
+                <h3 className="mt-4 font-semibold tracking-tight">{b.title}</h3>
+                <p className="mt-1.5 flex-1 text-sm text-muted-foreground">{b.text}</p>
+                <p className="mt-4 text-xs font-medium text-foreground/70">{b.plan}</p>
+              </li>))}
+          </ul>
+          <p className="mt-6 text-xs text-muted-foreground">ProcuraOS es una herramienta de organización: no es contabilidad ni declaración de impuestos, y no promete automatizar todo el proceso.</p>
+        </section>
+
+        {/* Compras: oferta diferenciada */}
+        <section id="compras" className="border-y bg-muted/40">
+          <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-14 sm:py-16 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl">
+              <span className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground"><Store className="size-5" aria-hidden /></span>
+              <h2 className="mt-4 text-2xl font-semibold tracking-tight">¿También compras a proveedores?</h2>
+              <p className="mt-2 text-muted-foreground">ProcuraOS incluye el flujo de compras: requisiciones, aprobaciones por monto, cotizaciones con comparativo y órdenes con recepción. Tus proveedores cotizan y registran entregas sin pagar nada. Disponible desde el plan Control; conectar tu ERP o tu punto de venta por API es parte del plan Empresa.</p>
+            </div>
+            <a href="#precios" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "shrink-0")}><Truck className="size-4" aria-hidden />Ver qué plan incluye compras</a>
+          </div>
+        </section>
+
+        {/* 4 y 5. Precios y costos adicionales */}
         <FinancePricing />
 
+        {/* 6. Cómo empiezo */}
+        <section id="empezar" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-16 sm:py-20">
+          <div className="max-w-2xl space-y-2"><h2 className="text-3xl font-semibold tracking-tight">Cómo empiezas.</h2><p className="text-muted-foreground">Tres pasos, sin instalar nada.</p></div>
+          <ol className="mt-10 grid gap-4 md:grid-cols-3">
+            {STEPS.map((s, i) => (
+              <li key={s.title} className="rounded-2xl border p-6"><span className="flex size-8 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">{i + 1}</span><h3 className="mt-4 font-semibold tracking-tight">{s.title}</h3><p className="mt-1.5 text-sm text-muted-foreground">{s.text}</p></li>))}
+          </ol>
+        </section>
+
         {/* Preguntas */}
-        <section id="preguntas" className="mx-auto max-w-3xl scroll-mt-20 px-4 py-16 sm:py-20">
+        <section id="preguntas" className="mx-auto max-w-3xl scroll-mt-20 px-4 pb-16 sm:pb-20">
           <h2 className="text-3xl font-semibold tracking-tight">Preguntas frecuentes</h2>
           <div className="mt-8 divide-y rounded-xl border">
             {FAQ.map((f) => (
               <details key={f.q} className="group px-5 py-4">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium [&::-webkit-details-marker]:hidden">
-                  {f.q}<span aria-hidden className="text-xl leading-none text-muted-foreground transition-transform group-open:rotate-45">+</span>
-                </summary>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium [&::-webkit-details-marker]:hidden">{f.q}<span aria-hidden className="text-xl leading-none text-muted-foreground transition-transform group-open:rotate-45">+</span></summary>
                 <p className="mt-2 text-sm text-muted-foreground">{f.a}</p>
               </details>))}
           </div>
         </section>
 
-        {/* Cierre */}
+        {/* CTA final */}
         <section className="border-t bg-primary text-primary-foreground">
           <div className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-14 sm:flex-row sm:items-center sm:justify-between">
-            <div><h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Empieza con tu organización.</h2><p className="mt-1 text-primary-foreground/70">Crea tu cuenta, configura tus reglas de aprobación e invita a tu equipo y a tus proveedores.</p></div>
-            <Link href="/registro" className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "h-11 shrink-0 px-5 text-base")}>Crear cuenta <ArrowRight className="size-4" /></Link>
+            <div><h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Empieza a poner las cuentas de tu negocio en orden.</h2><p className="mt-1 text-primary-foreground/70">Crea tu cuenta, elige tu plan y carga tu primera información.</p></div>
+            <div className="flex shrink-0 flex-wrap gap-3">
+              <Link href="/registro" className={cn(buttonVariants({ variant: "secondary", size: "lg" }), "h-11 px-5 text-base")}>Crear mi cuenta <ArrowRight className="size-4" /></Link>
+              <a href="#precios" className={cn(buttonVariants({ variant: "ghost", size: "lg" }), "h-11 px-5 text-base text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground")}>Conocer los planes</a>
+            </div>
           </div>
         </section>
       </main>
-
       <LandingFooter />
     </div>
   );

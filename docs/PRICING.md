@@ -124,3 +124,9 @@ timbre sin IVA: $1.47 | suscripción de emisión sin IVA: $171.55
 6. **Límites de usuarios y almacenamiento:** definirlos y aplicarlos.
 7. **Conflicto con los planes de compras:** Control ($999) incluye gastos, mientras que Starter de compras cuesta $1,490. Decidir si se venden juntos o por separado.
 8. **Probar un timbrado real** antes de vender la emisión como lista.
+
+## 8. Landing (rediseño comercial)
+
+Orden de la portada (responde, en este orden, a las preguntas del comprador): **hero** («Las cuentas de tu negocio, en orden.») → **el problema** (información dispersa) → **qué puedes hacer** (seis beneficios en lenguaje de negocio, cada uno con el plan desde el que existe) → **compras con proveedores** (oferta diferenciada, corta) → **precios** (Negocio como protagonista; Esencial, Control y Empresa como planes secundarios; tabla comparativa plegada) → **lo que se paga aparte** (timbres, recuperación del SAT con límites y cargo por servicio de pago con su desglose) → **cómo empiezas** → **preguntas** → CTA final.
+
+Fuente de los datos: `src/lib/commercial/plans.ts` (`FINANCE_PLANS`, `NEGOCIO_BENEFITS`, `STAMP_PACKS`, `SERVICE_FEE`) y `chargeBreakdown`, el mismo cálculo que arma el cobro: el total estimado de Negocio ($2,170.31) no está escrito a mano. Pruebas: `tests/unit/commercial.test.ts` (sin promesas de «ilimitado», «garantizado» o «automático total»).
