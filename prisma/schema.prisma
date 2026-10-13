@@ -2816,3 +2816,16 @@ model organization_fiscal_profiles {
 
   @@schema("public")
 }
+
+model expense_notes {
+  id                   String   @id @default(dbgenerated("app.uuid_v7()")) @db.Uuid
+  organization_id      String   @db.Uuid
+  expense_id           String   @db.Uuid
+  body                 String
+  author_membership_id String?  @db.Uuid
+  author_name          String
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([expense_id, created_at])
+  @@schema("public")
+}

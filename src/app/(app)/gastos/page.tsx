@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileCheck2, FileClock, FileX2, Plus, Receipt } from "lucide-react";
 import { ReceiptPreview } from "@/components/app/receipt-preview";
+import { ExpenseNotes } from "@/components/app/expense-notes";
 import { BillingDataCard } from "@/components/app/billing-data";
 import { ScanReceiptButton } from "@/components/app/scan-receipt";
 import { PageHeader } from "@/components/app/page-header";
@@ -128,6 +129,7 @@ function ExpenseSheet({ id, onClose, canManage, onChange }: { id: string | null;
             <BillingDataCard paymentMethod={e.payments.find((p) => !p.voided_at)?.method} />
             <PaymentsSection base={`/expenses/${e.id}`} payments={e.payments} currency={e.currency} pendingMinor={e.pending_to_pay_minor} voided={!!e.voided_at} kind="expense" onChange={onChange} />
             <CfdiSection base={`/expenses/${e.id}`} links={e.cfdi} currency={e.currency} totalMinor={e.amount_minor} documentedMinor={e.documented_minor} direction="RECEIVED" voided={!!e.voided_at} onChange={onChange} />
+            <ExpenseNotes expenseId={e.id} canWrite={canManage} />
           </div>
         </div>
         <DialogFooter>{canManage && !e.voided_at && <Button variant="destructive" onClick={() => setVoiding(true)}>Anular gasto</Button>}<Button variant="outline" onClick={onClose}>Cerrar</Button></DialogFooter>
