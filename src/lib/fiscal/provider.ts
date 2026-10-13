@@ -27,7 +27,7 @@ export interface IssueRequest {
   currency: string; expeditionZipCode: string;
   paymentFormCode: string; paymentMethodCode: "PUE" | "PPD";
   recipient: { taxId: string; legalName: string; taxRegimeCode: string; cfdiUseCode: string; zipCode: string; email?: string };
-  items: { productCode: string; unitCode: string; description: string; quantity: number; unitPrice: number; discount: number; taxRate: number }[];
+  items: { sku: string; productCode: string; unitCode: string; description: string; quantity: number; unitPrice: number; discount: number; taxRate: number }[];
   timeZone: string;
 }
 export interface IssuedCfdi { providerInvoiceId: string; fiscalUuid: string | null; xml: Buffer | null }

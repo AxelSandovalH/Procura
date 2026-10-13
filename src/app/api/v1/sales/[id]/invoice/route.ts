@@ -81,7 +81,7 @@ export const POST = route(async (req, params) => {
       issuerId: prep.issuerId, series: prep.series, date: localStamp(tz), currency: prep.sale.currency, expeditionZipCode: prep.cfg.expedition_zip_code!,
       paymentFormCode: body.payment_form_code, paymentMethodCode: body.payment_method_code, timeZone: tz,
       recipient: { taxId: prep.rec.tax_id.toUpperCase(), legalName: prep.rec.legal_name, taxRegimeCode: prep.rec.tax_regime_code, cfdiUseCode: prep.rec.cfdi_use_code, zipCode: prep.rec.zip_code, email: prep.rec.email },
-      items: prep.resolved.map(({ l, product, unit }) => ({ productCode: product, unitCode: unit, description: l.description, quantity: Number(l.quantity), unitPrice: Number(l.unit_price_minor) / 100, discount: Number(l.discount_minor) / 100, taxRate: Number(l.tax_rate) })),
+      items: prep.resolved.map(({ l, product, unit }) => ({ sku: `L${l.line_number}`, productCode: product, unitCode: unit, description: l.description, quantity: Number(l.quantity), unitPrice: Number(l.unit_price_minor) / 100, discount: Number(l.discount_minor) / 100, taxRate: Number(l.tax_rate) })),
     });
   } catch (e) {
     const msg = e instanceof FiscalProviderError ? e.message : "Error inesperado al timbrar.";

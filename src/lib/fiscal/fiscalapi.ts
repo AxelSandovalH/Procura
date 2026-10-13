@@ -64,17 +64,17 @@ class FiscalapiProvider implements FiscalProvider {
       issuer: { id: req.issuerId },
       recipient: { tin: req.recipient.taxId, legalName: req.recipient.legalName, taxRegimeCode: req.recipient.taxRegimeCode, cfdiUseCode: req.recipient.cfdiUseCode, zipCode: req.recipient.zipCode, ...(req.recipient.email ? { email: req.recipient.email } : {}) },
       items: req.items.map((i) => ({
-        itemCode: i.productCode, quantity: i.quantity, unitOfMeasurementCode: i.unitCode, description: i.description, unitPrice: i.unitPrice, discount: i.discount, taxObjectCode: "02",
+        itemCode: i.productCode, itemSku: i.sku, quantity: i.quantity, unitOfMeasurementCode: i.unitCode, description: i.description, unitPrice: i.unitPrice, discount: i.discount, taxObjectCode: "02",
         itemTaxes: [{ taxCode: "002", taxTypeCode: "Tasa", taxRate: i.taxRate, taxFlagCode: "T" }],
       })),
     };
     const r = await this.request("POST", "/api/v4/invoices", body, req.timeZone);
     const j = r.json as { succeeded?: boolean; message?: string; details?: unknown; data?: { id?: string; uuid?: string | null; responses?: { invoiceUuid?: string; invoiceBase64?: string }[] } } | null;
     if (r.status < 200 || r.status >= 300 || j?.succeeded === false) {
-      // El proveedor explica qué dato falla (RFC, régimen, código postal…): se muestra tal cual, recortado. No contiene credenciales.
-      const raw = j && typeof j === "object" ? JSON.stringify(Object.fromEntries(Object.entries(j).filter(([k]) => k !== "data"))) : "";
-      const detail = raw.slice(0, 700);
-      throw new FiscalProviderError("UPSTREAM", `Fiscalapi no pudo timbrar (${r.status}): ${[j?.message, detail].filter(Boolean).join(" — ") || "sin detalle"}`.slice(0, 900));
+      // El proveedor explica qué dato falla: errores por campo en data[] (propertyName / errorMessage) o un texto en details. No contiene credenciales.
+      const fieldErrors = Array.isArray((j as { data?: unknown } | null)?.data) ? ((j as { data: { propertyName?: string; errorMessage?: string }[] }).data.map((e) => `${e.propertyName ?? "campo"}: ${e.errorMessage ?? ""}`).join("; ")) : "";
+      const detail = fieldErrors || (typeof j?.details === "string" ? j.details : "") || j?.message || "";
+      throw new FiscalProviderError("UPSTREAM", `Fiscalapi no pudo timbrar (${r.status}): ${detail || "sin detalle"}`.slice(0, 900));
     }
     const resp = j?.data?.responses?.[0];
     const id = j?.data?.id;
