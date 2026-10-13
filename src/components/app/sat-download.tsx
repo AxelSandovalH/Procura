@@ -18,7 +18,7 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
 export function SatDownloadCard({ onImported }: { onImported: () => Promise<unknown> }) {
   const { can } = useSession(); const qc = useQueryClient();
   const [from, setFrom] = useState(() => iso(new Date(Date.now() - 30 * 86_400_000))); const [to, setTo] = useState(() => iso(new Date()));
-  const [busy, setBusy] = useState<"rules" | "sync" | "period" | null>(null); const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [issued, setIssued] = useState(false); const [busy, setBusy] = useState<"rules" | "sync" | "period" | null>(null); const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const q = useQuery({ queryKey: ["fiscal-downloads"], queryFn: () => api<Status>("/fiscal/downloads"), enabled: can("cfdi.read"), staleTime: 30_000, retry: false });
   const s = q.data;
   if (!can("cfdi.manage") || !s?.configured || !s.has_issuer) return null;
@@ -26,7 +26,7 @@ export function SatDownloadCard({ onImported }: { onImported: () => Promise<unkn
 
   async function activate() {
     setBusy("rules"); setMsg(null);
-    try { const r = await api<{ created: number }>("/fiscal/downloads/rules", { body: {} }); setMsg({ ok: true, text: r.created > 0 ? `Listo: se crearon ${r.created} regla${r.created === 1 ? "" : "s"}. El SAT/Fiscalapi puede tardar en aprobarlas.` : "Las reglas ya existían; la sincronización quedó activada." }); await refresh(); }
+    try { const r = await api<{ created: number }>("/fiscal/downloads/rules", { body: { directions: issued ? ["Recibidos", "Emitidos"] : ["Recibidos"] } }); setMsg({ ok: true, text: r.created > 0 ? `Listo: se crearon ${r.created} regla${r.created === 1 ? "" : "s"}. El SAT/Fiscalapi puede tardar en aprobarlas.` : "Las reglas ya existían; la sincronización quedó activada." }); await refresh(); }
     catch (e) { setMsg({ ok: false, text: err(e, "No se pudo activar la descarga masiva.") }); } finally { setBusy(null); }
   }
   async function sync(period: boolean) {
@@ -48,13 +48,14 @@ export function SatDownloadCard({ onImported }: { onImported: () => Promise<unkn
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 font-medium"><DownloadCloud className="size-4" />Descarga masiva del SAT</p>
         {s.sync_enabled ? <Button size="sm" variant="outline" onClick={() => void sync(false)} disabled={!!busy}><RefreshCw />{busy === "sync" ? "Sincronizando…" : "Importar lo que ya esté listo"}</Button>
-          : <Button size="sm" onClick={() => void activate()} disabled={!!busy}>{busy === "rules" ? "Activando…" : "Activar descarga masiva"}</Button>}
+          : <Button size="sm" onClick={() => void activate()} disabled={!!busy}>{busy === "rules" ? "Activando…" : "Activar descarga de facturas recibidas"}</Button>}
       </div>
       <p className="text-xs text-muted-foreground">
         {s.sync_enabled ? `Activada. Reglas: ${s.rules.map((r) => `${r.downloadType ?? "?"}${r.status ? ` (${r.status})` : ""}`).join(", ") || "—"}. Solicitudes: ${s.requests.ready} listas, ${s.requests.pending} esperando al SAT.${s.last_synced_at ? ` Última sincronización: ${dateTime(s.last_synced_at)}.` : ""} Cada hora se importan solas las que estén listas.`
-          : "Trae automáticamente tus CFDI emitidos y recibidos. Requiere el módulo de descarga masiva y tu e.firma cargada en Fiscalapi (en su panel, nunca en Procura)."}
+          : "Trae automáticamente las facturas que te emitieron (recibidas) para ligarlas a tus gastos. Requiere el módulo de descarga masiva y tu e.firma cargada en Fiscalapi (en su panel, nunca en Procura). Tu plan cuenta un asiento por RFC y dirección."}
         {last && last.error_count > 0 ? ` Último intento con ${last.error_count} errores.` : ""}
       </p>
+      {!s.sync_enabled && <label className="flex items-start gap-2 text-xs text-muted-foreground"><input type="checkbox" className="mt-0.5" checked={issued} onChange={(e) => setIssued(e.target.checked)} />También las emitidas (necesita un segundo asiento en tu plan; tus facturas emitidas desde Procura ya se guardan solas)</label>}
       {s.sync_enabled && (
         <div className="flex flex-wrap items-end gap-2">
           <div className="space-y-1"><Label htmlFor="d-from" className="text-xs">Pedir periodo: desde</Label><Input id="d-from" type="date" className="w-40" value={from} onChange={(e) => setFrom(e.target.value)} /></div>

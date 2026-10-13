@@ -19,11 +19,14 @@ export async function findRules(personId: string, taxId: string | null) {
   return { all: rules, ISSUED: rules.find((r) => direction(r) === "ISSUED") ?? null, RECEIVED: rules.find((r) => direction(r) === "RECEIVED") ?? null };
 }
 
-/** Crea las reglas que falten (emitidos y recibidos, solo CFDI vigentes). Requiere la e.firma de la persona cargada en el proveedor. */
-export async function ensureRules(personId: string, taxId: string | null) {
+/**
+ * Crea las reglas que falten (solo CFDI vigentes). Por omisión solo «Recibidos»: el plan de Fiscalapi cuenta un asiento por RFC y dirección,
+ * y los emitidos ya los genera Procura. Requiere la e.firma de la persona cargada en el proveedor.
+ */
+export async function ensureRules(personId: string, taxId: string | null, directions: ("Emitidos" | "Recibidos")[] = ["Recibidos"]) {
   const p = getFiscalProvider(); const have = await findRules(personId, taxId); const created: DownloadRule[] = [];
-  if (!have.RECEIVED) created.push(await p.createDownloadRule({ personId, description: "Procura · CFDI recibidos vigentes", downloadType: "Recibidos" }));
-  if (!have.ISSUED) created.push(await p.createDownloadRule({ personId, description: "Procura · CFDI emitidos vigentes", downloadType: "Emitidos" }));
+  if (directions.includes("Recibidos") && !have.RECEIVED) created.push(await p.createDownloadRule({ personId, description: "Procura · CFDI recibidos vigentes", downloadType: "Recibidos" }));
+  if (directions.includes("Emitidos") && !have.ISSUED) created.push(await p.createDownloadRule({ personId, description: "Procura · CFDI emitidos vigentes", downloadType: "Emitidos" }));
   return { ...(await findRules(personId, taxId)), created };
 }
 
