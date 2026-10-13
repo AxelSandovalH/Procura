@@ -23,14 +23,14 @@ export function MonthlyBars({ data, series, currency }: { data: ({ month: string
     <div>
       <div className="mb-2 flex flex-wrap gap-3 text-xs text-muted-foreground">{series.map((s) => <span key={s.key} className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-sm" style={{ background: s.color }} />{s.label}</span>)}</div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Tendencia mensual">
-        {[0, 0.25, 0.5, 0.75, 1].map((t) => <g key={t}><line x1={L} x2={W} y1={y(nice * t)} y2={y(nice * t)} stroke="currentColor" strokeOpacity={t === 0 ? 0.3 : 0.1} /><text x={L - 6} y={y(nice * t) + 3} textAnchor="end" fontSize="10" fill="currentColor" fillOpacity={0.55}>{compact(nice * t)}</text></g>)}
+        {[0, 0.25, 0.5, 0.75, 1].map((t) => <g key={t}><line x1={L} x2={W} y1={y(nice * t)} y2={y(nice * t)} stroke="currentColor" strokeOpacity={t === 0 ? 0.3 : 0.1} /><text x={L - 6} y={y(nice * t) + 3} textAnchor="end" fontSize="10" fill="currentColor" fillOpacity={0.7}>{compact(nice * t)}</text></g>)}
         {data.map((d, i) => {
           const cx = L + gw * i + gw / 2, x0 = cx - (bw * series.length) / 2;
           return (
             <g key={d.month} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} onFocus={() => setHover(i)} onBlur={() => setHover(null)} tabIndex={0} aria-label={`${monthLabel(d.month)}: ${series.map((s) => `${s.label} ${money(Number(d[s.key]), currency)}`).join(", ")}`}>
               <rect x={L + gw * i} y={T} width={gw} height={H - T - B} fill="currentColor" fillOpacity={hover === i ? 0.05 : 0} />
               {series.map((s, j) => { const v = Number(d[s.key]); const h = Math.max(v > 0 ? 2 : 0, y(0) - y(v)); return <rect key={s.key} x={x0 + bw * j + 1} y={y(0) - h} width={bw - 2} height={h} rx={3} fill={s.color} opacity={hover === null || hover === i ? 1 : 0.45} />; })}
-              <text x={cx} y={H - 8} textAnchor="middle" fontSize="11" fill="currentColor" fillOpacity={hover === i ? 0.9 : 0.55}>{monthLabel(d.month)}</text>
+              <text x={cx} y={H - 8} textAnchor="middle" fontSize="11" fill="currentColor" fillOpacity={hover === i ? 0.95 : 0.7}>{monthLabel(d.month)}</text>
             </g>);
         })}
       </svg>
