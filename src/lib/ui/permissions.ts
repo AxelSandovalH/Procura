@@ -21,6 +21,9 @@ export const PERMISSION_GROUPS: { title: string; items: Record<string, string> }
   { title: "Ventas (proveedor)", items: {
     "rfq.read": "Ver solicitudes recibidas", "rfq.decline": "Declinar solicitudes", "quotation.submit": "Cotizar y enviar cotizaciones", "quotation.read_private": "Ver costos y notas internas de cotización",
     "order.confirm": "Confirmar órdenes", "order.start": "Iniciar órdenes", "delivery.register": "Registrar entregas" } },
+  { title: "Facturas y gastos", items: {
+    "invoice.submit": "Adjuntar facturas a una orden (proveedor)", "invoice.read": "Ver facturas de las órdenes", "invoice.review": "Aceptar con diferencia o rechazar facturas",
+    "expense.read": "Ver gastos", "expense.manage": "Registrar gastos y ligarlos a facturas" } },
   { title: "Colaboración", items: {
     "conversation.shared.read": "Leer conversaciones compartidas", "conversation.shared.post": "Escribir en conversaciones compartidas", "note.internal.read": "Leer notas internas",
     "note.internal.post": "Escribir notas internas", "attachment.upload": "Subir adjuntos", "attachment.delete_own": "Borrar adjuntos propios" } },

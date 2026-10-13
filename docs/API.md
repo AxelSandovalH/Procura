@@ -249,6 +249,22 @@ Devuelve grupos por tipo, ya filtrados por lo que el actor puede ver. Los filtro
 | POST | `/organization/webhooks/{id}/test` | envía `ping` |
 | GET | `/events?since=<cursor>&types=` | **feed de eventos** por organización (pull, alternativa a webhooks para ERPs que no exponen endpoint) |
 
+### Facturas recibidas y gastos
+
+El proveedor adjunta el CFDI (XML timbrado, PDF opcional) a una orden suya; Procura lee el XML, valida y compara contra la orden y la recepción. El comprador registra gastos y los liga a esas facturas. Si la organización lleva sus gastos en un ERP (`expenses_managed_by = ERP` en `PATCH /organization/settings`), `POST /expenses` responde `409` y Procura solo entrega la orden recibida y la factura ligada (eventos `invoice.*` y `GET /invoices`).
+
+| Método | Ruta | Permiso |
+|---|---|---|
+| POST | `/orders/{id}/invoices` — `multipart/form-data`: `xml` (obligatorio), `pdf` | `invoice.submit` (proveedor de la orden; orden CONFIRMED/IN_PROCESS/COMPLETED). Rechaza con 400: XML no CFDI, sin UUID de timbre, tipo distinto de Ingreso, RFC receptor/emisor que no coincide con el registrado; 409 si el UUID ya existe. Responde `{ invoice, discrepancies[] }` (`VALIDATED` o `DISCREPANCY`) |
+| GET | `/orders/{id}/invoices` | `invoice.read` — facturas + resumen (total orden, facturado, por facturar, subtotal recibido) |
+| GET | `/invoices?status=&order_id=&unlinked=1` · `/invoices/{id}` (URLs firmadas XML/PDF) | `invoice.read` |
+| POST | `/invoices/{id}/accept` `{ reason? }` · `/reject` `{ reason }` | `invoice.review` (comprador). Aceptar solo aplica a `DISCREPANCY`; no se rechaza una factura ligada a un gasto |
+| GET / POST | `/expenses` `{ spent_at, description, category?, amount_minor, currency, supplier_organization_id?, supplier_name?, order_id?, external_reference?, supplier_invoice_ids[] }` | `expense.read` / `expense.manage` |
+| GET / PATCH | `/expenses/{id}` | `expense.read` / `expense.manage` |
+| POST | `/expenses/{id}/void` `{ reason }` · `/expenses/{id}/invoices` `{ supplier_invoice_id }` · DELETE `/expenses/{id}/invoices/{invoiceId}` | `expense.manage` |
+
+Diferencias que marca la validación (`discrepancies[]`, `ERROR` deja la factura «con diferencias»): `MONEDA_DISTINTA`, `EXCEDE_ORDEN` (suma de facturas > total de la orden, tolerancia $1), `EXCEDE_RECIBIDO` (subtotal facturado > subtotal recibido y aceptado); informativas (`WARN`): RFC sin registrar, sin recepción aún. Eventos: `invoice.submitted`, `invoice.accepted`, `invoice.rejected` (agregado `order`).
+
 ### Lo que un ERP puede hacer en MVP (OD-22)
 1. `POST /requisitions` (con `submit: true` opcional).
 2. `GET /requisitions/{id}` y `GET /requisitions?external_reference=`.

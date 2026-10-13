@@ -1296,6 +1296,7 @@ model organization_settings {
   relationship_request_policy    relationship_request_policy @default(MANUAL_APPROVAL)
   requester_can_self_approve     Boolean                     @default(false)
   approval_timing                approval_timing             @default(AFTER_QUOTING)
+  expenses_managed_by                String                       @default("PROCURA")
   reapproval_policy              reapproval_policy           @default(IF_AMOUNT_INCREASES)
   auto_close_days_after_resolved Int?
   portal_enabled                 Boolean                     @default(false)
@@ -2152,6 +2153,7 @@ enum attachment_anchor_type {
   CATALOG_IMPORT
 
   @@schema("public")
+  EXPENSE
 }
 
 enum attachment_kind {
@@ -2500,5 +2502,94 @@ enum webhook_delivery_status {
   FAILED
   EXHAUSTED
 
+  @@schema("public")
+}
+
+enum supplier_invoice_status {
+  VALIDATED
+  DISCREPANCY
+  ACCEPTED
+  REJECTED
+
+  @@schema("public")
+}
+
+enum expense_source {
+  MANUAL
+  PROCURA
+  ERP
+
+  @@schema("public")
+}
+
+/// Factura (CFDI) del proveedor ligada a una orden. Compartida entre comprador y proveedor (RLS).
+model supplier_invoices {
+  id                        String                  @id @default(dbgenerated("app.uuid_v7()")) @db.Uuid
+  order_id                  String                  @db.Uuid
+  buyer_organization_id     String                  @db.Uuid
+  supplier_organization_id  String                  @db.Uuid
+  fiscal_uuid               String
+  series                    String?
+  folio                     String?
+  cfdi_version              String?
+  issued_at                 DateTime?               @db.Timestamptz(6)
+  issuer_rfc                String
+  issuer_name               String?
+  receiver_rfc              String
+  receiver_name             String?
+  currency                  String                  @db.Char(3)
+  exchange_rate             Decimal?                @db.Decimal(18, 6)
+  subtotal_minor            BigInt
+  tax_minor                 BigInt                  @default(0)
+  total_minor               BigInt
+  status                    supplier_invoice_status
+  discrepancies             Json                    @default("[]")
+  xml_storage_key           String
+  xml_filename              String
+  pdf_storage_key           String?
+  pdf_filename              String?
+  uploaded_by_membership_id String?                 @db.Uuid
+  reviewed_by_membership_id String?                 @db.Uuid
+  reviewed_at               DateTime?               @db.Timestamptz(6)
+  review_reason             String?
+  created_at                DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                @default(now()) @db.Timestamptz(6)
+
+  @@index([order_id, created_at(sort: Desc)], map: "supplier_invoices_order_idx")
+  @@index([buyer_organization_id, created_at(sort: Desc)], map: "supplier_invoices_buyer_idx")
+  @@schema("public")
+}
+
+/// Gasto de la organización (INTERNAL). Con ERP (expenses_managed_by='ERP') los gastos los lleva el ERP.
+model expenses {
+  id                       String         @id @default(dbgenerated("app.uuid_v7()")) @db.Uuid
+  organization_id          String         @db.Uuid
+  spent_at                 DateTime       @db.Date
+  description              String
+  category                 String?
+  amount_minor             BigInt
+  currency                 String         @db.Char(3)
+  supplier_organization_id String?        @db.Uuid
+  supplier_name            String?
+  order_id                 String?        @db.Uuid
+  source                   expense_source @default(MANUAL)
+  external_reference       String?
+  created_by_membership_id String?        @db.Uuid
+  voided_at                DateTime?      @db.Timestamptz(6)
+  void_reason              String?
+  created_at               DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime       @default(now()) @db.Timestamptz(6)
+
+  @@index([organization_id, spent_at(sort: Desc)], map: "expenses_org_idx")
+  @@schema("public")
+}
+
+model expense_invoices {
+  expense_id          String   @db.Uuid
+  supplier_invoice_id String   @db.Uuid
+  organization_id     String   @db.Uuid
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([expense_id, supplier_invoice_id])
   @@schema("public")
 }

@@ -11,6 +11,7 @@ export const PERMISSIONS = [
   "receipt.confirm","rfq.read","rfq.decline","quotation.submit","quotation.read_private","order.confirm","order.start",
   "delivery.register","conversation.shared.read","conversation.shared.post","note.internal.read","note.internal.post",
   "attachment.upload","attachment.delete_own",
+  "invoice.submit","invoice.read","invoice.review","expense.read","expense.manage",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -27,4 +28,5 @@ export const PERMISSION_SIDE: Partial<Record<Permission, Side>> = {
   "quotation.read": "BUYER", "quotation.accept": "BUYER", "order.close_short": "BUYER", "receipt.confirm": "BUYER",
   "rfq.read": "SUPPLIER", "rfq.decline": "SUPPLIER", "quotation.submit": "SUPPLIER",
   "quotation.read_private": "SUPPLIER", "order.confirm": "SUPPLIER", "order.start": "SUPPLIER", "delivery.register": "SUPPLIER",
+  "invoice.submit": "SUPPLIER", "invoice.review": "BUYER", "expense.read": "BUYER", "expense.manage": "BUYER",
 };

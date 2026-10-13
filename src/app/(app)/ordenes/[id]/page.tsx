@@ -11,6 +11,7 @@ import { DeliveriesCard } from "@/components/app/deliveries-card";
 import { CollaborationPanel } from "@/components/app/collaboration-panel";
 import { useSyncedState } from "@/hooks/use-synced-state";
 import { StatusBadge } from "@/components/app/status-badge";
+import { InvoicesCard } from "@/components/app/invoices-card";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { api, ApiError } from "@/lib/api-client";
 import { dateShort, money, qty } from "@/lib/format";
@@ -99,6 +100,7 @@ export default function OrderPage({ params }: { params: Promise<{ id: string }> 
           </dl></CardContent>
         </Card>
         {["CONFIRMED", "IN_PROCESS", "COMPLETED", "CANCELLED"].includes(o.status) && <DeliveriesCard orderId={o.id} perspective={o.perspective} orderStatus={o.status} lines={o.lines} availableActions={o.available_actions} />}
+        <InvoicesCard orderId={o.id} orderStatus={o.status} />
         <CollaborationPanel anchorType="ORDER" anchorId={o.id} counterpartName={isBuyer ? o.supplier.display_name : o.buyer.display_name} />
         </div>
 

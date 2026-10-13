@@ -3,7 +3,7 @@ import type { Actor } from "@/lib/auth/context";
 import { Problem } from "@/lib/http/problem";
 import { requisitionVisibilityWhere } from "@/lib/requisitions/visibility";
 
-export type AnchorType = "REQUISITION" | "REQUISITION_CONCEPT" | "RFQ" | "QUOTATION" | "ORDER" | "DELIVERY" | "RECEIPT" | "MESSAGE" | "CATALOG_IMPORT";
+export type AnchorType = "REQUISITION" | "REQUISITION_CONCEPT" | "RFQ" | "QUOTATION" | "ORDER" | "DELIVERY" | "RECEIPT" | "MESSAGE" | "CATALOG_IMPORT" | "EXPENSE";
 
 export interface ResolvedAnchor {
   /** Si el recurso es compartido entre dos organizaciones, sus ids; null si es interno de una sola. */
@@ -31,6 +31,12 @@ export async function resolveAnchor(tx: Tx, actor: Actor, type: AnchorType, id: 
       if (vis === null) throw Problem.notFound();
       const c = await tx.requisition_concepts.findFirst({ where: { id, requisitions: { organization_id: org, ...vis } }, select: { id: true } });
       if (!c) throw Problem.notFound();
+      return { shared: null };
+    }
+    case "EXPENSE": {
+      if (!actor.permissions.has("expense.read")) throw Problem.notFound();
+      const e = await tx.expenses.findFirst({ where: { id, organization_id: org }, select: { id: true } });
+      if (!e) throw Problem.notFound();
       return { shared: null };
     }
     case "CATALOG_IMPORT": {

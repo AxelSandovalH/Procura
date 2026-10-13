@@ -11,6 +11,7 @@ const LABELS: Record<string, string> = {
   "quotation.withdrawn": "retiró su cotización", "quotation.accepted": "eligió la cotización", "quotation.rejected": "rechazó la cotización",
   "order.created": "generó la orden", "order.confirmed": "confirmó la orden", "order.started": "comenzó la orden", "order.rejected": "rechazó la orden",
   "order.cancelled": "canceló la orden", "order.completed": "completó la orden",
+  "invoice.submitted": "adjuntó una factura", "invoice.accepted": "aceptó la factura con diferencia", "invoice.rejected": "rechazó la factura",
   "delivery.created": "registró una entrega", "delivery.updated": "actualizó una entrega", "delivery.cancelled": "canceló una entrega", "receipt.confirmed": "confirmó la recepción",
 };
 /** Acciones de detalle interno que no aportan a una línea de tiempo legible. */

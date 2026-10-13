@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ClipboardList, ShoppingCart, CheckSquare, Home, Inbox, Package, Handshake, BookOpen, Settings, LogOut, Menu, X } from "lucide-react";
+import { ClipboardList, Receipt, ShoppingCart, CheckSquare, Home, Inbox, Package, Handshake, BookOpen, Settings, LogOut, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -23,6 +23,7 @@ const NAV = [
   { href: "/aprobaciones", label: "Aprobaciones", icon: CheckSquare, perm: "requisition.approve", badge: true },
   { href: "/solicitudes", label: "Cotizaciones", icon: Inbox, perm: "rfq.read", alt: ["rfq.issue"] },
   { href: "/ordenes", label: "Órdenes", icon: Package, perm: "order.read" },
+  { href: "/gastos", label: "Gastos", icon: Receipt, perm: "expense.read" },
   { href: "/relaciones", label: "Relaciones", icon: Handshake, perm: "relationship.read" },
   { href: "/catalogo", label: "Catálogo", icon: BookOpen, perm: "catalog.read" },
   { href: "/administracion", label: "Administración", icon: Settings, perm: "member.read", alt: ["role.read", "department.manage", "location.manage", "approval_workflow.manage", "organization.update", "settings.manage"] },

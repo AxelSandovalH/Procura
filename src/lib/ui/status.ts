@@ -49,3 +49,7 @@ export const TONE_CLASS: Record<Tone, string> = {
   ok: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
   bad: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300",
 };
+
+export const INVOICE_STATUS: Record<string, { label: string; tone: Tone }> = {
+  VALIDATED: { label: "Validada", tone: "ok" }, DISCREPANCY: { label: "Con diferencias", tone: "warn" }, ACCEPTED: { label: "Aceptada con diferencia", tone: "info" }, REJECTED: { label: "Rechazada", tone: "bad" },
+};
