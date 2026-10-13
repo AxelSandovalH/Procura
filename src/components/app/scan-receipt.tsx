@@ -1,7 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { Camera, ScanLine } from "lucide-react";
+import { Camera, Image as ImageIcon, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,7 @@ async function compress(file: File, maxSide = 1800): Promise<Blob> {
 /** Foto del ticket → borrador de gasto que la persona revisa y confirma. Guarda también la foto como evidencia del gasto. */
 export function ScanReceiptButton({ onSaved }: { onSaved: () => Promise<unknown> }) {
   const { org, can } = useSession();
-  const input = useRef<HTMLInputElement>(null);
+  const camera = useRef<HTMLInputElement>(null); const gallery = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [image, setImage] = useState<{ blob: Blob; url: string } | null>(null);
   const [step, setStep] = useState<"pick" | "reading" | "review">("pick");
@@ -72,8 +72,13 @@ export function ScanReceiptButton({ onSaved }: { onSaved: () => Promise<unknown>
         <DialogHeader><DialogTitle>Escanear ticket</DialogTitle><DialogDescription>Toma o sube una foto del ticket. Leemos fecha, total y comercio; tú revisas y confirmas antes de guardar.</DialogDescription></DialogHeader>
         {step === "pick" && (
           <div className="space-y-3">
-            <input ref={input} type="file" accept="image/*" capture="environment" className="sr-only" aria-label="Foto del ticket" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ""; }} />
-            <Button className="w-full" onClick={() => input.current?.click()}><Camera />Tomar o elegir foto</Button>
+            {/* Dos entradas: con `capture` el iPhone abre solo la cámara; sin él ofrece fototeca, archivos y cámara. */}
+            <input ref={camera} type="file" accept="image/*" capture="environment" className="sr-only" aria-label="Tomar foto del ticket" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ""; }} />
+            <input ref={gallery} type="file" accept="image/*" className="sr-only" aria-label="Elegir foto del ticket de la galería" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ""; }} />
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button onClick={() => camera.current?.click()}><Camera />Tomar foto</Button>
+              <Button variant="outline" onClick={() => gallery.current?.click()}><ImageIcon />Elegir de la galería</Button>
+            </div>
             <p className="text-xs text-muted-foreground">Procura envía la imagen al servicio de lectura de Claude solo para extraer los datos. Procura nunca guarda un gasto sin que lo confirmes. Funciona mejor con el ticket completo, bien iluminado y sin dobleces.</p>
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           </div>)}
