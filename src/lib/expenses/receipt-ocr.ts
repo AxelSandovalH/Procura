@@ -18,6 +18,7 @@ export const ReceiptSchema = z.object({
   category: z.string().nullable().describe("categoría sugerida de gasto en una o dos palabras (p. ej. Combustible, Alimentos, Papelería, Refacciones)"),
   confidence: z.enum(["high", "medium", "low"]).describe("qué tan seguro estás de la fecha y el total"),
   document_number: z.string().nullable().describe("número de factura, recibo o folio del documento (p. ej. INV-1234); null si no hay"),
+  fiscal_uuid: z.string().nullable().describe("folio fiscal (UUID de 36 caracteres, formato 8-4-4-4-12) si el documento es una factura mexicana (CFDI); null si no aparece"),
   notes: z.string().nullable().describe("advertencias para quien revisa (texto borroso, varios totales, ticket cortado, ilegible); null si no hay"),
 });
 export type Receipt = z.infer<typeof ReceiptSchema>;
@@ -53,7 +54,7 @@ export function sanitizeDate(date: string | null, now = new Date()): string | nu
   return date;
 }
 
-export interface ReceiptDraft { is_receipt: boolean; merchant: string | null; merchant_tax_id: string | null; document_number: string | null; date: string | null; currency: string; total_minor: number | null; tax_minor: number | null; payment_method: Receipt["payment_method"]; description: string; category: string | null; confidence: Receipt["confidence"]; notes: string | null }
+export interface ReceiptDraft { is_receipt: boolean; merchant: string | null; merchant_tax_id: string | null; document_number: string | null; fiscal_uuid: string | null; date: string | null; currency: string; total_minor: number | null; tax_minor: number | null; payment_method: Receipt["payment_method"]; description: string; category: string | null; confidence: Receipt["confidence"]; notes: string | null }
 
 /** Normaliza lo leído a un borrador seguro de revisar y guardar. Nada se guarda sin que la persona lo confirme. */
 export function toDraft(r: Receipt, now = new Date()): ReceiptDraft {
@@ -63,7 +64,7 @@ export function toDraft(r: Receipt, now = new Date()): ReceiptDraft {
   const total = toMinorChecked(r.total);
   const notes = [r.notes, r.date && !date ? "La fecha del ticket no se pudo validar: captúrala." : null].filter(Boolean).join(" ") || null;
   return { is_receipt: r.is_receipt, merchant: r.merchant?.trim().slice(0, 200) || null, merchant_tax_id: rfc && /^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/.test(rfc) ? rfc : null, date, currency,
-    document_number: r.document_number?.trim().slice(0, 80) || null, total_minor: total, tax_minor: toMinorChecked(r.tax), payment_method: r.payment_method, description: r.description.trim().slice(0, 300), category: r.category?.trim().slice(0, 80) || null,
+    document_number: r.document_number?.trim().slice(0, 80) || null, fiscal_uuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(r.fiscal_uuid?.trim() ?? "") ? r.fiscal_uuid!.trim().toUpperCase() : null, total_minor: total, tax_minor: toMinorChecked(r.tax), payment_method: r.payment_method, description: r.description.trim().slice(0, 300), category: r.category?.trim().slice(0, 80) || null,
     confidence: total === null || !date ? "low" : r.confidence, notes };
 }
 
@@ -75,6 +76,7 @@ Reglas:
 - Importes como números en unidades de la moneda (123.45), nunca en centavos.
 - En facturas y recibos de servicios: "total" es el importe pagado o a pagar ("Amount paid", "Amount due", "Total"), no el de un periodo futuro ni un saldo previo. La fecha es la de emisión o pago del documento, no el inicio del periodo; menciona el periodo en la descripción (p. ej. "Vercel Pro · oct 2026").
 - Moneda: si el documento es de un proveedor extranjero o está en inglés y usa "$" sin otra indicación, es USD; en un ticket mexicano con "$" es MXN. Respeta el código si está impreso.
+- Si el documento es una factura mexicana (CFDI), copia su "Folio fiscal" (UUID) en fiscal_uuid, exactamente como aparece.
 - Si no es un ticket, factura o recibo de compra, is_receipt=false.`;
 
 /** Lee un ticket con la visión de Claude. Requiere ANTHROPIC_API_KEY en el servidor. */

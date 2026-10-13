@@ -11,7 +11,7 @@ import { api, ApiError } from "@/lib/api-client";
 import { toMinor } from "@/lib/format";
 import { PAYMENT_METHOD } from "@/lib/ui/status";
 
-interface Draft { is_receipt: boolean; merchant: string | null; merchant_tax_id: string | null; date: string | null; currency: string; total_minor: number | null; tax_minor: number | null; payment_method: string | null; description: string; category: string | null; confidence: "high" | "medium" | "low"; notes: string | null }
+interface Draft { fiscal_uuid?: string | null; is_receipt: boolean; merchant: string | null; merchant_tax_id: string | null; date: string | null; currency: string; total_minor: number | null; tax_minor: number | null; payment_method: string | null; description: string; category: string | null; confidence: "high" | "medium" | "low"; notes: string | null }
 interface ScanResult { draft: Draft; document_reference: string | null; possible_duplicates: { id: string; description: string }[] }
 const err = (e: unknown, f: string) => (e instanceof ApiError ? (e.fieldErrors[0]?.message ?? e.detail ?? e.title) : f);
 
@@ -29,7 +29,7 @@ export function ScanReceiptButton({ onSaved }: { onSaved: () => Promise<unknown>
   const { org, can } = useSession();
   const camera = useRef<HTMLInputElement>(null); const gallery = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
-  const [image, setImage] = useState<{ blob: Blob; url: string; pdf: boolean; name: string } | null>(null); const [docRef, setDocRef] = useState<string | null>(null);
+  const [image, setImage] = useState<{ blob: Blob; url: string; pdf: boolean; name: string } | null>(null); const [docRef, setDocRef] = useState<string | null>(null); const [uuid, setUuid] = useState<string | null>(null);
   const [step, setStep] = useState<"pick" | "reading" | "review">("pick");
   const [dups, setDups] = useState<ScanResult["possible_duplicates"]>([]); const [hint, setHint] = useState<string | null>(null);
   const [f, setF] = useState({ date: "", amount: "", currency: "MXN", description: "", category: "", supplier: "", method: "", rfc: "" });
@@ -50,7 +50,7 @@ export function ScanReceiptButton({ onSaved }: { onSaved: () => Promise<unknown>
       const res = await fetch("/api/v1/expenses/scan", { method: "POST", body: fd, credentials: "same-origin" }); const data = await res.json().catch(() => null);
       if (!res.ok) throw new ApiError(res.status, data?.title ?? "Error", data?.detail);
       const r = data as ScanResult, d = r.draft;
-      setDups(r.possible_duplicates); setDocRef(r.document_reference);
+      setDups(r.possible_duplicates); setDocRef(r.document_reference); setUuid(d.fiscal_uuid ?? null);
       setHint(!d.is_receipt ? "No parece un ticket o comprobante. Revisa la foto." : d.notes ?? (d.confidence === "low" ? "Lectura poco segura: revisa cada dato." : null));
       setF({ date: d.date ?? "", amount: d.total_minor != null ? (d.total_minor / 100).toFixed(2) : "", currency: d.currency || "MXN", description: d.description || d.merchant || "", category: d.category ?? "", supplier: d.merchant ?? "", method: d.payment_method ?? "", rfc: d.merchant_tax_id ?? "" });
       setStep("review");
@@ -60,7 +60,7 @@ export function ScanReceiptButton({ onSaved }: { onSaved: () => Promise<unknown>
   async function save() {
     if (!image) return; setBusy(true); setError(null);
     try {
-      const exp = await api<{ id: string }>("/expenses", { body: { spent_at: f.date, description: f.description.trim(), category: f.category.trim() || undefined, amount_minor: toMinor(f.amount), currency: f.currency, supplier_name: f.supplier.trim() || undefined, external_reference: docRef ?? undefined, ...(paid && can("payment.manage") ? { paid: { method: (f.method as "CASH" | "CARD" | "TRANSFER" | "OTHER") || "OTHER" } } : {}) } });
+      const exp = await api<{ id: string }>("/expenses", { body: { spent_at: f.date, description: f.description.trim(), category: f.category.trim() || undefined, amount_minor: toMinor(f.amount), currency: f.currency, supplier_name: f.supplier.trim() || undefined, external_reference: docRef ?? undefined, cfdi_uuid: uuid ?? undefined, ...(paid && can("payment.manage") ? { paid: { method: (f.method as "CASH" | "CARD" | "TRANSFER" | "OTHER") || "OTHER" } } : {}) } });
       const fd = new FormData(); fd.append("file", image.blob, image.name);
       await fetch(`/api/v1/expenses/${exp.id}/receipt`, { method: "POST", body: fd, credentials: "same-origin" }).catch(() => null); // el gasto ya existe: si la foto falla se puede adjuntar luego
       await onSaved(); setOpen(false); reset();

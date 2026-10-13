@@ -2577,6 +2577,7 @@ model expenses {
   order_id                 String?        @db.Uuid
   source                   expense_source @default(MANUAL)
   external_reference       String?
+  cfdi_uuid_hint           String?
   created_by_membership_id String?        @db.Uuid
   voided_at                DateTime?      @db.Timestamptz(6)
   void_reason              String?

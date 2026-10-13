@@ -101,3 +101,19 @@ export async function autoPayFromXml(tx: Tx, organizationId: string, membershipI
   await audit(tx, { actorType: membershipId ? "USER" : "SYSTEM", membershipId, organizationId, action: "payment.created", resourceType: "expense", resourceId: e.id, resourceLabel: e.description, metadata: { payment_id: payment.id, amount_minor: owed.toString(), auto: "expenses_paid_when_xml" } });
   return true;
 }
+
+/**
+ * Una factura en PDF dejó su folio fiscal en el gasto. Cuando el CFDI (XML) ya existe o llega después, se liga solo.
+ * Un fallo de validación (moneda distinta, importe que no cabe…) no interrumpe la carga del CFDI: el gasto simplemente sigue esperando el XML.
+ */
+export async function linkExpenseByUuid(tx: Tx, organizationId: string, membershipId: string | null, expenseId: string, uuid: string): Promise<boolean> {
+  const cfdi = await tx.cfdi_documents.findFirst({ where: { organization_id: organizationId, direction: "RECEIVED", fiscal_uuid: { equals: uuid, mode: "insensitive" } }, select: { id: true } });
+  if (!cfdi) return false;
+  try { await linkCfdi(tx, organizationId, membershipId, "expense", expenseId, cfdi.id); return true; } catch (e) { if (e instanceof Problem) return false; throw e; }
+}
+export async function linkWaitingExpenses(tx: Tx, organizationId: string, membershipId: string | null, uuid: string): Promise<number> {
+  const waiting = await tx.expenses.findMany({ where: { organization_id: organizationId, voided_at: null, cfdi_uuid_hint: { equals: uuid, mode: "insensitive" } }, select: { id: true } });
+  let n = 0;
+  for (const e of waiting) if (await linkExpenseByUuid(tx, organizationId, membershipId, e.id, uuid)) n++;
+  return n;
+}

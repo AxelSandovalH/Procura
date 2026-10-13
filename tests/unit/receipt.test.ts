@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { sanitizeDate, sniffImage, sniffReceiptFile, toDraft, toMinorChecked, type Receipt } from "@/lib/expenses/receipt-ocr";
 
 const base: Receipt = { is_receipt: true, merchant: " OXXO Los Cabos ", merchant_tax_id: "cmu 8512 12ab3", document_number: " INV-0042 ", date: "2026-10-12", currency: "mxn", total: 182.5, tax: 25.17, payment_method: "CARD",
-  description: "Agua, café y botanas", category: "Alimentos", confidence: "high", notes: null };
+  description: "Agua, café y botanas", category: "Alimentos", confidence: "high", fiscal_uuid: null, notes: null };
 
 describe("lectura de tickets: normalización del borrador", () => {
   it("convierte importes a centavos enteros y rechaza valores absurdos", () => {
@@ -44,5 +44,9 @@ describe("también se aceptan PDF de facturas y recibos", () => {
     expect(sniffReceiptFile(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0]))).toBe("image/jpeg");
     expect(sniffReceiptFile(Buffer.from("PK\u0003\u0004 zip"))).toBeNull(); expect(sniffReceiptFile(Buffer.from("%PD"))).toBeNull();
     expect(sniffImage(Buffer.from("%PDF-1.7"))).toBeNull(); // una foto no puede ser PDF
+  });
+  it("conserva el folio fiscal solo si es un UUID válido", () => {
+    expect(toDraft({ ...base, fiscal_uuid: " 3f2a9c1e-5b7d-4e8a-9c1f-0a1b2c3d4e5f " }).fiscal_uuid).toBe("3F2A9C1E-5B7D-4E8A-9C1F-0A1B2C3D4E5F");
+    expect(toDraft({ ...base, fiscal_uuid: "no es un uuid" }).fiscal_uuid).toBeNull(); expect(toDraft(base).fiscal_uuid).toBeNull();
   });
 });

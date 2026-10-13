@@ -21,7 +21,7 @@ import { api } from "@/lib/api-client";
 import { dateShort, money, toMinor } from "@/lib/format";
 import { INVOICING_STATUS, PAYMENT_METHOD, PAYMENT_STATUS } from "@/lib/ui/status";
 
-interface Expense { id: string; spent_at: string; description: string; category: string | null; amount_minor: number | string; currency: string; supplier_name: string | null; order_id: string | null; source: string; voided_at: string | null; payment_status: string; invoicing_status: string; cfdi_count?: number }
+interface Expense { id: string; spent_at: string; description: string; category: string | null; amount_minor: number | string; currency: string; supplier_name: string | null; order_id: string | null; source: string; voided_at: string | null; payment_status: string; invoicing_status: string; cfdi_count?: number; cfdi_uuid_hint?: string | null }
 interface ExpenseDetail extends Expense { void_reason: string | null; pending_to_pay_minor: number | string; documented_minor: number | string; payments: PaymentRow[]; cfdi: CfdiLinkRow[] }
 interface CfdiOpt { id: string; fiscal_uuid: string; series: string | null; folio: string | null; issuer_name: string | null; total_minor: number | string; pending_to_allocate_minor: number | string; currency: string; cfdi_type: string; sat_status: string }
 const label = (i: { series: string | null; folio: string | null; fiscal_uuid: string }) => [i.series, i.folio].filter(Boolean).join("-") || i.fiscal_uuid.slice(0, 8);
@@ -59,7 +59,7 @@ export default function GastosPage() {
               <TableCell className="max-w-[12rem] truncate text-muted-foreground" title={e.supplier_name ?? undefined}>{e.supplier_name ?? "—"}</TableCell>
               <TableCell className="whitespace-nowrap text-right tabular-nums">{money(e.amount_minor, e.currency)}</TableCell>
               <TableCell><StatusBadge {...(PAYMENT_STATUS[e.payment_status] ?? { label: e.payment_status, tone: "neutral" as const })} /></TableCell>
-              <TableCell><XmlBadge status={e.invoicing_status} count={e.cfdi_count ?? 0} voided={!!e.voided_at} /></TableCell>
+              <TableCell><XmlBadge status={e.invoicing_status} count={e.cfdi_count ?? 0} voided={!!e.voided_at} awaiting={!!e.cfdi_uuid_hint && (e.cfdi_count ?? 0) === 0} /></TableCell>
             </TableRow>))}</TableBody>
         </Table></div>)}
       <MarkPaid ids={chosen} open={paying} onOpenChange={setPaying} onDone={async () => { setPicked(new Set()); await refresh(); }} />
@@ -126,6 +126,7 @@ function ExpenseSheet({ id, onClose, canManage, onChange }: { id: string | null;
           </div>
           {/* Columna derecha: lo que se hace con el gasto. */}
           <div className="min-w-0 space-y-5">
+            {e.cfdi_uuid_hint && e.cfdi.length === 0 && <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs">Subiste la factura en PDF (folio fiscal <span className="break-all font-mono">{e.cfdi_uuid_hint}</span>), pero falta su XML. En cuanto llegue por la descarga del SAT o lo cargues, se liga solo a este gasto.</p>}
             <BillingDataCard paymentMethod={e.payments.find((p) => !p.voided_at)?.method} />
             <PaymentsSection base={`/expenses/${e.id}`} payments={e.payments} currency={e.currency} pendingMinor={e.pending_to_pay_minor} voided={!!e.voided_at} kind="expense" onChange={onChange} />
             <CfdiSection base={`/expenses/${e.id}`} links={e.cfdi} currency={e.currency} totalMinor={e.amount_minor} documentedMinor={e.documented_minor} direction="RECEIVED" voided={!!e.voided_at} onChange={onChange} />
@@ -156,10 +157,11 @@ function MarkPaid({ ids, open, onOpenChange, onDone }: { ids: string[]; open: bo
 }
 
 /** ¿Tiene XML (CFDI) ligado? Lo más visible de la lista: verde con palomita = sí; ámbar = parcial; rojo suave = sin XML. */
-function XmlBadge({ status, count, voided }: { status: string; count: number; voided: boolean }) {
+function XmlBadge({ status, count, voided, awaiting = false }: { status: string; count: number; voided: boolean; awaiting?: boolean }) {
   if (voided) return <span className="text-xs text-muted-foreground">—</span>;
   const [cls, Icon, text] = status === "INVOICED" ? ["border-emerald-600/40 bg-emerald-600/10 text-emerald-800 dark:text-emerald-300", FileCheck2, count > 1 ? `${count} XML ligados` : "XML ligado"]
     : status === "PARTIAL" ? ["border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-300", FileClock, "XML parcial"]
+    : awaiting ? ["border-dashed border-amber-500/60 bg-amber-500/10 text-amber-800 dark:text-amber-300", FileClock, "PDF · falta XML"] as const
     : ["border-dashed border-muted-foreground/40 text-muted-foreground", FileX2, "Sin XML"] as const;
   return <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-1 text-xs font-medium ${cls}`}><Icon className="size-3.5" aria-hidden />{text}</span>;
 }
