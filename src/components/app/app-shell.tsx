@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ClipboardList, FileText, LineChart, Receipt, ShoppingCart, TrendingUp, CheckSquare, Home, Inbox, Package, Handshake, BookOpen, Settings, LogOut, Menu, X } from "lucide-react";
+import { ClipboardList, FileText, Landmark, LineChart, Receipt, ShoppingCart, TrendingUp, CheckSquare, Home, Inbox, Package, Handshake, BookOpen, Settings, LogOut, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -26,6 +26,7 @@ const NAV = [
   { href: "/gastos", label: "Gastos", icon: Receipt, perm: "expense.read" },
   { href: "/ventas", label: "Ventas", icon: TrendingUp, perm: "sale.read" },
   { href: "/facturas", label: "Facturas", icon: FileText, perm: "cfdi.read" },
+  { href: "/banco", label: "Banco", icon: Landmark, perm: "finance.read" },
   { href: "/finanzas", label: "Finanzas", icon: LineChart, perm: "finance.read" },
   { href: "/relaciones", label: "Relaciones", icon: Handshake, perm: "relationship.read" },
   { href: "/catalogo", label: "Catálogo", icon: BookOpen, perm: "catalog.read" },

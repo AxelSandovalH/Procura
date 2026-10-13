@@ -2829,3 +2829,36 @@ model expense_notes {
   @@index([expense_id, created_at])
   @@schema("public")
 }
+
+model bank_accounts {
+  id              String    @id @default(dbgenerated("app.uuid_v7()")) @db.Uuid
+  organization_id String    @db.Uuid
+  name            String
+  bank            String?
+  currency        String    @default("MXN") @db.Char(3)
+  last4           String?
+  archived_at     DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+model bank_transactions {
+  id              String    @id @default(dbgenerated("app.uuid_v7()")) @db.Uuid
+  organization_id String    @db.Uuid
+  bank_account_id String    @db.Uuid
+  posted_at       DateTime  @db.Date
+  description     String
+  amount_minor    BigInt
+  balance_minor   BigInt?
+  reference       String?
+  dedupe_key      String
+  status          String    @default("UNMATCHED")
+  payment_id      String?   @unique @db.Uuid
+  matched_at      DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@unique([bank_account_id, dedupe_key])
+  @@index([organization_id, bank_account_id, status, posted_at(sort: Desc)])
+  @@schema("public")
+}
