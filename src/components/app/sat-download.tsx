@@ -21,7 +21,10 @@ export function SatDownloadCard({ onImported }: { onImported: () => Promise<unkn
   const [issued, setIssued] = useState(false); const [busy, setBusy] = useState<"rules" | "sync" | "period" | null>(null); const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const q = useQuery({ queryKey: ["fiscal-downloads"], queryFn: () => api<Status>("/fiscal/downloads"), enabled: can("cfdi.read"), staleTime: 30_000, retry: false });
   const s = q.data;
-  if (!can("cfdi.manage") || !s?.configured || !s.has_issuer) return null;
+  if (!can("cfdi.manage")) return <p className="text-sm text-muted-foreground">No tienes permiso para usar la descarga masiva del SAT.</p>;
+  if (q.isLoading) return <div className="h-32 animate-pulse rounded-xl bg-muted" />;
+  if (q.error) return <p role="alert" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">{err(q.error, "No se pudo consultar el estado de la descarga masiva.")}</p>;
+  if (!s?.configured || !s.has_issuer) return <div className="rounded-xl border border-dashed p-6 text-sm"><p className="font-medium">La descarga masiva del SAT necesita tu proveedor fiscal y tu emisor</p><p className="mt-1 text-muted-foreground">Configura el emisor en Administración → Organización → Facturación electrónica. Tu e.firma se carga en el panel de tu proveedor (Fiscalapi), nunca en Procura.</p></div>;
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ["fiscal-downloads"] }), onImported()]);
 
   async function activate() {

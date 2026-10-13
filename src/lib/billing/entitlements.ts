@@ -35,5 +35,5 @@ export async function assertFeature(organizationId: string, feature: Feature): P
   const e = await effectivePlan(organizationId);
   if (allows(e, feature)) return;
   const need = PLAN_NAME[FEATURE_MIN_PLAN[feature]];
-  throw new Problem(402, "No incluido en tu plan", e.kind === "NEW" ? `Elige un plan en Administración → Plan y cobro para usar esta función (desde ${need}).` : e.kind === "LAPSED" ? `Tu suscripción no está activa. Renueva tu plan (${need} o superior) en Administración → Plan para usar esta función.` : `Esta función está incluida desde el plan ${need}. Cambia de plan en Administración → Plan.`, { code: "PLAN_REQUIRED", required_plan: FEATURE_MIN_PLAN[feature] });
+  throw new Problem(402, "No incluido en tu plan", e.kind === "NEW" ? `Elige un plan en Suscripción para usar esta función (desde ${need}).` : e.kind === "LAPSED" ? `Tu suscripción no está activa. Renueva tu plan (${need} o superior) en Suscripción para usar esta función.` : `Esta función está incluida desde el plan ${need}. Cambia de plan en Suscripción.`, { code: "PLAN_REQUIRED", required_plan: FEATURE_MIN_PLAN[feature] });
 }

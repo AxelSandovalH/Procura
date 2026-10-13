@@ -88,7 +88,7 @@ export async function issueSaleCfdi(input: IssueSaleInput) {
     if (live) throw Problem.conflict(live.status === "DONE" ? "Esta venta ya fue facturada." : "Ya hay una emisión en curso para esta venta; espera su resultado.");
     // Créditos de timbrado: si la organización los usa, debe tener al menos uno disponible (saldo menos emisiones en curso). Se descuentan SOLO tras un timbrado exitoso.
     const needsCredit = await creditsRequired(tx, organizationId);
-    if (needsCredit && (await availableCredits(tx, organizationId)) < 1) throw new Problem(402, "Sin créditos de timbrado", "No hay créditos de timbrado disponibles. Compra un paquete en Administración → Plan.", { code: "NO_CREDITS" });
+    if (needsCredit && (await availableCredits(tx, organizationId)) < 1) throw new Problem(402, "Sin créditos de timbrado", "No hay créditos de timbrado disponibles. Compra un paquete en Suscripción.", { code: "NO_CREDITS" });
     if (input.precheck) await input.precheck(tx, sale);
     if (body.save_recipient && body.recipient && customer) await tx.customers.update({ where: { id: customer.id }, data: { tax_id: body.recipient.tax_id.toUpperCase(), tax_regime_code: body.recipient.tax_regime_code, zip_code: body.recipient.zip_code, cfdi_use_code: body.recipient.cfdi_use_code, email: body.recipient.email ?? customer.email, updated_at: new Date() } });
     for (const r of resolved) await tx.sale_lines.update({ where: { id: r.l.id }, data: { sat_product_code: r.product, sat_unit_code: r.unit } });

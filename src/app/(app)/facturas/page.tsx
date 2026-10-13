@@ -28,12 +28,12 @@ const label = (c: { series: string | null; folio: string | null; fiscal_uuid: st
 
 export default function FacturasPage() {
   const session = useSession(); const qc = useQueryClient();
-  const [tab, setTab] = useState<"ISSUED" | "RECEIVED">("RECEIVED");
+  const [tab, setTab] = useState<"ISSUED" | "RECEIVED" | "SAT">("RECEIVED");
   const [f, setF] = useState({ q: "", from: "", to: "", unlinked: false });
   const [upload, setUpload] = useState(false); const [openId, setOpenId] = useState<string | null>(null);
   const [picked, setPicked] = useState<Set<string>>(new Set()); const [making, setMaking] = useState(false); const [single, setSingle] = useState<string | null>(null);
-  const qs = new URLSearchParams({ direction: tab, ...(f.q ? { q: f.q } : {}), ...(f.from ? { from: f.from } : {}), ...(f.to ? { to: f.to } : {}), ...(f.unlinked ? { unlinked: "1" } : {}) }).toString();
-  const list = useQuery({ queryKey: ["cfdi", "list", qs], queryFn: () => api<{ data: Cfdi[] }>(`/cfdi?${qs}`), enabled: session.can("cfdi.read") });
+  const qs = new URLSearchParams({ direction: tab === "SAT" ? "RECEIVED" : tab, ...(f.q ? { q: f.q } : {}), ...(f.from ? { from: f.from } : {}), ...(f.to ? { to: f.to } : {}), ...(f.unlinked ? { unlinked: "1" } : {}) }).toString();
+  const list = useQuery({ queryKey: ["cfdi", "list", qs], queryFn: () => api<{ data: Cfdi[] }>(`/cfdi?${qs}`), enabled: session.can("cfdi.read") && tab !== "SAT" });
   const provider = useQuery({ queryKey: ["fiscal-provider"], queryFn: () => api<Provider>("/fiscal/provider"), enabled: session.can("cfdi.read"), staleTime: 60_000 });
   const refresh = () => Promise.all(["cfdi", "sale", "sales", "expenses", "expense"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
   if (!session.can("cfdi.read")) return <p className="text-sm text-muted-foreground">No tienes permiso para ver comprobantes fiscales.</p>;
@@ -41,19 +41,17 @@ export default function FacturasPage() {
   const selectable = tab === "RECEIVED" ? rows.filter((c) => c.cfdi_type === "I" && Number(c.allocated_minor) === 0 && c.sat_status !== "CANCELADO") : [];
   const chosen = [...picked].filter((id) => selectable.some((c) => c.id === id));
   const togglePick = (id: string) => setPicked((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const tabs: [typeof tab, string][] = [["RECEIVED", "Recibidas"], ["ISSUED", "Emitidas"]];
+  const tabs: [typeof tab, string][] = [["ISSUED", "Emitidas"], ["RECEIVED", "Recibidas"], ...(session.can("cfdi.manage") ? [["SAT", "Descarga masiva del SAT"] as [typeof tab, string]] : [])];
 
   return (
     <>
       <PageHeader title="Facturas" description="Comprobantes fiscales (CFDI) emitidos y recibidos. Ligarlos a ventas y gastos documenta tus operaciones."
         actions={session.can("cfdi.manage") ? <Button onClick={() => setUpload(true)}><Upload />Cargar CFDI</Button> : undefined} />
-      <SatDownloadCard onImported={refresh} />
-      {provider.data && (
-        <div role="status" className="mb-4 flex items-start gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm"><Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-          <div><span className="font-medium">Proveedor fiscal: {provider.data.configured ? "credenciales presentes" : "sin configurar"}.</span> La emisión de CFDI y la sincronización automática con el SAT o un proveedor aún no están disponibles; por ahora se cargan los XML manualmente y los que adjuntan tus proveedores a sus órdenes aparecen solos.</div></div>)}
+      {provider.data && !provider.data.configured && <div role="status" className="mb-4 flex items-start gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-sm"><Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" /><div><span className="font-medium">Proveedor fiscal sin configurar.</span> Mientras tanto puedes cargar tus XML manualmente; los de tus proveedores aparecen solos.</div></div>}
       <div className="mb-3 flex gap-1 rounded-lg bg-muted p-1 text-sm" role="tablist" aria-label="Dirección del comprobante">
         {tabs.map(([k, name]) => <button key={k} role="tab" aria-selected={tab === k} className={`flex-1 rounded-md px-3 py-1.5 font-medium sm:flex-none ${tab === k ? "bg-background shadow-sm" : "text-muted-foreground"}`} onClick={() => setTab(k)}>{name}</button>)}
       </div>
+      {tab === "SAT" ? <SatDownloadCard onImported={refresh} /> : (<>
       <div className="mb-4 flex flex-wrap items-end gap-2">
         <div className="relative min-w-52 flex-1 sm:max-w-xs"><Search className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" /><Input aria-label="Buscar" className="pl-8" placeholder="UUID, folio, nombre o RFC" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} /></div>
         <Input aria-label="Desde" type="date" className="w-40" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} />
@@ -76,8 +74,9 @@ export default function FacturasPage() {
               <TableCell><StatusBadge {...(SAT_STATUS[c.sat_status] ?? { label: c.sat_status, tone: "neutral" as const })} /></TableCell>
             </TableRow>))}</TableBody>
         </Table></div>)}
+      </>)}
       <ExpensesFromCfdi ids={chosen} open={making} onOpenChange={setMaking} onDone={async () => { setPicked(new Set()); await refresh(); }} />
-      <UploadCfdi open={upload} onOpenChange={setUpload} defaultDirection={tab} onDone={refresh} />
+      <UploadCfdi open={upload} onOpenChange={setUpload} defaultDirection={tab === "ISSUED" ? "ISSUED" : "RECEIVED"} onDone={refresh} />
       <CfdiDetail id={openId} onClose={() => setOpenId(null)} canCreateExpense={session.can("expense.manage") && session.can("cfdi.manage")} onCreateExpense={(cid) => { setOpenId(null); setSingle(cid); }} canCancel={session.can("cfdi.manage")} onChanged={refresh} />
       <ExpensesFromCfdi ids={single ? [single] : []} open={!!single} onOpenChange={(o) => !o && setSingle(null)} onDone={refresh} />
     </>

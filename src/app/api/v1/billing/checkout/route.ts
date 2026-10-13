@@ -37,7 +37,7 @@ export const POST = route(async (req) => {
     ],
     subscription_data: { metadata: { organization_id: org, plan } }, metadata: { organization_id: org, plan, kind: "plan" },
     tax_id_collection: { enabled: true }, customer_update: { name: "auto", address: "auto" }, billing_address_collection: "required",
-    success_url: `${appUrl}/administracion/plan?pago=ok`, cancel_url: `${appUrl}/administracion/plan?pago=cancelado`,
+    success_url: `${appUrl}/suscripcion?pago=ok`, cancel_url: `${appUrl}/suscripcion?pago=cancelado`,
   });
   await withContext({ userId: actor.userId ?? undefined, organizationId: org }, (tx) => audit(tx, { ...auditBase(actor), action: "billing.checkout_started", resourceType: "organization", resourceId: org, metadata: { plan, session_id: session.id } }));
   return NextResponse.json({ url: session.url });

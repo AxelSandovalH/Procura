@@ -4,6 +4,5 @@ export const ADMIN_TABS = [
   { href: "/administracion/estructura", label: "Departamentos y ubicaciones", perms: ["department.manage", "location.manage"] },
   { href: "/administracion/flujos", label: "Flujos de aprobación", perms: ["approval_workflow.manage"] },
   { href: "/administracion/integraciones", label: "Integraciones", perms: ["api_key.manage", "webhook.manage"] },
-  { href: "/administracion/plan", label: "Plan y cobro", perms: ["organization.read"] },
   { href: "/administracion/organizacion", label: "Organización", perms: ["organization.update", "settings.manage"] },
 ];

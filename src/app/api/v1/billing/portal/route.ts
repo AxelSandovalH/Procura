@@ -14,6 +14,6 @@ export const POST = route(async (req) => {
   await requirePrimaryAdmin(actor);
   const sub = await withContext({ userId: actor.userId ?? undefined, organizationId: actor.organizationId }, (tx) => tx.organization_subscriptions.findUnique({ where: { organization_id: actor.organizationId }, select: { stripe_customer_id: true } }));
   if (!sub?.stripe_customer_id) throw Problem.conflict("Aún no tienes una suscripción que administrar.");
-  const s = await stripe().billingPortal.sessions.create({ customer: sub.stripe_customer_id, return_url: `${env().APP_URL}/administracion/plan` });
+  const s = await stripe().billingPortal.sessions.create({ customer: sub.stripe_customer_id, return_url: `${env().APP_URL}/suscripcion` });
   return NextResponse.json({ url: s.url });
 });

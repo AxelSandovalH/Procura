@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ClipboardList, FileText, Landmark, LineChart, Receipt, ShoppingCart, TrendingUp, CheckSquare, Home, Inbox, Package, Handshake, BookOpen, Settings, LogOut, Menu, X } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -14,24 +14,7 @@ import { NotificationBell } from "@/components/app/notification-bell";
 import { useSession } from "@/hooks/use-session";
 import { api } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
-
-/** Solo lo implementado: nada de enlaces muertos. Cada ítem se muestra si el actor tiene el permiso. */
-const NAV = [
-  { href: "/inicio", label: "Inicio", icon: Home, perm: null },
-  { href: "/comprar", label: "Comprar", icon: ShoppingCart, perm: "requisition.create" },
-  { href: "/requisiciones", label: "Requisiciones", icon: ClipboardList, perm: "requisition.read" },
-  { href: "/aprobaciones", label: "Aprobaciones", icon: CheckSquare, perm: "requisition.approve", badge: true },
-  { href: "/solicitudes", label: "Cotizaciones", icon: Inbox, perm: "rfq.read", alt: ["rfq.issue"] },
-  { href: "/ordenes", label: "Órdenes", icon: Package, perm: "order.read" },
-  { href: "/gastos", label: "Gastos", icon: Receipt, perm: "expense.read" },
-  { href: "/ventas", label: "Ventas", icon: TrendingUp, perm: "sale.read" },
-  { href: "/facturas", label: "Facturas", icon: FileText, perm: "cfdi.read" },
-  { href: "/banco", label: "Banco", icon: Landmark, perm: "finance.read" },
-  { href: "/finanzas", label: "Finanzas", icon: LineChart, perm: "finance.read" },
-  { href: "/relaciones", label: "Relaciones", icon: Handshake, perm: "relationship.read" },
-  { href: "/catalogo", label: "Catálogo", icon: BookOpen, perm: "catalog.read" },
-  { href: "/administracion", label: "Administración", icon: Settings, perm: "member.read", alt: ["role.read", "department.manage", "location.manage", "approval_workflow.manage", "organization.update", "settings.manage"] },
-] as const;
+import { MODULES, moduleFor, sectionActive, visibleSections } from "@/lib/ui/modules";
 
 function initials(name: string) { return name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join(""); }
 
@@ -47,11 +30,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Cobro: una organización nueva sin plan es llevada UNA vez a elegirlo; mientras no tenga plan activo ve un aviso.
   const billing = useQuery({ queryKey: ["billing"], queryFn: () => api<{ access: "LEGACY" | "NEW" | "PLAN" | "LAPSED" }>("/billing"), enabled: !session.loading && !session.noOrganization && session.can("organization.read"), staleTime: 60_000, retry: false });
   const needsPlan = billing.data?.access === "NEW" || billing.data?.access === "LAPSED";
-  const onPlanPage = pathname.startsWith("/administracion/plan");
+  const onPlanPage = pathname.startsWith("/suscripcion");
   useEffect(() => {
     if (billing.data?.access !== "NEW" || onPlanPage || !session.org) return;
     try { const k = `procura-plan-prompt-${session.org.id}`; if (window.localStorage.getItem(k)) return; window.localStorage.setItem(k, "1"); } catch { /* sin almacenamiento: se muestra solo el aviso */ return; }
-    router.replace("/administracion/plan");
+    router.replace("/suscripcion");
   }, [billing.data?.access, onPlanPage, session.org, router]);
 
   const canApprove = session.can("requisition.approve");
@@ -68,21 +51,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return <Splash />;
   }
 
+  // Nueve módulos; cada uno lleva a su primera sección visible.
+  const current = moduleFor(pathname);
   const nav = (
     <nav className="space-y-0.5" aria-label="Principal">
-      {NAV.filter((i) => !i.perm || session.can(i.perm) || (("alt" in i) && i.alt.some((a: string) => session.can(a)))).map((i) => {
-        const active = pathname === i.href || pathname.startsWith(`${i.href}/`);
+      {MODULES.map((m) => {
+        const secs = visibleSections(m, session.can);
+        if (secs.length === 0) return null;
+        const active = current?.id === m.id;
+        const badge = m.id === "compras" && pendingCount > 0;
         return (
-          <Link key={i.href} href={i.href} aria-current={active ? "page" : undefined}
-            className={cn("flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors", active ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground" : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground")}>
-            <i.icon className="size-4" />
-            <span className="flex-1">{i.label}</span>
-            {"badge" in i && i.badge && pendingCount > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-800">{pendingCount}</span>}
+          <Link key={m.id} href={secs[0]!.href} aria-current={active ? "page" : undefined}
+            className={cn("flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors", active ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground" : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground")}>
+            <m.icon className="size-4" />
+            <span className="flex-1">{m.label}</span>
+            {badge && <span className="rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-800" title="Aprobaciones pendientes">{pendingCount}</span>}
           </Link>
         );
       })}
     </nav>
   );
+  const tabs = current ? visibleSections(current, session.can) : [];
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
@@ -111,7 +100,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
-        {needsPlan && !onPlanPage && <div role="note" className="border-b bg-amber-50 px-4 py-2 text-center text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">{billing.data?.access === "NEW" ? "Elige un plan para usar todas las funciones de Procura." : "Tu suscripción no está activa."} <Link href="/administracion/plan" className="font-medium underline underline-offset-2">Ver planes</Link></div>}
+        {needsPlan && !onPlanPage && <div role="note" className="border-b bg-amber-50 px-4 py-2 text-center text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">{billing.data?.access === "NEW" ? "Elige un plan para usar todas las funciones de Procura." : "Tu suscripción no está activa."} <Link href="/suscripcion" className="font-medium underline underline-offset-2">Ver planes</Link></div>}
+        {tabs.length > 1 && (
+          <nav aria-label={current!.label} className="mx-auto flex w-full max-w-6xl gap-1 overflow-x-auto border-b px-4 pt-3 md:px-6">
+            {tabs.map((t) => { const on = sectionActive(pathname, t) && !tabs.some((o) => o.href !== t.href && o.href.length > t.href.length && sectionActive(pathname, o)); return (
+              <Link key={t.href} href={t.href} aria-current={on ? "page" : undefined} className={cn("-mb-px flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm", on ? "border-primary font-medium" : "border-transparent text-muted-foreground hover:text-foreground")}>
+                {t.label}{t.badge && pendingCount > 0 && <span className="rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-800">{pendingCount}</span>}
+              </Link>); })}
+          </nav>
+        )}
         <main id="contenido" tabIndex={-1} className="mx-auto outline-none w-full max-w-6xl flex-1 p-4 md:p-6">{children}</main>
       </div>
     </div>
