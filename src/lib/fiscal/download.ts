@@ -5,11 +5,24 @@ import { audit } from "@/lib/audit";
 import { supabaseAdmin, ensureAttachmentsBucket, ATTACHMENTS_BUCKET } from "@/lib/supabase/admin";
 import { parseCfdi } from "@/lib/billing/cfdi";
 import { createCfdiDocument } from "@/lib/billing/cfdi-docs";
-import { FiscalProviderError, type DownloadRule } from "@/lib/fiscal/provider";
+import { FiscalProviderError, type DownloadRequest, type DownloadRule } from "@/lib/fiscal/provider";
 import { getFiscalProvider } from "@/lib/fiscal/fiscalapi";
 
-export interface SyncSummary { rules: number; requested: number; request_errors: string[]; imported_requests: number; pending_requests: number; created: number; duplicates: number; errors: number; last_error: string | null; time_limited: boolean }
-const DAY = 86_400_000, WINDOW_DAYS = 30; // el límite del SAT es 31 días por solicitud de CFDI
+export interface SyncSummary { rules: number; requested: number; skipped_duplicates: number; request_errors: string[]; imported_requests: number; pending_requests: number; created: number; duplicates: number; errors: number; last_error: string | null; time_limited: boolean }
+const DAY = 86_400_000, WINDOW_DAYS = 30;
+
+/**
+ * ¿Ya hay una solicitud vigente de esa regla que cubre el periodo? Pedir lo mismo otra vez no trae nada nuevo, repite la espera y puede
+ * generar costo o un rechazo por duplicada del SAT. Las rechazadas o abandonadas no cuentan. Las fechas del proveedor no traen zona horaria:
+ * se compara con 24 h de tolerancia.
+ */
+export function coveredByExisting(existing: Pick<DownloadRequest, "ruleId" | "status" | "startDate" | "endDate">[], ruleId: string, start: number, end: number, tolerance = DAY): boolean {
+  return existing.some((r) => {
+    if (r.ruleId !== ruleId || /rechaz|abandon|error|cancel/i.test(r.status ?? "")) return false;
+    const rs = r.startDate ? Date.parse(r.startDate) : NaN, re = r.endDate ? Date.parse(r.endDate) : NaN;
+    return !isNaN(rs) && !isNaN(re) && rs <= start + tolerance && re >= end - tolerance;
+  });
+} // el límite del SAT es 31 días por solicitud de CFDI
 
 const direction = (r: DownloadRule): "ISSUED" | "RECEIVED" | null => (r.downloadType === "Emitidos" ? "ISSUED" : r.downloadType === "Recibidos" ? "RECEIVED" : null);
 
@@ -58,7 +71,7 @@ export async function runDownloadSync(orgId: string, membershipId: string | null
   const started = Date.now(), budget = opts.budgetMs ?? 45_000;
   await ensureAttachmentsBucket();
   const provider = getFiscalProvider();
-  const sum: SyncSummary = { rules: 0, requested: 0, request_errors: [], imported_requests: 0, pending_requests: 0, created: 0, duplicates: 0, errors: 0, last_error: null, time_limited: false };
+  const sum: SyncSummary = { rules: 0, requested: 0, skipped_duplicates: 0, request_errors: [], imported_requests: 0, pending_requests: 0, created: 0, duplicates: 0, errors: 0, last_error: null, time_limited: false };
   const conn = await withContext({ organizationId: orgId }, (tx) => tx.fiscal_provider_connections.findUnique({ where: { organization_id_provider: { organization_id: orgId, provider: provider.name } } }));
   const org = await withContext({ organizationId: orgId }, (tx) => tx.organizations.findUniqueOrThrow({ where: { id: orgId }, select: { tax_id: true } }));
   if (!conn?.external_account_id) throw new FiscalProviderError("NOT_CONFIGURED", "Falta configurar el emisor fiscal de la organización.");
@@ -72,11 +85,13 @@ export async function runDownloadSync(orgId: string, membershipId: string | null
   const effectiveTo = opts.to ? new Date(Math.min(opts.to.getTime(), Date.now() - 3_600_000)) : undefined;
   if (opts.from && effectiveTo && effectiveTo.getTime() - opts.from.getTime() < 3_600_000) sum.request_errors.push("El periodo no incluye tiempo ya disponible en el SAT (los comprobantes de hoy aún no se pueden pedir): elige un periodo que termine ayer o antes.");
   else if (opts.from && effectiveTo) {
+    const existing = await provider.listDownloadRequests();
     for (const rule of ours) {
       for (let s = opts.from.getTime(); s < effectiveTo.getTime(); s += WINDOW_DAYS * DAY) {
         if (Date.now() - started > budget) { sum.time_limited = true; break; }
         const e = Math.min(s + WINDOW_DAYS * DAY, effectiveTo.getTime());
         if (e - s < 3_600_000) continue; // un sobrante de minutos al final del periodo no es una solicitud válida
+        if (coveredByExisting(existing, rule.id, s, e)) { sum.skipped_duplicates++; continue; }
         try { await provider.createDownloadRequest({ ruleId: rule.id, start: new Date(s), end: new Date(e) }); sum.requested++; }
         catch (err) { sum.request_errors.push(`${rule.downloadType} ${new Date(s).toISOString().slice(0, 10)}→${new Date(e).toISOString().slice(0, 10)}: ${(err as Error).message}`.slice(0, 300)); }
       }

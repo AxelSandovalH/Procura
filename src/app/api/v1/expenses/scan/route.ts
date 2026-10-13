@@ -4,6 +4,7 @@ import { rateLimit } from "@/lib/http/rate-limit";
 import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
+import { audit, auditBase } from "@/lib/audit";
 import { assertExpensesManagedHere } from "@/lib/billing/expenses";
 import { readReceipt, sniffReceiptFile } from "@/lib/expenses/receipt-ocr";
 
@@ -29,6 +30,8 @@ export const POST = route(async (req) => {
   await withContext(ctx, (tx) => assertExpensesManagedHere(tx, actor.organizationId));
 
   const draft = await readReceipt(bytes, mediaType);
+  // Cada lectura cuesta (servicio de visión): queda registrada para medir el consumo por organización.
+  await withContext(ctx, (tx) => audit(tx, { ...auditBase(actor), action: "expense.scanned", resourceType: "organization", resourceId: actor.organizationId, metadata: { media_type: mediaType, bytes: bytes.length } }));
   const ref = draft.document_number && draft.merchant ? `DOC:${draft.merchant}:${draft.document_number}`.slice(0, 200) : null;
   const byRef = ref ? await withContext(ctx, (tx) => tx.expenses.findMany({ where: { organization_id: actor.organizationId, voided_at: null, external_reference: ref }, select: { id: true, description: true }, take: 3 })) : [];
   const duplicates = byRef.length > 0 ? byRef : draft.total_minor !== null && draft.date

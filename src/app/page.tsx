@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { ArrowRight, BookOpen, ClipboardCheck, DownloadCloud, FilePlus2, FileSearch, Handshake, Landmark, LineChart, Lock, MessageSquareText, PackageCheck, Plug, Receipt, ScanLine, ShieldCheck, Store, Truck, Wallet, Webhook } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Pricing } from "./_landing/pricing";
+import { FinancePricing } from "./_landing/finance-pricing";
 import { LandingFooter, LandingHeader } from "./_landing/shell";
 import { ProductPreview } from "./_landing/product-preview";
 
@@ -191,7 +191,7 @@ Authorization: Bearer pk_live_…
           </div>
         </section>
 
-        <Pricing />
+        <FinancePricing />
 
         {/* Preguntas */}
         <section id="preguntas" className="mx-auto max-w-3xl scroll-mt-20 px-4 py-16 sm:py-20">

@@ -10,7 +10,7 @@ import { api, ApiError } from "@/lib/api-client";
 import { dateTime } from "@/lib/format";
 
 interface Status { configured: boolean; has_issuer: boolean; sync_enabled: boolean; rules: { id: string; downloadType: string | null; status: string | null }[]; request_list?: { id: string; rule: string | null; status: string | null; ready: boolean; invoice_count: number | null; start: string | null; end: string | null; imported: boolean }[]; requests: { total: number; ready: number; pending: number }; imports: { id: string; status: string; created_count: number; duplicate_count: number; error_count: number; updated_at: string }[]; last_synced_at: string | null }
-interface Summary { rules: number; requested: number; request_errors: string[]; imported_requests: number; pending_requests: number; created: number; duplicates: number; errors: number; last_error: string | null; time_limited: boolean }
+interface Summary { rules: number; requested: number; skipped_duplicates?: number; request_errors: string[]; imported_requests: number; pending_requests: number; created: number; duplicates: number; errors: number; last_error: string | null; time_limited: boolean }
 const err = (e: unknown, f: string) => (e instanceof ApiError ? (e.detail ?? e.title) : f);
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -36,6 +36,7 @@ export function SatDownloadCard({ onImported }: { onImported: () => Promise<unkn
       const parts = [`${r.created} factura${r.created === 1 ? "" : "s"} nueva${r.created === 1 ? "" : "s"}`, `${r.duplicates} ya existían`];
       if (r.errors) parts.push(`${r.errors} con error${r.last_error ? ` (${r.last_error})` : ""}`);
       if (period) parts.push(`${r.requested} solicitud${r.requested === 1 ? "" : "es"} pedida${r.requested === 1 ? "" : "s"} al SAT`);
+      if (r.skipped_duplicates) parts.push(`${r.skipped_duplicates} periodo${r.skipped_duplicates === 1 ? "" : "s"} ya solicitado${r.skipped_duplicates === 1 ? "" : "s"} (no se repitió)`);
       if (r.pending_requests) parts.push(`${r.pending_requests} en espera del SAT`);
       if (r.request_errors.length) parts.push(`avisos: ${r.request_errors.join(" | ")}`);
       setMsg({ ok: r.errors === 0 && r.request_errors.length === 0, text: parts.join(" · ") + (r.time_limited ? " · queda más por importar: vuelve a sincronizar." : "") }); await refresh();
