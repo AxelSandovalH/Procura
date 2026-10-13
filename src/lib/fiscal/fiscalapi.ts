@@ -21,6 +21,7 @@ class FiscalapiProvider implements FiscalProvider {
     out.push("Cada empresa debe autorizar el acceso a su información fiscal; las credenciales de una no permiten consultar las de otra.");
     return out;
   }
+  environment(): "test" | "live" | "custom" { const b = this.baseUrl(); return b === "https://test.fiscalapi.com" ? "test" : b === "https://live.fiscalapi.com" ? "live" : "custom"; }
   isConfigured() { const e = env(); return !!(e.FISCALAPI_API_KEY && e.FISCALAPI_TENANT); }
   private unsupported(what: string): never {
     throw new FiscalProviderError(this.isConfigured() ? "NOT_SUPPORTED" : "NOT_CONFIGURED", `${what}: ${this.isConfigured() ? "aún no implementado en el adaptador de Fiscalapi" : "el proveedor fiscal no está configurado"}.`);

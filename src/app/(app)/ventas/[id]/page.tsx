@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ArrowLeft, Ban } from "lucide-react";
 import { StatusBadge } from "@/components/app/status-badge";
 import { ActionDialog } from "@/components/app/action-dialog";
+import { IssueInvoiceButton } from "@/components/app/issue-invoice";
 import { CfdiSection, PaymentsSection, apiErr, type CfdiLinkRow, type PaymentRow } from "@/components/app/finance-sections";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,9 +17,10 @@ import { COLLECTION_STATUS, INVOICING_STATUS, PAYMENT_METHOD } from "@/lib/ui/st
 
 interface SaleDetail {
   id: string; folio: string; sold_at: string; description: string; currency: string; subtotal_minor: number | string; discount_minor: number | string; tax_minor: number | string; total_minor: number | string;
-  payment_method: string | null; notes: string | null; voided_at: string | null; void_reason: string | null; invoicing_flag: string | null; customer: { name: string; tax_id: string | null } | null;
+  payment_method: string | null; notes: string | null; voided_at: string | null; void_reason: string | null; invoicing_flag: string | null; customer: { id: string; name: string; tax_id: string | null; tax_regime_code: string | null; zip_code: string | null; cfdi_use_code: string | null; email: string | null } | null;
+  fiscal_issue: { status: string; error: string | null; provider_invoice_id: string | null } | null;
   collection_status: string; invoicing_status: string; pending_to_collect_minor: number | string; documented_minor: number | string; pending_to_document_minor: number | string; difference_minor: number | string | null;
-  lines: { id: string; line_number: number; description: string; quantity: string; unit_price_minor: number | string; discount_minor: number | string; tax_rate: string; tax_minor: number | string; total_minor: number | string }[];
+  lines: { id: string; line_number: number; sat_product_code?: string | null; sat_unit_code?: string | null; description: string; quantity: string; unit_price_minor: number | string; discount_minor: number | string; tax_rate: string; tax_minor: number | string; total_minor: number | string }[];
   payments: PaymentRow[]; cfdi: CfdiLinkRow[];
 }
 
@@ -45,7 +47,8 @@ export default function SalePage({ params }: { params: Promise<{ id: string }> }
           <h1 className="text-2xl font-semibold tracking-tight">{s.description}</h1>
           <p className="text-sm text-muted-foreground">{dateShort(s.sold_at)}{s.customer ? ` · ${s.customer.name}` : ""}{s.payment_method ? ` · ${PAYMENT_METHOD[s.payment_method] ?? s.payment_method}` : ""}</p>
         </div>
-        {manage && <div className="flex flex-wrap gap-2">
+        {manage && <div className="flex flex-wrap items-center gap-2">
+          <IssueInvoiceButton sale={s} onDone={refresh} />
           {s.invoicing_flag !== "PENDING" && s.invoicing_status === "NONE" && <Button variant="outline" onClick={() => void flag("PENDING")}>Marcar facturación pendiente</Button>}
           {s.invoicing_flag === "PENDING" && <Button variant="outline" onClick={() => void flag(null)}>Quitar «facturación pendiente»</Button>}
           {s.invoicing_flag !== "INCIDENT" ? <Button variant="outline" onClick={() => void flag("INCIDENT")}><AlertTriangle />Reportar incidencia</Button> : <Button variant="outline" onClick={() => void flag(null)}>Resolver incidencia</Button>}

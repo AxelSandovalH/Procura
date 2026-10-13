@@ -92,7 +92,8 @@ function SettingsCard({ s }: { s: Settings }) {
   );
 }
 
-interface FiscalInfo { provider: string; configured: boolean; capabilities: Record<string, boolean>; notes: string[] }
+interface FiscalSettings { expedition_zip_code?: string; series?: string; default_product_code?: string; default_unit_code?: string; issuer_name?: string; issuer_tax_id?: string }
+interface FiscalInfo { provider: string; configured: boolean; environment: "test" | "live" | "custom" | null; capabilities: Record<string, boolean>; notes: string[]; connection: { status: string; external_account_id: string | null; settings: FiscalSettings } | null }
 const CAPS: [string, string][] = [["issue", "Emitir CFDI"], ["fetchIssued", "Recuperar CFDI emitidos"], ["fetchReceived", "Recuperar CFDI recibidos"], ["statusLookup", "Consultar vigencia ante el SAT"], ["downloadXml", "Descargar XML"], ["downloadPdf", "Descargar PDF"]];
 
 /** Estado real de la facturación electrónica: qué está configurado y qué capacidades existen de verdad. */
@@ -113,8 +114,52 @@ function FiscalCard() {
       <p>Proveedor fiscal: <span className="font-medium capitalize">{p.provider}</span> · {p.configured ? "credenciales presentes en el servidor" : "sin configurar"}</p>
       <ul className="grid gap-1 sm:grid-cols-2">{CAPS.map(([k, name]) => <li key={k} className="flex items-center gap-2"><span aria-hidden className={p.capabilities[k] ? "text-emerald-600" : "text-muted-foreground"}>{p.capabilities[k] ? "●" : "○"}</span><span className={p.capabilities[k] ? "" : "text-muted-foreground"}>{name}{p.capabilities[k] ? "" : " — no disponible"}</span></li>)}</ul>
       <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">{p.notes.map((n) => <li key={n}>{n}</li>)}</ul>
+      {p.environment === "live" && <p role="alert" className="rounded-lg border border-red-500/40 bg-red-500/5 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-400">Ambiente de PRODUCCIÓN: cada factura emitida es real ante el SAT, consume un timbre y tiene valor fiscal.</p>}
+      {p.environment === "test" && <p role="status" className="rounded-lg bg-muted px-3 py-2 text-xs">Ambiente de pruebas: las facturas no tienen valor fiscal.</p>}
+      {p.configured && session.can("cfdi.manage") && <EmitterConfig conn={p.connection} onSaved={() => qc.invalidateQueries({ queryKey: ["fiscal-provider"] })} />}
       {session.can("cfdi.manage") && <div className="flex flex-wrap items-center gap-3"><Button size="sm" variant="outline" onClick={() => void probe()} disabled={busy || !p.configured}>{busy ? "Probando…" : "Probar conexión"}</Button>{test && <span role={test.ok ? "status" : "alert"} className={`text-xs ${test.ok ? "text-emerald-700" : "text-destructive"}`}>{test.text}</span>}</div>}
       <p className="text-xs text-muted-foreground">Mientras tanto puedes cargar XML manualmente en Facturas; los de tus proveedores aparecen solos.</p>
     </CardContent></Card>
+  );
+}
+
+interface Issuer { id: string; legalName: string; taxId: string; taxRegimeCode: string | null; zipCode: string | null }
+
+/** Con qué emisor (persona con certificados en el proveedor) y con qué valores por omisión emite esta organización. */
+function EmitterConfig({ conn, onSaved }: { conn: FiscalInfo["connection"]; onSaved: () => Promise<unknown> }) {
+  const cur = conn?.settings ?? {};
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState({ issuer: conn?.external_account_id ?? "", zip: cur.expedition_zip_code ?? "", series: cur.series ?? "A", product: cur.default_product_code ?? "", unit: cur.default_unit_code ?? "E48" });
+  const [busy, setBusy] = useState(false); const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const issuers = useQuery({ queryKey: ["fiscal-issuers"], queryFn: () => api<{ data: Issuer[] }>("/fiscal/issuers"), enabled: open });
+  const chosen = issuers.data?.data.find((i) => i.id === f.issuer);
+  async function save(e: React.FormEvent) {
+    e.preventDefault(); setBusy(true); setMsg(null);
+    try {
+      await api("/fiscal/connection", { method: "PUT", body: { issuer_id: f.issuer, expedition_zip_code: f.zip, series: f.series, default_product_code: f.product || undefined, default_unit_code: f.unit || undefined } });
+      await onSaved(); setMsg({ ok: true, text: "Emisor guardado." }); setOpen(false);
+    } catch (er) { setMsg({ ok: false, text: er instanceof ApiError ? (er.fieldErrors[0]?.message ?? er.detail ?? er.title) : "No se pudo guardar." }); } finally { setBusy(false); }
+  }
+  return (
+    <div className="space-y-2 rounded-lg border p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-medium">Emisor de facturas</p><Button size="sm" variant="outline" onClick={() => setOpen((o) => !o)}>{conn?.external_account_id ? "Cambiar" : "Configurar emisor"}</Button></div>
+      {conn?.external_account_id ? <p className="text-xs text-muted-foreground">{cur.issuer_name} · {cur.issuer_tax_id} · CP {cur.expedition_zip_code} · serie {cur.series}{cur.default_product_code ? ` · clave SAT ${cur.default_product_code}` : ""}</p> : <p className="text-xs text-muted-foreground">Aún no hay emisor: elige la persona (con su CSD) que firmará tus facturas.</p>}
+      {msg && <p role={msg.ok ? "status" : "alert"} className={`text-xs ${msg.ok ? "text-emerald-700" : "text-destructive"}`}>{msg.text}</p>}
+      {open && (
+        <form onSubmit={save} className="space-y-3 border-t pt-3">
+          <div className="space-y-1.5"><Label htmlFor="f-iss">Emisor *</Label>
+            <select id="f-iss" required className="h-9 w-full rounded-lg border bg-background px-2 text-sm" value={f.issuer} onChange={(e) => { const i = issuers.data?.data.find((x) => x.id === e.target.value); setF({ ...f, issuer: e.target.value, zip: f.zip || i?.zipCode || "" }); }}>
+              <option value="">{issuers.isLoading ? "Cargando emisores…" : "Elige un emisor"}</option>{(issuers.data?.data ?? []).map((i) => <option key={i.id} value={i.id}>{i.legalName} · {i.taxId}</option>)}</select>
+            {chosen && <p className="text-xs text-muted-foreground">Régimen {chosen.taxRegimeCode ?? "—"} · CP {chosen.zipCode ?? "—"}</p>}</div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5"><Label htmlFor="f-zip">CP de expedición *</Label><Input id="f-zip" required inputMode="numeric" maxLength={5} value={f.zip} onChange={(e) => setF({ ...f, zip: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label htmlFor="f-ser">Serie *</Label><Input id="f-ser" required maxLength={25} value={f.series} onChange={(e) => setF({ ...f, series: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label htmlFor="f-prod">Clave SAT de producto/servicio (por omisión)</Label><Input id="f-prod" inputMode="numeric" maxLength={8} placeholder="8 dígitos" value={f.product} onChange={(e) => setF({ ...f, product: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label htmlFor="f-unit">Clave SAT de unidad (por omisión)</Label><Input id="f-unit" maxLength={3} value={f.unit} onChange={(e) => setF({ ...f, unit: e.target.value.toUpperCase() })} /></div>
+          </div>
+          <p className="text-xs text-muted-foreground">Las claves por omisión se usan en los conceptos que no tengan una propia. Confírmalas con tu contador: son las de tu actividad.</p>
+          <div className="flex gap-2"><Button type="submit" size="sm" disabled={busy || !f.issuer || !f.zip}>Guardar emisor</Button><Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button></div>
+        </form>)}
+    </div>
   );
 }

@@ -40,6 +40,8 @@ export class FiscalProviderError extends Error {
 export interface FiscalProvider {
   readonly name: string;
   isConfigured(): boolean;
+  /** Ambiente al que apunta el servidor: «live» emite comprobantes reales ante el SAT. */
+  environment(): "test" | "live" | "custom";
   readonly capabilities: FiscalCapabilities;
   /** Por qué no está operativo (para mostrarlo en la configuración). */
   readonly notes: string[];
