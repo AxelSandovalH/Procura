@@ -68,11 +68,15 @@ export async function runDownloadSync(orgId: string, membershipId: string | null
   if (ours.length === 0) throw new FiscalProviderError("NOT_SUPPORTED", "No hay reglas de descarga para esta persona: créalas primero (Activar descarga masiva).");
 
   // 1) Peticiones nuevas al proveedor (el SAT procesa y el proveedor las deja «listas» más tarde).
-  if (opts.from && opts.to) {
+  // El SAT no entrega comprobantes de hoy ni periodos que terminen en el futuro: el fin se recorta a «hace una hora» y, si no queda un periodo válido, se avisa.
+  const effectiveTo = opts.to ? new Date(Math.min(opts.to.getTime(), Date.now() - 3_600_000)) : undefined;
+  if (opts.from && effectiveTo && effectiveTo.getTime() - opts.from.getTime() < 3_600_000) sum.request_errors.push("El periodo no incluye tiempo ya disponible en el SAT (los comprobantes de hoy aún no se pueden pedir): elige un periodo que termine ayer o antes.");
+  else if (opts.from && effectiveTo) {
     for (const rule of ours) {
-      for (let s = opts.from.getTime(); s < opts.to.getTime(); s += WINDOW_DAYS * DAY) {
+      for (let s = opts.from.getTime(); s < effectiveTo.getTime(); s += WINDOW_DAYS * DAY) {
         if (Date.now() - started > budget) { sum.time_limited = true; break; }
-        const e = Math.min(s + WINDOW_DAYS * DAY, opts.to.getTime());
+        const e = Math.min(s + WINDOW_DAYS * DAY, effectiveTo.getTime());
+        if (e - s < 3_600_000) continue; // un sobrante de minutos al final del periodo no es una solicitud válida
         try { await provider.createDownloadRequest({ ruleId: rule.id, start: new Date(s), end: new Date(e) }); sum.requested++; }
         catch (err) { sum.request_errors.push(`${rule.downloadType} ${new Date(s).toISOString().slice(0, 10)}→${new Date(e).toISOString().slice(0, 10)}: ${(err as Error).message}`.slice(0, 300)); }
       }

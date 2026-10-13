@@ -17,7 +17,7 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
 /** Descarga masiva de CFDI del SAT con el proveedor fiscal: activar, pedir un periodo e importar lo que ya esté listo. */
 export function SatDownloadCard({ onImported }: { onImported: () => Promise<unknown> }) {
   const { can } = useSession(); const qc = useQueryClient();
-  const [from, setFrom] = useState(() => iso(new Date(Date.now() - 30 * 86_400_000))); const [to, setTo] = useState(() => iso(new Date()));
+  const [from, setFrom] = useState(() => iso(new Date(Date.now() - 30 * 86_400_000))); const [to, setTo] = useState(() => iso(new Date(Date.now() - 86_400_000)));
   const [issued, setIssued] = useState(false); const [busy, setBusy] = useState<"rules" | "sync" | "period" | null>(null); const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const q = useQuery({ queryKey: ["fiscal-downloads"], queryFn: () => api<Status>("/fiscal/downloads"), enabled: can("cfdi.read"), staleTime: 30_000, retry: false });
   const s = q.data;
