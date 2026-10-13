@@ -23,6 +23,7 @@ export function stripe(): Stripe {
 export const PLAN_PRODUCT_ID = (plan: PlanId) => `procura_plan_${plan}`;
 export const PACK_PRODUCT_ID = (size: PackSize) => `procura_pack_${size}`;
 export const planForProduct = (productId: string | null | undefined): PlanId | null => (["esencial", "control", "negocio"] as const).find((p) => productId === PLAN_PRODUCT_ID(p)) ?? null;
+export const SERVICE_FEE_PRODUCT_ID = "procura_service_fee";
 export const isPackSize = (n: number): n is PackSize => (PACK_SIZES as readonly number[]).includes(n);
 
 /** Devuelve el producto de Stripe con ese id; si no existe, lo crea. */

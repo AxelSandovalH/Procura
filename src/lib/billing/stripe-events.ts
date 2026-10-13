@@ -40,10 +40,10 @@ async function creditPack(orgId: string, session: Stripe.Checkout.Session): Prom
 }
 
 async function syncSubscription(orgId: string, sub: Stripe.Subscription): Promise<string> {
-  const product = sub.items?.data?.[0]?.price?.product;
+  const productIds = (sub.items?.data ?? []).map((i) => (typeof i.price?.product === "string" ? i.price.product : i.price?.product?.id));
   const metaPlan = PLANS.find((p) => p === sub.metadata?.plan);
   // El plan sale del producto cobrado (id fijo por plan); el metadato queda como respaldo.
-  const plan = planForProduct(typeof product === "string" ? product : product?.id) ?? metaPlan ?? null;
+  const plan = productIds.map((p) => planForProduct(p)).find(Boolean) ?? metaPlan ?? null;
   const status = mapStatus(sub.status);
   return withContext({ organizationId: orgId }, async (tx) => {
     await ensureRow(tx, orgId);

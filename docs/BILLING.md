@@ -3,7 +3,8 @@
 Suscripción mensual (tres planes) y paquetes de créditos de timbrado. **Empieza en modo de prueba**: nada cobra dinero real hasta que pongas claves de producción.
 
 ## Cómo funciona
-- **Planes** (`lib/commercial/plans.ts`): Esencial $499, Control $999, Negocio $1,799, mensuales, más IVA. Sin periodo de prueba gratis, sin plan anual por ahora.
+- **Planes** (`lib/commercial/plans.ts`): Esencial $499, Control $999, Negocio $1,799, mensuales, más IVA.
+- **Cada cobro muestra tres renglones en Stripe**: el precio, un **cargo por servicio de pago del 4%** (sobre el precio) y el **IVA del 16%** (sobre el precio y el cargo). Ej.: Esencial $499.00 + $19.96 + $83.03 = **$601.99**. Lo definen `SERVICE_FEE` y `chargeBreakdown` en `lib/commercial/plans.ts`; en una suscripción el cargo es un segundo renglón mensual. Los centavos finales los calcula Stripe. Sin periodo de prueba gratis, sin plan anual por ahora.
 - **Contratar**: Administración → Plan y cobro → «Contratar». Solo el **administrador principal** de la organización. Lleva a Stripe Checkout y regresa a Procura. Cambiar de plan, actualizar la tarjeta, ver recibos y cancelar se hace en el **portal de Stripe** («Administrar suscripción»).
 - **El plan lo decide el webhook**, no el regreso del navegador: `POST /api/v1/billing/webhook` (firma verificada con `STRIPE_WEBHOOK_SECRET`, cada evento se procesa una sola vez). Eventos usados: `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `customer.subscription.created|updated|deleted`, `invoice.paid`, `invoice.payment_failed`.
 - **Acceso por plan** (`lib/billing/entitlements.ts`): Control → reportes de Finanzas y módulo de CFDI; Negocio → banco, recuperación del SAT, OCR, emisión/cancelación/PDF y portal de autofacturación. Una función fuera del plan responde **402** con el plan requerido.

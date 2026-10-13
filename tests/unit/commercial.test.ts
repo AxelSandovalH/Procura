@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FINANCE_PLANS, NOT_IMPLEMENTED, SAT_RECOVERY, STAMP_PACKS } from "@/lib/commercial/plans";
+import { FINANCE_PLANS, NOT_IMPLEMENTED, SAT_RECOVERY, STAMP_PACKS, TAX_NOTE, chargeBreakdown } from "@/lib/commercial/plans";
 import { contribution, creditRevenueMinor, stampCostMinor } from "@/lib/commercial/economics";
 import { coveredByExisting } from "@/lib/fiscal/download";
 
@@ -48,4 +48,12 @@ describe("solicitudes al SAT repetidas", () => {
     expect(coveredByExisting([{ ...ex[0]!, status: "Rechazada" }], "r1", t("2026-10-01T00:00:00"), t("2026-10-10T00:00:00"))).toBe(false);
     expect(coveredByExisting([{ ...ex[0]!, status: "Abandonada" }], "r1", t("2026-10-01T00:00:00"), t("2026-10-10T00:00:00"))).toBe(false);
   });
+});
+
+describe("cargo por servicio de pago e IVA", () => {
+  it("precio + 4% de cargo + 16% de IVA sobre ambos", () => {
+    expect(chargeBreakdown(49_900)).toEqual({ price: 49_900, fee: 1_996, tax: 8_303, total: 60_199 });
+    expect(chargeBreakdown(20_000)).toEqual({ price: 20_000, fee: 800, tax: 3_328, total: 24_128 });
+  });
+  it("el aviso de precios menciona el cargo", () => { expect(TAX_NOTE).toMatch(/4%/); });
 });

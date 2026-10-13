@@ -42,7 +42,7 @@ try {
   check("paquete inválido: 400", (await axel.call("/billing/credits", "POST", { pack: 7 })).status === 400);
 
   // Suscripción y restricción de funciones
-  const subEv = (price, status = "active", extra = {}) => ({ id: "sub_ficticia_1", status, customer: "cus_ficticio_1", cancel_at_period_end: false, metadata: { organization_id: meridian }, items: { data: [{ price: { id: "price_dinamico", product: price }, current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400 }] }, ...extra });
+  const subEv = (price, status = "active", extra = {}) => ({ id: "sub_ficticia_1", status, customer: "cus_ficticio_1", cancel_at_period_end: false, metadata: { organization_id: meridian }, items: { data: [{ price: { id: "price_cargo", product: "procura_service_fee" }, current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400 }, { price: { id: "price_dinamico", product: price }, current_period_end: Math.floor(Date.now() / 1000) + 30 * 86400 }] }, ...extra });
   r = await send("customer.subscription.created", subEv("procura_plan_control")); b = await bill(); check("suscripción Control activa", r.status === 200 && b.access === "PLAN" && b.plan === "control", JSON.stringify({ r: r.body, a: b.access, p: b.plan }));
   check("Control incluye los reportes de Finanzas", (await axel.call("/finance/summary")).status === 200);
   r = await axel.call("/bank/accounts"); check("Control NO incluye banco: 402 con el plan requerido", r.status === 402 && r.body.required_plan === "negocio", JSON.stringify(r.body));

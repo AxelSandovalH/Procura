@@ -4,7 +4,16 @@
  * Una prestación solo aparece como incluida si está implementada (`verified` la respalda en el código); lo demás va en `PENDING`.
  */
 export const CURRENCY = "MXN";
-export const TAX_NOTE = "Precios en pesos mexicanos (MXN) más IVA.";
+/** Cargo por servicio de pago que se suma a cada cobro (suscripción y paquetes), antes del IVA. */
+export const SERVICE_FEE = { rate: 0.04, label: "Cargo por servicio de pago" } as const;
+export const VAT_RATE = 0.16;
+export const TAX_NOTE = "Precios en pesos mexicanos (MXN) más IVA. Cada pago incluye además un cargo por servicio de pago de 4%.";
+
+/** Desglose de un cobro, en centavos: precio + cargo (4% del precio) + IVA (16% sobre precio y cargo). Stripe es la fuente final de los centavos. */
+export function chargeBreakdown(priceMinor: number) {
+  const fee = Math.round(priceMinor * SERVICE_FEE.rate), tax = Math.round((priceMinor + fee) * VAT_RATE);
+  return { price: priceMinor, fee, tax, total: priceMinor + fee + tax };
+}
 
 export interface PlanFeature { text: string; /** dónde vive en el producto, para auditar que existe */ verified: string }
 export interface FinancePlan {

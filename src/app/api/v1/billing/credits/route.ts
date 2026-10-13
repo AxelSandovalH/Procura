@@ -7,8 +7,8 @@ import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { env } from "@/lib/env";
 import { requirePrimaryAdmin } from "@/lib/billing/guard";
-import { PACK_PRODUCT_ID, ensureProduct, isPackSize, ivaTaxRateId, stripe } from "@/lib/billing/stripe";
-import { STAMP_PACKS } from "@/lib/commercial/plans";
+import { PACK_PRODUCT_ID, SERVICE_FEE_PRODUCT_ID, ensureProduct, isPackSize, ivaTaxRateId, stripe } from "@/lib/billing/stripe";
+import { SERVICE_FEE, STAMP_PACKS, chargeBreakdown } from "@/lib/commercial/plans";
 import { getOrCreateCustomer } from "@/lib/billing/customer";
 
 const Body = z.object({ pack: z.number().int() });
@@ -23,9 +23,14 @@ export const POST = route(async (req) => {
   const def = STAMP_PACKS.proposed.find((p) => p.cfdi === pack)!;
   const org = actor.organizationId, customer = await getOrCreateCustomer(actor), appUrl = env().APP_URL;
   const product = await ensureProduct(PACK_PRODUCT_ID(pack), `Paquete de ${pack} timbres de CFDI`, "Créditos de timbrado, independientes de la suscripción");
+  const feeProduct = await ensureProduct(SERVICE_FEE_PRODUCT_ID, SERVICE_FEE.label, "Cargo por el servicio de procesar el pago");
+  const br = chargeBreakdown(def.priceMinor), taxRate = await ivaTaxRateId();
   const meta = { organization_id: org, kind: "stamp_pack", pack_size: String(pack) };
   const session = await stripe().checkout.sessions.create({
-    mode: "payment", customer, client_reference_id: org, locale: "es-419", line_items: [{ price_data: { currency: "mxn", unit_amount: def.priceMinor, product }, quantity: 1, tax_rates: [await ivaTaxRateId()] }],
+    mode: "payment", customer, client_reference_id: org, locale: "es-419", line_items: [
+      { price_data: { currency: "mxn", unit_amount: br.price, product }, quantity: 1, tax_rates: [taxRate] },
+      { price_data: { currency: "mxn", unit_amount: br.fee, product: feeProduct }, quantity: 1, tax_rates: [taxRate] },
+    ],
     metadata: meta, payment_intent_data: { metadata: meta }, tax_id_collection: { enabled: true }, customer_update: { name: "auto", address: "auto" }, billing_address_collection: "required",
     success_url: `${appUrl}/administracion/plan?creditos=ok`, cancel_url: `${appUrl}/administracion/plan?creditos=cancelado`,
   });

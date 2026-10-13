@@ -61,6 +61,8 @@ Este documento acompaña a `src/lib/commercial/plans.ts` (planes, límites y paq
 2. La comisión de cobro pesa más en paquetes chicos (≈ 6.6% en el de $200).
 3. Para activarlos se necesita: saldo y libro de consumo por cuenta, descuento solo tras timbrado exitoso, idempotencia por reintento, historial consultable y vínculo de cada compra con su organización. Hoy `fiscal_issue_requests` da la base (una emisión por venta, estados y reintento seguro).
 
+> **Nota:** desde que cada cobro lleva un cargo por servicio de pago del 4%, la comisión de la pasarela (modelada abajo como costo) queda cubierta casi por completo por ese cargo; los escenarios son conservadores en ese punto.
+
 ## 6. Escenarios de rentabilidad (margen de contribución mensual)
 
 **Antes de infraestructura, OCR, soporte y tu tiempo.** Recuperados del SAT y emitidos se muestran en filas independientes. Los créditos se valúan al precio del paquete propuesto. El costo de recuperación se modela como **fijo por RFC** (se desconoce si hay un costo por CFDI). Esencial y Control no incluyen recuperación del SAT.

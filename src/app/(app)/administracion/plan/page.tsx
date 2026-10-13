@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api, ApiError } from "@/lib/api-client";
 import { dateShort } from "@/lib/format";
-import { FINANCE_PLANS, STAMP_PACKS, TAX_NOTE } from "@/lib/commercial/plans";
+import { FINANCE_PLANS, STAMP_PACKS, TAX_NOTE, chargeBreakdown } from "@/lib/commercial/plans";
+import { money } from "@/lib/format";
 
 interface Billing {
   access: "LEGACY" | "PLAN" | "LAPSED"; plan: "esencial" | "control" | "negocio" | null; grace_days: number; can_manage: boolean;
@@ -65,6 +66,7 @@ function PlanInner() {
             <Card key={p.id} className={p.featured ? "border-foreground/60" : ""}><CardHeader><CardTitle className="flex items-center justify-between">{p.name}{current && <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">Tu plan</span>}</CardTitle></CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <p><span className="text-2xl font-semibold tabular-nums">${p.price.toLocaleString("es-MX")}</span> <span className="text-muted-foreground">MXN / mes + IVA</span></p>
+                <p className="text-xs text-muted-foreground">Cada mes pagas aprox. {money(chargeBreakdown(p.price * 100).total)}: el precio, 4% de cargo por servicio de pago y 16% de IVA sobre ambos.</p>
                 <ul className="space-y-1.5">{p.features.slice(0, 4).map((f) => <li key={f.text} className="flex gap-2"><Check className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />{f.text}</li>)}</ul>
                 <Button className="w-full" variant={p.featured ? "default" : "outline"} disabled={!can || busy === p.id} onClick={() => void (subscribed ? change(p.id) : go(p.id, "/billing/checkout", { plan: p.id }))}>{current ? "Plan actual" : busy === p.id ? (subscribed ? "Cambiando…" : "Abriendo…") : !ready.plans[p.id] ? "No disponible aún" : subscribed ? `Cambiar a ${p.name}` : `Contratar ${p.name}`}</Button>
               </CardContent></Card>);
@@ -76,7 +78,7 @@ function PlanInner() {
         <p>Cada factura (CFDI) que emites consume <b>un crédito</b>, solo cuando el timbrado resulta exitoso. Los créditos se compran aparte de la suscripción y no caducan.</p>
         <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1"><p><span className="text-3xl font-semibold tabular-nums">{d.credits.available}</span> disponibles</p>{d.credits.available !== d.credits.balance && <p className="text-muted-foreground">Saldo {d.credits.balance} (hay emisiones en curso)</p>}</div>
         {!d.credits.required && <p className="text-xs text-muted-foreground">Mientras no compres un paquete, tu organización timbra con su propia cuenta del proveedor fiscal y no consume créditos. Al comprar el primer paquete, cada timbrado consumirá uno.</p>}
-        <div className="flex flex-wrap gap-2">{PACKS.map((n) => <Button key={n} variant="outline" disabled={!d.can_manage || !ready.enabled || !ready.packs[n] || busy === `pack${n}`} onClick={() => void go(`pack${n}`, "/billing/credits", { pack: n })}>{busy === `pack${n}` ? "Abriendo…" : ready.packs[n] ? `Comprar ${n} créditos · $${(STAMP_PACKS.proposed.find((x) => x.cfdi === n)!.priceMinor / 100).toLocaleString("es-MX")} + IVA` : `${n} créditos (no disponible aún)`}</Button>)}</div>
+        <div className="flex flex-wrap gap-2">{PACKS.map((n) => <Button key={n} variant="outline" disabled={!d.can_manage || !ready.enabled || !ready.packs[n] || busy === `pack${n}`} onClick={() => void go(`pack${n}`, "/billing/credits", { pack: n })}>{busy === `pack${n}` ? "Abriendo…" : ready.packs[n] ? `Comprar ${n} créditos · ${money(chargeBreakdown(STAMP_PACKS.proposed.find((x) => x.cfdi === n)!.priceMinor).total)} con cargo e IVA` : `${n} créditos (no disponible aún)`}</Button>)}</div>
         {d.credits.history.length > 0 && (
           <div><p className="mb-1.5 font-medium">Movimientos</p>
             <ul className="divide-y rounded-lg border">{d.credits.history.map((h) => <li key={h.id} className="flex items-center justify-between gap-3 px-3 py-2"><span>{KIND[h.kind] ?? h.kind}{h.note ? ` · ${h.note}` : ""}<span className="block text-xs text-muted-foreground">{dateShort(h.created_at)}</span></span><span className={`tabular-nums font-medium ${h.delta > 0 ? "text-emerald-700" : ""}`}>{h.delta > 0 ? "+" : ""}{h.delta}</span></li>)}</ul></div>)}
