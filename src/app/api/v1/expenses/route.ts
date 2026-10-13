@@ -8,7 +8,7 @@ import { audit, auditBase } from "@/lib/audit";
 import { idempotent } from "@/lib/http/idempotency";
 import { assertExpensesManagedHere, expenseView } from "@/lib/billing/expenses";
 import { materializeReceived } from "@/lib/billing/cfdi-docs";
-import { linkCfdi } from "@/lib/finance/ops";
+import { addPayment, linkCfdi } from "@/lib/finance/ops";
 import { expenseStatuses } from "@/lib/finance/views";
 import type { Prisma } from "@prisma/client";
 
@@ -23,6 +23,8 @@ const Create = z.object({
   order_id: z.uuid().optional(),
   external_reference: z.string().trim().max(200).optional(),
   cfdi_ids: z.array(z.uuid()).max(20).default([]),
+  // El gasto ya se pagó: registra el pago completo con la fecha del gasto. Un ticket normalmente ya está pagado.
+  paid: z.object({ method: z.enum(["CASH", "CARD", "TRANSFER", "OTHER"]).optional() }).optional(),
 });
 
 export const GET = route(async (req) => {
@@ -53,6 +55,7 @@ export const POST = route(async (req) => {
   authorize(actor, "expense.manage");
   const body = await json(req, (d) => Create.parse(d));
   if (body.cfdi_ids.length > 0) authorize(actor, "cfdi.manage");
+  if (body.paid) authorize(actor, "payment.manage");
   return idempotent(req, actor, body, async () => {
     const out = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
       await assertExpensesManagedHere(tx, actor.organizationId);
@@ -60,9 +63,13 @@ export const POST = route(async (req) => {
         const o = await tx.orders.findFirst({ where: { id: body.order_id, buyer_organization_id: actor.organizationId }, select: { id: true } });
         if (!o) throw Problem.badRequest("La orden no existe o no es tuya");
       }
-      const { cfdi_ids, spent_at, ...rest } = body;
+      const { cfdi_ids, spent_at, paid, ...rest } = body;
       const e = await tx.expenses.create({ data: { ...rest, spent_at: new Date(spent_at), amount_minor: BigInt(body.amount_minor), organization_id: actor.organizationId, source: body.order_id ? "PROCURA" : "MANUAL", created_by_membership_id: actor.membershipId } });
       if (cfdi_ids.length) await materializeReceived(tx, actor.organizationId, actor.membershipId);
+      if (paid && e.amount_minor > BigInt(0)) {
+        const p = await addPayment(tx, actor.organizationId, actor.membershipId, "expense", e.id, { paid_at: new Date(spent_at), amount_minor: body.amount_minor, method: paid.method });
+        await audit(tx, { ...auditBase(actor), action: "payment.created", resourceType: "expense", resourceId: e.id, resourceLabel: e.description, metadata: { payment_id: p.payment.id, amount_minor: body.amount_minor, method: paid.method } });
+      }
       for (const id of cfdi_ids) await linkCfdi(tx, actor.organizationId, actor.membershipId, "expense", e.id, id);
       await audit(tx, { ...auditBase(actor), action: "expense.created", resourceType: "expense", resourceId: e.id, resourceLabel: e.description, metadata: { amount_minor: e.amount_minor.toString(), currency: e.currency, cfdi: cfdi_ids.length } });
       return expenseView(tx, await tx.expenses.findUniqueOrThrow({ where: { id: e.id } }));

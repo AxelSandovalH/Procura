@@ -261,6 +261,7 @@ El proveedor adjunta el CFDI (XML timbrado, PDF opcional) a una orden suya; Proc
 | POST | `/invoices/{id}/accept` `{ reason? }` · `/reject` `{ reason }` | `invoice.review` (comprador). Aceptar solo aplica a `DISCREPANCY`; no se rechaza una factura ligada a un gasto |
 | GET / POST | `/expenses` `{ spent_at, description, category?, amount_minor, currency, supplier_organization_id?, supplier_name?, order_id?, external_reference?, supplier_invoice_ids[] }` | `expense.read` / `expense.manage` |
 | POST | `/expenses/scan` multipart `file` (JPG/PNG/WebP ≤ 8 MB) — lee un ticket con visión de Claude y devuelve `{ draft, possible_duplicates[] }`; **no guarda nada**. Requiere `ANTHROPIC_API_KEY` en el servidor (409 si falta) | `expense.manage` |
+| POST | `/expenses/mark-paid` `{ expense_ids[] (≤100), method? }` — registra el pago de lo que falte de cada gasto con su propia fecha; omite anulados y ya pagados | `payment.manage` + `expense.manage` |
 | POST | `/expenses/{id}/receipt` multipart `file` — guarda la foto como evidencia interna del gasto (se lista con `GET /attachments?anchor_type=EXPENSE&anchor_id=`) | `expense.manage` |
 | GET / PATCH | `/expenses/{id}` | `expense.read` / `expense.manage` |
 | POST | `/expenses/{id}/void` `{ reason }` · `/expenses/{id}/invoices` `{ supplier_invoice_id }` · DELETE `/expenses/{id}/invoices/{invoiceId}` | `expense.manage` |
@@ -286,7 +287,7 @@ Detalle del modelo y de lo que NO hace en [FINANZAS.md](FINANZAS.md). Importes e
 | GET | `/finance/summary?from=&to=` — por moneda: ventas registradas, facturación emitida/recibida, cobros, gastos, pagos, por cobrar/pagar, operaciones sin CFDI y diferencias | `finance.read` |
 | GET / POST | `/fiscal/provider` (estado real y capacidades) · `POST /fiscal/test` (prueba de conexión de solo lectura) · `GET /fiscal/downloads` (estado de la descarga masiva) · `POST /fiscal/downloads/rules` (activarla) · `POST /fiscal/sync` `{ from?, to? }` (pide el periodo al SAT vía el proveedor e importa lo listo) | `cfdi.read` / `cfdi.manage` |
 
-Cambios en gastos: `POST /expenses` acepta `cfdi_ids[]` (ya no `supplier_invoice_ids`) y devuelve estados `payment_status` / `invoicing_status`, `payments[]` y `cfdi[]`. Se retiraron `POST /expenses/{id}/invoices` y `DELETE …/invoices/{iid}` (sustituidos por `/cfdi`).
+Cambios en gastos: `POST /expenses` acepta `cfdi_ids[]` (ya no `supplier_invoice_ids`) y `paid: { method? }` (si el gasto ya está pagado, registra el pago completo con la fecha del gasto; requiere `payment.manage`) y devuelve estados `payment_status` / `invoicing_status`, `payments[]` y `cfdi[]`. Se retiraron `POST /expenses/{id}/invoices` y `DELETE …/invoices/{iid}` (sustituidos por `/cfdi`).
 
 ### Lo que un ERP puede hacer en MVP (OD-22)
 1. `POST /requisitions` (con `submit: true` opcional).

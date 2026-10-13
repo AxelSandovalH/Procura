@@ -33,11 +33,11 @@ export function ScanReceiptButton({ onSaved }: { onSaved: () => Promise<unknown>
   const [step, setStep] = useState<"pick" | "reading" | "review">("pick");
   const [dups, setDups] = useState<ScanResult["possible_duplicates"]>([]); const [hint, setHint] = useState<string | null>(null);
   const [f, setF] = useState({ date: "", amount: "", currency: "MXN", description: "", category: "", supplier: "", method: "", rfc: "" });
-  const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
+  const [paid, setPaid] = useState(true); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   void org;
   if (!can("expense.manage")) return null;
 
-  function reset() { if (image) URL.revokeObjectURL(image.url); setImage(null); setStep("pick"); setError(null); setDups([]); setHint(null); setDocRef(null); setF({ date: "", amount: "", currency: "MXN", description: "", category: "", supplier: "", method: "", rfc: "" }); }
+  function reset() { if (image) URL.revokeObjectURL(image.url); setImage(null); setStep("pick"); setError(null); setDups([]); setHint(null); setDocRef(null); setPaid(true); setF({ date: "", amount: "", currency: "MXN", description: "", category: "", supplier: "", method: "", rfc: "" }); }
 
   async function onFile(file: File | undefined) {
     if (!file) return; setError(null);
@@ -60,7 +60,7 @@ export function ScanReceiptButton({ onSaved }: { onSaved: () => Promise<unknown>
   async function save() {
     if (!image) return; setBusy(true); setError(null);
     try {
-      const exp = await api<{ id: string }>("/expenses", { body: { spent_at: f.date, description: f.description.trim(), category: f.category.trim() || undefined, amount_minor: toMinor(f.amount), currency: f.currency, supplier_name: f.supplier.trim() || undefined, external_reference: docRef ?? undefined } });
+      const exp = await api<{ id: string }>("/expenses", { body: { spent_at: f.date, description: f.description.trim(), category: f.category.trim() || undefined, amount_minor: toMinor(f.amount), currency: f.currency, supplier_name: f.supplier.trim() || undefined, external_reference: docRef ?? undefined, ...(paid && can("payment.manage") ? { paid: { method: (f.method as "CASH" | "CARD" | "TRANSFER" | "OTHER") || "OTHER" } } : {}) } });
       const fd = new FormData(); fd.append("file", image.blob, image.name);
       await fetch(`/api/v1/expenses/${exp.id}/receipt`, { method: "POST", body: fd, credentials: "same-origin" }).catch(() => null); // el gasto ya existe: si la foto falla se puede adjuntar luego
       await onSaved(); setOpen(false); reset();
@@ -106,6 +106,7 @@ export function ScanReceiptButton({ onSaved }: { onSaved: () => Promise<unknown>
                 <div className="space-y-1"><Label htmlFor="s-sup" className="text-xs">Comercio</Label><Input id="s-sup" maxLength={200} value={f.supplier} onChange={(e) => setF({ ...f, supplier: e.target.value })} /></div>
                 <div className="space-y-1"><Label htmlFor="s-cat" className="text-xs">Categoría</Label><Input id="s-cat" maxLength={80} value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })} /></div>
               </div>
+              {can("payment.manage") && <label className="flex items-start gap-2 text-sm"><input type="checkbox" className="mt-1" checked={paid} onChange={(e) => setPaid(e.target.checked)} /><span>Ya está pagado<span className="block text-xs text-muted-foreground">Un ticket o recibo normalmente ya se pagó. Si lo dejas sin marcar, queda en «Gastos por pagar».</span></span></label>}
               {(f.method || f.rfc) && <p className="text-xs text-muted-foreground">{f.method ? `Pago: ${PAYMENT_METHOD[f.method] ?? f.method}. ` : ""}{f.rfc ? `RFC del comercio: ${f.rfc}.` : ""}</p>}
               {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             </div>

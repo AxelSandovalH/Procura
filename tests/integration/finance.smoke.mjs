@@ -140,11 +140,22 @@ try {
   check("un CFDI emitido no origina un gasto", (await axel.call("/cfdi/expenses", "POST", { cfdi_ids: [A.id] })).body?.summary?.errors === 1);
   check("solo con permiso: un solicitante no carga en masa (403)", (await luis.call("/cfdi/expenses", "POST", { cfdi_ids: ids3.slice(0, 1) })).status === 403);
 
+  console.log("Gastos ya pagados y pago masivo");
+  r = await axel.call("/expenses", "POST", { spent_at: "2026-10-06", description: `Ticket pagado ${tag}`, amount_minor: 5000, currency: "MXN", paid: { method: "CARD" } }); created.expenses.push(r.body?.id);
+  check("un gasto creado como «ya pagado» nace con su pago completo", r.status === 201 && r.body.payment_status === "COLLECTED" && Number(r.body.pending_to_pay_minor) === 0 && r.body.payments.length === 1, JSON.stringify(r.body)?.slice(0, 200));
+  const e1 = (await axel.call("/expenses", "POST", { spent_at: "2026-10-05", description: `Pendiente A ${tag}`, amount_minor: 1000 })).body, e2 = (await axel.call("/expenses", "POST", { spent_at: "2026-10-05", description: `Pendiente B ${tag}`, amount_minor: 2000 })).body; created.expenses.push(e1.id, e2.id);
+  await axel.call(`/expenses/${e2.id}/payments`, "POST", { paid_at: "2026-10-05", amount_minor: 500 });
+  r = await axel.call("/expenses/mark-paid", "POST", { expense_ids: [e1.id, e2.id], method: "CARD" });
+  check("marca varios como pagados (completa lo que falte)", r.status === 200 && r.body.summary.paid === 2, JSON.stringify(r.body?.summary));
+  const e2b = (await axel.call(`/expenses/${e2.id}`)).body; check("el parcial queda pagado por el total y con la fecha del gasto", e2b.payment_status === "COLLECTED" && e2b.payments.length === 2);
+  check("repetir no duplica pagos", (await axel.call("/expenses/mark-paid", "POST", { expense_ids: [e1.id, e2.id] })).body?.summary?.skipped === 2);
+  check("un solicitante no puede marcar pagos (403)", (await luis.call("/expenses/mark-paid", "POST", { expense_ids: [e1.id] })).status === 403);
+
   console.log("Lectura de tickets (OCR)");
   const png1 = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
   const scan = async (who, bytes, name, type) => { const f = new FormData(); f.append("file", new Blob([bytes], { type }), name); const r = await fetch(`${APP}/api/v1/expenses/scan`, { method: "POST", headers: { cookie: who.cookie() }, body: f }); return { status: r.status, body: await r.json().catch(() => null) }; };
-  r = await scan(axel, Buffer.from("%PDF-1.4 no es imagen"), "x.jpg", "image/jpeg");
-  check("un archivo que no es imagen se rechaza aunque diga ser JPG (400)", r.status === 400);
+  r = await scan(axel, Buffer.from("<html>no es una imagen ni un PDF</html>"), "x.jpg", "image/jpeg");
+  check("un archivo que no es imagen ni PDF se rechaza aunque diga ser JPG (400)", r.status === 400);
   r = await scan(luis, png1, "t.png", "image/png"); check("un solicitante no puede escanear tickets (403)", r.status === 403);
   r = await scan(axel, png1, "t.png", "image/png");
   check("con clave del lector devuelve un borrador (200); sin clave explica que no está configurado (409)", r.status === 200 ? !!r.body?.draft : r.status === 409 && /ANTHROPIC_API_KEY/.test(r.body?.detail ?? ""), JSON.stringify(r.body)?.slice(0, 200));
