@@ -20,10 +20,18 @@ export interface NormalizedCfdi {
   xml?: Buffer; pdfUrl?: string; externalId: string; satStatus: "UNKNOWN" | "VIGENTE" | "CANCELADO";
 }
 
+/** Solicitud de emisión normalizada: el adaptador la traduce al contrato de su proveedor. */
 export interface IssueRequest {
-  organizationId: string; saleId: string; idempotencyKey: string;
-  // Los datos fiscales se definirán cuando se verifique el contrato real del proveedor.
+  issuerId: string;                      // id del emisor ya registrado (con sus certificados) en el proveedor
+  series: string; date: string;          // fecha local AAAA-MM-DDThh:mm:ss
+  currency: string; expeditionZipCode: string;
+  paymentFormCode: string; paymentMethodCode: "PUE" | "PPD";
+  recipient: { taxId: string; legalName: string; taxRegimeCode: string; cfdiUseCode: string; zipCode: string; email?: string };
+  items: { productCode: string; unitCode: string; description: string; quantity: number; unitPrice: number; discount: number; taxRate: number }[];
+  timeZone: string;
 }
+export interface IssuedCfdi { providerInvoiceId: string; fiscalUuid: string | null; xml: Buffer | null }
+export interface ProviderIssuer { id: string; legalName: string; taxId: string; taxRegimeCode: string | null; zipCode: string | null }
 
 export class FiscalProviderError extends Error {
   constructor(public code: "NOT_CONFIGURED" | "NOT_SUPPORTED" | "RATE_LIMITED" | "UNAUTHORIZED" | "UPSTREAM", message: string, public retryAfterSeconds?: number) { super(message); }
@@ -35,7 +43,8 @@ export interface FiscalProvider {
   readonly capabilities: FiscalCapabilities;
   /** Por qué no está operativo (para mostrarlo en la configuración). */
   readonly notes: string[];
-  issueCfdi(req: IssueRequest): Promise<NormalizedCfdi>;
+  issueCfdi(req: IssueRequest): Promise<IssuedCfdi>;
+  listIssuers(): Promise<ProviderIssuer[]>;
   listCfdi(orgExternalAccount: string, params: { direction: "ISSUED" | "RECEIVED"; from: Date; to: Date; cursor?: string }): Promise<{ items: NormalizedCfdi[]; nextCursor?: string }>;
   getCfdiStatus(fiscalUuid: string): Promise<NormalizedCfdi["satStatus"]>;
   /** Comprueba que las credenciales del servidor funcionan, sin modificar nada en el proveedor. */

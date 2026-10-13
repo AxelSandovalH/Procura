@@ -2618,6 +2618,9 @@ model customers {
   name            String
   tax_id          String?
   email           String?
+  tax_regime_code String?
+  zip_code        String?
+  cfdi_use_code   String?
   archived_at     DateTime? @db.Timestamptz(6)
   created_at      DateTime  @default(now()) @db.Timestamptz(6)
   updated_at      DateTime  @default(now()) @db.Timestamptz(6)
@@ -2664,6 +2667,9 @@ model sale_lines {
   tax_rate         Decimal @default(0) @db.Decimal(6, 4)
   tax_minor        BigInt  @default(0)
   total_minor      BigInt
+
+  sat_product_code String?
+  sat_unit_code    String?
 
   @@unique([sale_id, line_number])
   @@schema("public")
@@ -2750,9 +2756,26 @@ model fiscal_provider_connections {
   external_account_id String?
   last_synced_at      DateTime? @db.Timestamptz(6)
   last_error          String?
+  settings            Json      @default("{}")
   created_at          DateTime  @default(now()) @db.Timestamptz(6)
   updated_at          DateTime  @default(now()) @db.Timestamptz(6)
 
   @@unique([organization_id, provider])
+  @@schema("public")
+}
+
+model fiscal_issue_requests {
+  id                       String   @id @default(dbgenerated("app.uuid_v7()")) @db.Uuid
+  organization_id          String   @db.Uuid
+  sale_id                  String   @db.Uuid
+  provider                 String
+  status                   String
+  provider_invoice_id      String?
+  cfdi_id                  String?  @db.Uuid
+  error                    String?
+  created_by_membership_id String?  @db.Uuid
+  created_at               DateTime @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime @default(now()) @db.Timestamptz(6)
+
   @@schema("public")
 }

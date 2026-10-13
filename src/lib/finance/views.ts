@@ -31,12 +31,13 @@ export function expenseStatuses(e: expenses) {
 }
 
 export async function saleView(tx: Tx, s: sales) {
-  const [lines, payments, cfdi, customer] = await Promise.all([
+  const [lines, payments, cfdi, customer, fiscalIssue] = await Promise.all([
     tx.sale_lines.findMany({ where: { sale_id: s.id }, orderBy: { line_number: "asc" } }),
     paymentsOf(tx, { sale_id: s.id }), linksOf(tx, { sale_id: s.id }),
-    s.customer_id ? tx.customers.findFirst({ where: { id: s.customer_id }, select: { id: true, name: true, tax_id: true } }) : null,
+    s.customer_id ? tx.customers.findFirst({ where: { id: s.customer_id }, select: { id: true, name: true, tax_id: true, tax_regime_code: true, zip_code: true, cfdi_use_code: true, email: true } }) : null,
+    tx.fiscal_issue_requests.findFirst({ where: { sale_id: s.id }, orderBy: { created_at: "desc" }, select: { status: true, error: true, provider_invoice_id: true, created_at: true } }),
   ]);
-  return { ...s, ...saleStatuses(s), customer, lines, payments, cfdi };
+  return { ...s, ...saleStatuses(s), customer, lines, payments, cfdi, fiscal_issue: fiscalIssue };
 }
 export async function expenseCfdi(tx: Tx, e: expenses) {
   return { ...expenseStatuses(e), payments: await paymentsOf(tx, { expense_id: e.id }), cfdi: await linksOf(tx, { expense_id: e.id }) };

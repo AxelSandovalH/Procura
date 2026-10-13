@@ -1,5 +1,5 @@
 import { env } from "@/lib/env";
-import { FiscalProviderError, type FiscalCapabilities, type FiscalProvider } from "@/lib/fiscal/provider";
+import { FiscalProviderError, type FiscalCapabilities, type FiscalProvider, type IssueRequest, type IssuedCfdi, type ProviderIssuer } from "@/lib/fiscal/provider";
 
 /**
  * Adaptador de Fiscalapi.
@@ -14,9 +14,9 @@ import { FiscalProviderError, type FiscalCapabilities, type FiscalProvider } fro
  */
 class FiscalapiProvider implements FiscalProvider {
   readonly name = "fiscalapi";
-  readonly capabilities: FiscalCapabilities = { issue: false, fetchIssued: false, fetchReceived: false, statusLookup: false, downloadXml: false, downloadPdf: false };
+  readonly capabilities: FiscalCapabilities = { issue: true, fetchIssued: false, fetchReceived: false, statusLookup: false, downloadXml: false, downloadPdf: false };
   get notes() {
-    const out = ["Solo la prueba de conexión está implementada y verificada. Emitir, recuperar y descargar CFDI aún no: falta verificar las rutas exactas y la estructura de emisores y certificados."];
+    const out = ["Implementado: prueba de conexión, listado de emisores y emisión de factura de ingreso (el XML timbrado se guarda en Procura). Falta verificar y construir: cancelación, consulta de estado, PDF y recuperación de CFDI emitidos y recibidos."];
     if (!this.isConfigured()) out.push("Faltan las variables de entorno FISCALAPI_API_KEY y FISCALAPI_TENANT en el servidor.");
     out.push("Cada empresa debe autorizar el acceso a su información fiscal; las credenciales de una no permiten consultar las de otra.");
     return out;
@@ -26,20 +26,59 @@ class FiscalapiProvider implements FiscalProvider {
     throw new FiscalProviderError(this.isConfigured() ? "NOT_SUPPORTED" : "NOT_CONFIGURED", `${what}: ${this.isConfigured() ? "aún no implementado en el adaptador de Fiscalapi" : "el proveedor fiscal no está configurado"}.`);
   }
   private baseUrl() { return (env().FISCALAPI_URL ?? "https://test.fiscalapi.com").replace(/\/+$/, ""); }
-  /** Lista una página mínima de facturas: llamada de solo lectura, verificada, que valida URL, API key y tenant. */
-  async testConnection() {
+  private async request(method: "GET" | "POST", path: string, body?: unknown, timeZone = "America/Mazatlan"): Promise<{ status: number; json: unknown }> {
     if (!this.isConfigured()) throw new FiscalProviderError("NOT_CONFIGURED", "Faltan FISCALAPI_API_KEY y FISCALAPI_TENANT en el servidor.");
-    const e = env(); const base = this.baseUrl();
+    const e = env();
     let res: Response;
     try {
-      res = await fetch(`${base}/api/v4/invoices?pageNumber=1&pageSize=1`, { method: "GET", headers: { "X-API-KEY": e.FISCALAPI_API_KEY!, "X-TENANT-KEY": e.FISCALAPI_TENANT!, "X-TIME-ZONE": "America/Mazatlan" }, signal: AbortSignal.timeout(10_000) });
+      res = await fetch(`${this.baseUrl()}${path}`, { method, headers: { "X-API-KEY": e.FISCALAPI_API_KEY!, "X-TENANT-KEY": e.FISCALAPI_TENANT!, "X-TIME-ZONE": timeZone, ...(body ? { "Content-Type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(30_000) });
     } catch { throw new FiscalProviderError("UPSTREAM", "No se pudo contactar a Fiscalapi (red o tiempo de espera)."); }
     if (res.status === 401 || res.status === 403) throw new FiscalProviderError("UNAUTHORIZED", "Fiscalapi rechazó las credenciales (API key o tenant).");
     if (res.status === 429) throw new FiscalProviderError("RATE_LIMITED", "Fiscalapi limitó las peticiones; reintenta en unos segundos.", Number(res.headers.get("retry-after")) || undefined);
-    if (!res.ok) throw new FiscalProviderError("UPSTREAM", `Fiscalapi respondió ${res.status}.`);
+    const text = await res.text(); let json: unknown = null; try { json = text ? JSON.parse(text) : null; } catch { /* respuesta no JSON */ }
+    return { status: res.status, json };
+  }
+  /** Lista una página mínima de facturas: llamada de solo lectura, verificada, que valida URL, API key y tenant. */
+  async testConnection() {
+    const r = await this.request("GET", "/api/v4/invoices?pageNumber=1&pageSize=1");
+    if (r.status < 200 || r.status >= 300) throw new FiscalProviderError("UPSTREAM", `Fiscalapi respondió ${r.status}.`);
+    const base = this.baseUrl();
     return { ok: true as const, environment: base === "https://test.fiscalapi.com" ? "test" as const : base === "https://live.fiscalapi.com" ? "live" as const : "custom" as const };
   }
-  async issueCfdi(): Promise<never> { return this.unsupported("Emisión de CFDI"); }
+  /** GET /api/v4/people (documentado como «Listar emisores»). */
+  async listIssuers(): Promise<ProviderIssuer[]> {
+    const r = await this.request("GET", "/api/v4/people?pageNumber=1&pageSize=50");
+    if (r.status < 200 || r.status >= 300) throw new FiscalProviderError("UPSTREAM", `Fiscalapi respondió ${r.status} al listar emisores.`);
+    const items = ((r.json as { data?: { items?: Record<string, unknown>[] } } | null)?.data?.items ?? []);
+    return items.map((p) => ({ id: String(p.id), legalName: String(p.legalName ?? ""), taxId: String(p.tin ?? ""), taxRegimeCode: p.satTaxRegimeId ? String(p.satTaxRegimeId) : null, zipCode: p.zipCode ? String(p.zipCode) : null }));
+  }
+  /**
+   * POST /api/v4/invoices con el emisor por referencia (su id, con certificados ya cargados en el proveedor) y receptor y conceptos
+   * por valores. Respuesta: data.id, data.uuid y data.responses[].invoiceBase64 (XML en base64). Los errores del proveedor se devuelven
+   * con su mensaje, que el usuario necesita para corregir datos fiscales.
+   */
+  async issueCfdi(req: IssueRequest): Promise<IssuedCfdi> {
+    const body = {
+      versionCode: "4.0", typeCode: "I", series: req.series, date: req.date, currencyCode: req.currency, exchangeRate: 1, exportCode: "01",
+      expeditionZipCode: req.expeditionZipCode, paymentFormCode: req.paymentFormCode, paymentMethodCode: req.paymentMethodCode,
+      issuer: { id: req.issuerId },
+      recipient: { tin: req.recipient.taxId, legalName: req.recipient.legalName, taxRegimeCode: req.recipient.taxRegimeCode, cfdiUseCode: req.recipient.cfdiUseCode, zipCode: req.recipient.zipCode, ...(req.recipient.email ? { email: req.recipient.email } : {}) },
+      items: req.items.map((i) => ({
+        itemCode: i.productCode, quantity: i.quantity, unitOfMeasurementCode: i.unitCode, description: i.description, unitPrice: i.unitPrice, discount: i.discount, taxObjectCode: "02",
+        itemTaxes: [{ taxCode: "002", taxTypeCode: "Tasa", taxRate: i.taxRate, taxFlagCode: "T" }],
+      })),
+    };
+    const r = await this.request("POST", "/api/v4/invoices", body, req.timeZone);
+    const j = r.json as { succeeded?: boolean; message?: string; details?: unknown; data?: { id?: string; uuid?: string | null; responses?: { invoiceUuid?: string; invoiceBase64?: string }[] } } | null;
+    if (r.status < 200 || r.status >= 300 || j?.succeeded === false) {
+      const detail = typeof j?.details === "string" ? j.details : j?.details ? JSON.stringify(j.details) : "";
+      throw new FiscalProviderError("UPSTREAM", `Fiscalapi no pudo timbrar (${r.status}): ${[j?.message, detail].filter(Boolean).join(" — ") || "sin detalle"}`.slice(0, 900));
+    }
+    const resp = j?.data?.responses?.[0];
+    const id = j?.data?.id;
+    if (!id) throw new FiscalProviderError("UPSTREAM", "Fiscalapi respondió sin identificador de factura; revisa la factura en su panel antes de reintentar.");
+    return { providerInvoiceId: id, fiscalUuid: j?.data?.uuid ?? resp?.invoiceUuid ?? null, xml: resp?.invoiceBase64 ? Buffer.from(resp.invoiceBase64, "base64") : null };
+  }
   async listCfdi(): Promise<never> { return this.unsupported("Recuperación de CFDI"); }
   async getCfdiStatus(): Promise<never> { return this.unsupported("Consulta de vigencia"); }
 }

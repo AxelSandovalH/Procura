@@ -54,12 +54,16 @@ describe("capa fiscal", () => {
     process.env.DATABASE_URL = "postgres://u:p@localhost:5432/x"; process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321"; process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
     delete process.env.FISCALAPI_API_KEY; delete process.env.FISCALAPI_TENANT;
   });
-  it("el adaptador no finge capacidades: nada está implementado y las llamadas fallan con el motivo correcto", async () => {
+  it("el adaptador solo declara lo implementado y sin credenciales falla con el motivo correcto", async () => {
     const p = getFiscalProvider();
-    expect(Object.values(p.capabilities).some(Boolean)).toBe(false);
+    expect(p.capabilities).toMatchObject({ issue: true, fetchIssued: false, fetchReceived: false, statusLookup: false, downloadPdf: false });
     expect(p.isConfigured()).toBe(false);
-    await expect(p.issueCfdi({ organizationId: "o", saleId: "s", idempotencyKey: "k" })).rejects.toMatchObject({ code: "NOT_CONFIGURED" });
+    const req = { issuerId: "i", series: "A", date: "2026-10-06T10:00:00", currency: "MXN", expeditionZipCode: "01160", paymentFormCode: "03", paymentMethodCode: "PUE" as const, timeZone: "America/Mazatlan",
+      recipient: { taxId: "EKU9003173C9", legalName: "X", taxRegimeCode: "601", cfdiUseCode: "G03", zipCode: "42501" }, items: [] };
+    await expect(p.issueCfdi(req)).rejects.toMatchObject({ code: "NOT_CONFIGURED" });
     await expect(p.testConnection()).rejects.toMatchObject({ code: "NOT_CONFIGURED" });
+    await expect(p.listIssuers()).rejects.toMatchObject({ code: "NOT_CONFIGURED" });
+    await expect(p.getCfdiStatus("x")).rejects.toMatchObject({ code: "NOT_CONFIGURED" });
   });
   it("reintenta solo errores transitorios y respeta el límite de intentos", async () => {
     let n = 0;
