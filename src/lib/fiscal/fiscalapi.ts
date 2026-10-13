@@ -71,7 +71,9 @@ class FiscalapiProvider implements FiscalProvider {
     const r = await this.request("POST", "/api/v4/invoices", body, req.timeZone);
     const j = r.json as { succeeded?: boolean; message?: string; details?: unknown; data?: { id?: string; uuid?: string | null; responses?: { invoiceUuid?: string; invoiceBase64?: string }[] } } | null;
     if (r.status < 200 || r.status >= 300 || j?.succeeded === false) {
-      const detail = typeof j?.details === "string" ? j.details : j?.details ? JSON.stringify(j.details) : "";
+      // El proveedor explica qué dato falla (RFC, régimen, código postal…): se muestra tal cual, recortado. No contiene credenciales.
+      const raw = j && typeof j === "object" ? JSON.stringify(Object.fromEntries(Object.entries(j).filter(([k]) => k !== "data"))) : "";
+      const detail = raw.slice(0, 700);
       throw new FiscalProviderError("UPSTREAM", `Fiscalapi no pudo timbrar (${r.status}): ${[j?.message, detail].filter(Boolean).join(" — ") || "sin detalle"}`.slice(0, 900));
     }
     const resp = j?.data?.responses?.[0];
