@@ -1,7 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { Camera, Image as ImageIcon, ScanLine } from "lucide-react";
+import { Camera, FileText, Image as ImageIcon, ScanLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { toMinor } from "@/lib/format";
 import { PAYMENT_METHOD } from "@/lib/ui/status";
 
 interface Draft { is_receipt: boolean; merchant: string | null; merchant_tax_id: string | null; date: string | null; currency: string; total_minor: number | null; tax_minor: number | null; payment_method: string | null; description: string; category: string | null; confidence: "high" | "medium" | "low"; notes: string | null }
-interface ScanResult { draft: Draft; possible_duplicates: { id: string; description: string }[] }
+interface ScanResult { draft: Draft; document_reference: string | null; possible_duplicates: { id: string; description: string }[] }
 const err = (e: unknown, f: string) => (e instanceof ApiError ? (e.fieldErrors[0]?.message ?? e.detail ?? e.title) : f);
 
 /** Reduce y convierte la foto a JPEG en el navegador (acepta HEIC de iPhone en Safari): sube menos y el lector recibe un formato válido. */
@@ -29,27 +29,30 @@ export function ScanReceiptButton({ onSaved }: { onSaved: () => Promise<unknown>
   const { org, can } = useSession();
   const camera = useRef<HTMLInputElement>(null); const gallery = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
-  const [image, setImage] = useState<{ blob: Blob; url: string } | null>(null);
+  const [image, setImage] = useState<{ blob: Blob; url: string; pdf: boolean; name: string } | null>(null); const [docRef, setDocRef] = useState<string | null>(null);
   const [step, setStep] = useState<"pick" | "reading" | "review">("pick");
   const [dups, setDups] = useState<ScanResult["possible_duplicates"]>([]); const [hint, setHint] = useState<string | null>(null);
-  const [f, setF] = useState({ date: "", amount: "", description: "", category: "", supplier: "", method: "", rfc: "" });
+  const [f, setF] = useState({ date: "", amount: "", currency: "MXN", description: "", category: "", supplier: "", method: "", rfc: "" });
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
-  const currency = org?.base_currency ?? "MXN";
+  void org;
   if (!can("expense.manage")) return null;
 
-  function reset() { if (image) URL.revokeObjectURL(image.url); setImage(null); setStep("pick"); setError(null); setDups([]); setHint(null); setF({ date: "", amount: "", description: "", category: "", supplier: "", method: "", rfc: "" }); }
+  function reset() { if (image) URL.revokeObjectURL(image.url); setImage(null); setStep("pick"); setError(null); setDups([]); setHint(null); setDocRef(null); setF({ date: "", amount: "", currency: "MXN", description: "", category: "", supplier: "", method: "", rfc: "" }); }
 
   async function onFile(file: File | undefined) {
     if (!file) return; setError(null);
     try {
-      const blob = await compress(file); setImage({ blob, url: URL.createObjectURL(blob) }); setStep("reading");
-      const fd = new FormData(); fd.append("file", blob, "ticket.jpg");
+      const pdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+      if (pdf && file.size > 10 * 1024 * 1024) throw new ApiError(400, "Archivo grande", "El PDF excede 10 MB.");
+      const blob = pdf ? file : await compress(file); const name = pdf ? file.name : "ticket.jpg";
+      setImage({ blob, url: URL.createObjectURL(blob), pdf, name }); setStep("reading");
+      const fd = new FormData(); fd.append("file", blob, name);
       const res = await fetch("/api/v1/expenses/scan", { method: "POST", body: fd, credentials: "same-origin" }); const data = await res.json().catch(() => null);
       if (!res.ok) throw new ApiError(res.status, data?.title ?? "Error", data?.detail);
       const r = data as ScanResult, d = r.draft;
-      setDups(r.possible_duplicates);
+      setDups(r.possible_duplicates); setDocRef(r.document_reference);
       setHint(!d.is_receipt ? "No parece un ticket o comprobante. Revisa la foto." : d.notes ?? (d.confidence === "low" ? "Lectura poco segura: revisa cada dato." : null));
-      setF({ date: d.date ?? "", amount: d.total_minor != null ? (d.total_minor / 100).toFixed(2) : "", description: d.description || d.merchant || "", category: d.category ?? "", supplier: d.merchant ?? "", method: d.payment_method ?? "", rfc: d.merchant_tax_id ?? "" });
+      setF({ date: d.date ?? "", amount: d.total_minor != null ? (d.total_minor / 100).toFixed(2) : "", currency: d.currency || "MXN", description: d.description || d.merchant || "", category: d.category ?? "", supplier: d.merchant ?? "", method: d.payment_method ?? "", rfc: d.merchant_tax_id ?? "" });
       setStep("review");
     } catch (e) { setError(err(e, "No se pudo leer la foto. Puedes capturar el gasto a mano.")); setStep("pick"); }
   }
@@ -57,27 +60,27 @@ export function ScanReceiptButton({ onSaved }: { onSaved: () => Promise<unknown>
   async function save() {
     if (!image) return; setBusy(true); setError(null);
     try {
-      const exp = await api<{ id: string }>("/expenses", { body: { spent_at: f.date, description: f.description.trim(), category: f.category.trim() || undefined, amount_minor: toMinor(f.amount), currency, supplier_name: f.supplier.trim() || undefined } });
-      const fd = new FormData(); fd.append("file", image.blob, "ticket.jpg");
+      const exp = await api<{ id: string }>("/expenses", { body: { spent_at: f.date, description: f.description.trim(), category: f.category.trim() || undefined, amount_minor: toMinor(f.amount), currency: f.currency, supplier_name: f.supplier.trim() || undefined, external_reference: docRef ?? undefined } });
+      const fd = new FormData(); fd.append("file", image.blob, image.name);
       await fetch(`/api/v1/expenses/${exp.id}/receipt`, { method: "POST", body: fd, credentials: "same-origin" }).catch(() => null); // el gasto ya existe: si la foto falla se puede adjuntar luego
       await onSaved(); setOpen(false); reset();
     } catch (e) { setError(err(e, "No se pudo guardar el gasto.")); } finally { setBusy(false); }
   }
 
-  const valid = /^\d{4}-\d{2}-\d{2}$/.test(f.date) && f.description.trim() && Number(f.amount) > 0;
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(f.date) && f.description.trim() && Number(f.amount) > 0 && /^[A-Z]{3}$/.test(f.currency);
   return (
     <>
       <Button variant="outline" onClick={() => { reset(); setOpen(true); }}><ScanLine />Escanear ticket</Button>
       <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
-        <DialogHeader><DialogTitle>Escanear ticket</DialogTitle><DialogDescription>Toma o sube una foto del ticket. Leemos fecha, total y comercio; tú revisas y confirmas antes de guardar.</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>Escanear ticket o recibo</DialogTitle><DialogDescription>Toma una foto o sube un PDF (por ejemplo, el recibo de Vercel, Supabase o Resend). Leemos fecha, total, moneda y comercio; tú revisas y confirmas antes de guardar.</DialogDescription></DialogHeader>
         {step === "pick" && (
           <div className="space-y-3">
             {/* Dos entradas: con `capture` el iPhone abre solo la cámara; sin él ofrece fototeca, archivos y cámara. */}
             <input ref={camera} type="file" accept="image/*" capture="environment" className="sr-only" aria-label="Tomar foto del ticket" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ""; }} />
-            <input ref={gallery} type="file" accept="image/*" className="sr-only" aria-label="Elegir foto del ticket de la galería" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ""; }} />
+            <input ref={gallery} type="file" accept="image/*,application/pdf,.pdf" className="sr-only" aria-label="Elegir foto o PDF" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ""; }} />
             <div className="grid gap-2 sm:grid-cols-2">
               <Button onClick={() => camera.current?.click()}><Camera />Tomar foto</Button>
-              <Button variant="outline" onClick={() => gallery.current?.click()}><ImageIcon />Elegir de la galería</Button>
+              <Button variant="outline" onClick={() => gallery.current?.click()}><ImageIcon />Foto de galería o PDF</Button>
             </div>
             <p className="text-xs text-muted-foreground">Procura envía la imagen al servicio de lectura de Claude solo para extraer los datos. Procura nunca guarda un gasto sin que lo confirmes. Funciona mejor con el ticket completo, bien iluminado y sin dobleces.</p>
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
@@ -85,14 +88,18 @@ export function ScanReceiptButton({ onSaved }: { onSaved: () => Promise<unknown>
         {step === "reading" && <div className="space-y-3 text-center text-sm"><div className="mx-auto h-48 w-40 animate-pulse rounded-lg bg-muted" /><p role="status">Leyendo el ticket…</p></div>}
         {step === "review" && image && (
           <div className="grid gap-4 sm:grid-cols-[10rem_1fr]">
-            {/* eslint-disable-next-line @next/next/no-img-element -- vista previa local (blob:), no una imagen servida */}
-            <img src={image.url} alt="Foto del ticket" className="max-h-72 w-full rounded-lg border object-contain" />
+            {image.pdf ? (
+              <div className="flex h-40 flex-col items-center justify-center gap-2 rounded-lg border p-2 text-center text-xs text-muted-foreground"><FileText className="size-8" /><span className="break-all">{image.name}</span></div>
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element -- vista previa local (blob:), no una imagen servida
+              <img src={image.url} alt="Foto del ticket" className="max-h-72 w-full rounded-lg border object-contain" />
+            )}
             <div className="space-y-3">
               {hint && <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">{hint}</p>}
               {dups.length > 0 && <p role="alert" className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs">Ya hay un gasto con la misma fecha e importe: {dups.map((d) => <Link key={d.id} href="/gastos" className="underline">{d.description}</Link>)}. Verifica que no lo dupliques.</p>}
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1"><Label htmlFor="s-date" className="text-xs">Fecha *</Label><Input id="s-date" type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></div>
-                <div className="space-y-1"><Label htmlFor="s-amt" className="text-xs">Total ({currency}) *</Label><Input id="s-amt" inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></div>
+                <div className="space-y-1"><Label htmlFor="s-amt" className="text-xs">Total *</Label><div className="flex gap-1"><Input id="s-amt" inputMode="decimal" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /><Input aria-label="Moneda" className="w-16 uppercase" maxLength={3} value={f.currency} onChange={(e) => setF({ ...f, currency: e.target.value.toUpperCase() })} /></div></div>
               </div>
               <div className="space-y-1"><Label htmlFor="s-desc" className="text-xs">Descripción *</Label><Input id="s-desc" maxLength={300} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-2">

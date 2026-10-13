@@ -8,22 +8,22 @@ import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { supabaseAdmin, ensureAttachmentsBucket, ATTACHMENTS_BUCKET } from "@/lib/supabase/admin";
 import { sanitizeFilename } from "@/lib/attachments/validate";
-import { sniffImage } from "@/lib/expenses/receipt-ocr";
+import { sniffReceiptFile } from "@/lib/expenses/receipt-ocr";
 
-const MAX_BYTES = 8 * 1024 * 1024;
+const MAX_BYTES = 10 * 1024 * 1024;
 
-/** Guarda la foto del ticket como evidencia interna del gasto (se lee con GET /attachments?anchor_type=EXPENSE&anchor_id=…). */
+/** Guarda la foto del ticket o el PDF del recibo como evidencia interna del gasto (se lee con GET /attachments?anchor_type=EXPENSE&anchor_id=…). */
 export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
   authorize(actor, "expense.manage");
   await rateLimit("expense-receipt", actor.organizationId, { windowSeconds: 3600, max: 200 });
   const form = await req.formData();
   const file = form.get("file");
-  if (!(file instanceof File) || file.size === 0) throw Problem.badRequest("Falta la foto del ticket (campo 'file')");
-  if (file.size > MAX_BYTES) throw Problem.badRequest("La foto excede 8 MB");
+  if (!(file instanceof File) || file.size === 0) throw Problem.badRequest("Falta el archivo (campo 'file')");
+  if (file.size > MAX_BYTES) throw Problem.badRequest("El archivo excede 10 MB");
   const bytes = Buffer.from(await file.arrayBuffer());
-  const mime = sniffImage(bytes);
-  if (!mime) throw Problem.badRequest("Sube una imagen JPG, PNG o WebP.");
+  const mime = sniffReceiptFile(bytes);
+  if (!mime) throw Problem.badRequest("Sube una imagen JPG, PNG o WebP, o un PDF.");
   await ensureAttachmentsBucket();
   const key = `${actor.organizationId}/${randomUUID()}`;
   const checksum = createHash("sha256").update(bytes).digest("hex");
@@ -35,7 +35,7 @@ export const POST = route(async (req, params) => {
       if (!e) throw Problem.notFound();
       const a = await tx.attachments.create({ data: {
         owner_organization_id: actor.organizationId, uploaded_by_membership_id: actor.membershipId, anchor_type: "EXPENSE", anchor_id: e.id, visibility: "INTERNAL", kind: "EVIDENCE",
-        storage_key: key, filename: sanitizeFilename(file.name || "ticket.jpg"), mime_type: mime, size_bytes: BigInt(bytes.length), checksum_sha256: checksum } });
+        storage_key: key, filename: sanitizeFilename(file.name || (mime === "application/pdf" ? "comprobante.pdf" : "ticket.jpg")), mime_type: mime, size_bytes: BigInt(bytes.length), checksum_sha256: checksum } });
       await audit(tx, { ...auditBase(actor), action: "attachment.uploaded", resourceType: "expense", resourceId: e.id, resourceLabel: e.description, metadata: { attachment_id: a.id, kind: "ticket" } });
       return { id: a.id, filename: a.filename, mime_type: a.mime_type, size_bytes: a.size_bytes };
     });
