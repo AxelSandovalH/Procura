@@ -15,7 +15,7 @@ interface Billing {
   access: "LEGACY" | "NEW" | "PLAN" | "LAPSED"; plan: "esencial" | "control" | "negocio" | null; grace_days: number; can_manage: boolean;
   subscription: { plan: string | null; status: string; current_period_end: string | null; cancel_at_period_end: boolean; grace_until: string | null; has_customer: boolean } | null;
   readiness: { enabled: boolean; webhook: boolean; tax_rate: boolean; plans: Record<string, boolean>; packs: Record<string, boolean> };
-  credits: { required: boolean; balance: number; available: number; history: { id: string; delta: number; kind: string; note: string | null; created_at: string }[] };
+  credits: { required: boolean; balance: number; available: number; level: "OK" | "LOW" | "EMPTY"; low_threshold: number; history: { id: string; delta: number; kind: string; note: string | null; created_at: string }[] };
 }
 const STATUS: Record<string, string> = { ACTIVE: "Activa", PAST_DUE: "Pago pendiente", CANCELED: "Cancelada", INCOMPLETE: "Incompleta", NONE: "Sin suscripción" };
 const KIND: Record<string, string> = { PURCHASE: "Compra", CONSUME: "Timbrado", ADJUST: "Ajuste" };
@@ -79,6 +79,7 @@ function PlanInner() {
 
       <Card><CardHeader><CardTitle>Créditos de timbrado</CardTitle></CardHeader><CardContent className="space-y-4 text-sm">
         <p>Cada factura (CFDI) que emites consume <b>un crédito</b>, solo cuando el timbrado resulta exitoso. Los créditos se compran aparte de la suscripción y no caducan.</p>
+        {d.credits.required && d.credits.level !== "OK" && <p role={d.credits.level === "EMPTY" ? "alert" : "note"} className={`rounded-lg border px-3 py-2 ${d.credits.level === "EMPTY" ? "border-red-500/40 bg-red-500/10" : "border-amber-500/40 bg-amber-500/10"}`}>{d.credits.level === "EMPTY" ? "Te quedaste sin créditos: no podrás emitir facturas hasta recargar." : `Quedan pocos créditos (${d.credits.available}, el aviso salta con ${d.credits.low_threshold} o menos). Recarga para no interrumpir tu facturación.`}</p>}
         <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1"><p><span className="text-3xl font-semibold tabular-nums">{d.credits.available}</span> disponibles</p>{d.credits.available !== d.credits.balance && <p className="text-muted-foreground">Saldo {d.credits.balance} (hay emisiones en curso)</p>}</div>
         {!d.credits.required && <p className="text-xs text-muted-foreground">Mientras no compres un paquete, tu organización timbra con su propia cuenta del proveedor fiscal y no consume créditos. Al comprar el primer paquete, cada timbrado consumirá uno.</p>}
         <div className="flex flex-wrap gap-2">{PACKS.map((n) => <Button key={n} variant="outline" disabled={!d.can_manage || !ready.enabled || !ready.packs[n] || busy === `pack${n}`} onClick={() => void go(`pack${n}`, "/billing/credits", { pack: n })}>{busy === `pack${n}` ? "Abriendo…" : ready.packs[n] ? `Comprar ${n} créditos · ${money(chargeBreakdown(STAMP_PACKS.proposed.find((x) => x.cfdi === n)!.priceMinor).total)} con cargo e IVA` : `${n} créditos (no disponible aún)`}</Button>)}</div>

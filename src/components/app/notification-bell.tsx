@@ -11,6 +11,7 @@ interface Notification { id: string; title: string; body: string | null; type: s
 
 /** Solo las entidades que ya tienen pantalla enlazan; el resto se marca leída sin navegar. */
 function hrefFor(n: Notification): string | null {
+  if (n.resource_type === "organization") return "/suscripcion";
   if (n.resource_type === "requisition" && n.resource_id) return `/requisiciones/${n.resource_id}`;
   return null;
 }

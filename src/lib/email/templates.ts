@@ -14,6 +14,7 @@ export function notificationPath(n: Pick<EmailNotification, "resource_type" | "r
     case "quotation": return id ? `/cotizaciones/${id}` : "/solicitudes";
     case "order": return id ? `/ordenes/${id}` : "/ordenes";
     case "relationship": return id ? `/relaciones/${id}` : "/relaciones";
+    case "organization": return "/suscripcion";
     case "thread": {
       const a = n.anchor_id;
       if (n.anchor_type === "ORDER" && a) return `/ordenes/${a}`;

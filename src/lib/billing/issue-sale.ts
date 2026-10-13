@@ -12,7 +12,7 @@ import { saleView } from "@/lib/finance/views";
 import { FiscalProviderError } from "@/lib/fiscal/provider";
 import { getFiscalProvider } from "@/lib/fiscal/fiscalapi";
 import { tryGeneratePdf, type StoredPdf } from "@/lib/billing/cfdi-pdf";
-import { addLedger, availableCredits, creditsRequired } from "@/lib/billing/credits";
+import { availableCredits, consumeCredit, creditsRequired } from "@/lib/billing/credits";
 import { assertFeature } from "@/lib/billing/entitlements";
 
 export const IssueBody = z.object({
@@ -134,7 +134,7 @@ export async function issueSaleCfdi(input: IssueSaleInput) {
       await tx.cfdi_documents.update({ where: { id: doc.id }, data: { provider: provider.name, provider_external_id: issued.providerInvoiceId, sat_status: "VIGENTE", sat_status_checked_at: new Date(), last_synced_at: new Date() } });
       await linkCfdi(tx, organizationId, membershipId, "sale", prep.sale.id, doc.id);
       await tx.fiscal_issue_requests.update({ where: { id: prep.reqRow.id }, data: { status: "DONE", cfdi_id: doc.id, provider_invoice_id: issued.providerInvoiceId, updated_at: new Date() } });
-      if (prep.needsCredit) await addLedger(tx, organizationId, -1, "CONSUME", prep.reqRow.id, `Timbrado de ${prep.sale.folio}`);
+      if (prep.needsCredit) await consumeCredit(tx, organizationId, prep.reqRow.id, `Timbrado de ${prep.sale.folio}`);
       await audit(tx, { ...input.auditBase, action: "cfdi.issued", resourceType: "sale", resourceId: prep.sale.id, resourceLabel: prep.sale.folio, metadata: { cfdi_id: doc.id, fiscal_uuid: parsed.fiscalUuid, provider: provider.name, provider_invoice_id: issued.providerInvoiceId, total_minor: parsed.totalMinor.toString(), source: input.source ?? "USER" } });
       return { sale: await saleView(tx, await tx.sales.findUniqueOrThrow({ where: { id: prep.sale.id } })), cfdi: { id: doc.id, fiscal_uuid: parsed.fiscalUuid, xml_key: key, xml: issued.xml! } };
     });

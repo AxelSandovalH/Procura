@@ -1,5 +1,11 @@
 import type { Tx } from "@/lib/db/client";
 import { Prisma } from "@prisma/client";
+import { notifyPermissionHolders } from "@/lib/events/emit";
+
+/** Con este saldo (o menos) se avisa que quedan pocos créditos de timbrado. */
+export const LOW_CREDITS_THRESHOLD = 10;
+export type CreditLevel = "OK" | "LOW" | "EMPTY";
+export const creditLevel = (available: number): CreditLevel => (available <= 0 ? "EMPTY" : available <= LOW_CREDITS_THRESHOLD ? "LOW" : "OK");
 
 /** Libro de créditos de timbrado: solo se agregan movimientos; el saldo es su suma. Cada compra y cada consumo se identifican por su referencia, así que repetirlos no duplica nada. */
 export async function creditBalance(tx: Tx, organizationId: string): Promise<number> {
@@ -21,4 +27,23 @@ export async function addLedger(tx: Tx, organizationId: string, delta: number, k
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") { await tx.$executeRaw`rollback to savepoint ledger_add`; return false; }
     throw e;
   }
+}
+
+/**
+ * Descuenta un crédito tras un timbrado exitoso (idempotente por referencia) y, SOLO al cruzar el umbral, avisa a quienes administran la organización
+ * (campana y correo): una vez al quedar con pocos créditos y otra al quedar sin ninguno.
+ */
+export async function consumeCredit(tx: Tx, organizationId: string, reference: string, note: string): Promise<{ added: boolean; balance: number }> {
+  const added = await addLedger(tx, organizationId, -1, "CONSUME", reference, note);
+  const balance = await creditBalance(tx, organizationId);
+  if (!added) return { added, balance };
+  const before = creditLevel(balance + 1), after = creditLevel(balance);
+  if (after !== before && after !== "OK") {
+    await notifyPermissionHolders(tx, {
+      organizationId, permission: "organization.update", type: after === "EMPTY" ? "billing.credits_empty" : "billing.credits_low", resourceType: "organization", resourceId: organizationId,
+      title: after === "EMPTY" ? "Te quedaste sin créditos de timbrado" : `Te quedan ${balance} créditos de timbrado`,
+      body: after === "EMPTY" ? "No podrás emitir facturas hasta recargar. Compra un paquete en Suscripción." : "Recarga pronto para no interrumpir tu facturación: compra un paquete en Suscripción.",
+    });
+  }
+  return { added, balance };
 }
