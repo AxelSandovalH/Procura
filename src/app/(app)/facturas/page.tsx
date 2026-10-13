@@ -28,12 +28,16 @@ export default function FacturasPage() {
   const [tab, setTab] = useState<"ISSUED" | "RECEIVED">("RECEIVED");
   const [f, setF] = useState({ q: "", from: "", to: "", unlinked: false });
   const [upload, setUpload] = useState(false); const [openId, setOpenId] = useState<string | null>(null);
+  const [picked, setPicked] = useState<Set<string>>(new Set()); const [making, setMaking] = useState(false);
   const qs = new URLSearchParams({ direction: tab, ...(f.q ? { q: f.q } : {}), ...(f.from ? { from: f.from } : {}), ...(f.to ? { to: f.to } : {}), ...(f.unlinked ? { unlinked: "1" } : {}) }).toString();
   const list = useQuery({ queryKey: ["cfdi", "list", qs], queryFn: () => api<{ data: Cfdi[] }>(`/cfdi?${qs}`), enabled: session.can("cfdi.read") });
   const provider = useQuery({ queryKey: ["fiscal-provider"], queryFn: () => api<Provider>("/fiscal/provider"), enabled: session.can("cfdi.read"), staleTime: 60_000 });
   const refresh = () => Promise.all(["cfdi", "sale", "sales", "expenses", "expense"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
   if (!session.can("cfdi.read")) return <p className="text-sm text-muted-foreground">No tienes permiso para ver comprobantes fiscales.</p>;
   const rows = list.data?.data ?? [];
+  const selectable = tab === "RECEIVED" ? rows.filter((c) => c.cfdi_type === "I" && Number(c.allocated_minor) === 0 && c.sat_status !== "CANCELADO") : [];
+  const chosen = [...picked].filter((id) => selectable.some((c) => c.id === id));
+  const togglePick = (id: string) => setPicked((cur) => { const n = new Set(cur); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const tabs: [typeof tab, string][] = [["RECEIVED", "Recibidas"], ["ISSUED", "Emitidas"]];
 
   return (
@@ -50,15 +54,17 @@ export default function FacturasPage() {
         <div className="relative min-w-52 flex-1 sm:max-w-xs"><Search className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" /><Input aria-label="Buscar" className="pl-8" placeholder="UUID, folio, nombre o RFC" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} /></div>
         <Input aria-label="Desde" type="date" className="w-40" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} />
         <Input aria-label="Hasta" type="date" className="w-40" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} />
+        {chosen.length > 0 && session.can("expense.manage") && <Button variant="outline" onClick={() => setMaking(true)}>Crear gasto{chosen.length > 1 ? `s (${chosen.length})` : ""} de la selección</Button>}
         <label className="flex items-center gap-2 pb-2 text-sm"><input type="checkbox" checked={f.unlinked} onChange={(e) => setF({ ...f, unlinked: e.target.checked })} />Solo sin ligar</label>
       </div>
       {list.isLoading ? <div className="h-40 animate-pulse rounded-xl bg-muted" /> : rows.length === 0 ? (
         <div className="flex flex-col items-center rounded-xl border border-dashed p-12 text-center"><FileText className="mb-2 size-8 text-muted-foreground" /><p className="font-medium">Sin comprobantes {tab === "ISSUED" ? "emitidos" : "recibidos"}</p><p className="mt-1 text-sm text-muted-foreground">Carga el XML del CFDI para registrarlo.</p></div>
       ) : (
         <div className="overflow-x-auto rounded-xl border"><Table>
-          <TableHeader><TableRow><TableHead>Folio</TableHead><TableHead>Fecha</TableHead><TableHead>{tab === "ISSUED" ? "Receptor" : "Emisor"}</TableHead><TableHead>Tipo</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="text-right">Sin ligar</TableHead><TableHead>Vigencia</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow>{tab === "RECEIVED" && <TableHead className="w-8"><input type="checkbox" aria-label="Seleccionar todas las facturas sin gasto" checked={selectable.length > 0 && chosen.length === selectable.length} onChange={(e) => setPicked(e.target.checked ? new Set(selectable.map((c) => c.id)) : new Set())} /></TableHead>}<TableHead>Folio</TableHead><TableHead>Fecha</TableHead><TableHead>{tab === "ISSUED" ? "Receptor" : "Emisor"}</TableHead><TableHead>Tipo</TableHead><TableHead className="text-right">Total</TableHead><TableHead className="text-right">Sin ligar</TableHead><TableHead>Vigencia</TableHead></TableRow></TableHeader>
           <TableBody>{rows.map((c) => (
             <TableRow key={c.id} className="cursor-pointer" onClick={() => setOpenId(c.id)}>
+              {tab === "RECEIVED" && <TableCell onClick={(e) => e.stopPropagation()}>{selectable.some((x) => x.id === c.id) ? <input type="checkbox" aria-label={`Seleccionar ${label(c)}`} checked={picked.has(c.id)} onChange={() => togglePick(c.id)} /> : null}</TableCell>}
               <TableCell className="font-medium"><button className="text-left hover:underline" onClick={() => setOpenId(c.id)}>{label(c)}</button><div className="max-w-40 truncate font-mono text-xs text-muted-foreground" title={c.fiscal_uuid}>{c.fiscal_uuid}</div></TableCell>
               <TableCell>{dateShort(c.issued_at)}</TableCell>
               <TableCell>{tab === "ISSUED" ? c.receiver_name ?? c.receiver_rfc : c.issuer_name ?? c.issuer_rfc}</TableCell><TableCell className="text-muted-foreground">{TYPE[c.cfdi_type] ?? c.cfdi_type}</TableCell>
@@ -66,38 +72,73 @@ export default function FacturasPage() {
               <TableCell><StatusBadge {...(SAT_STATUS[c.sat_status] ?? { label: c.sat_status, tone: "neutral" as const })} /></TableCell>
             </TableRow>))}</TableBody>
         </Table></div>)}
+      <ExpensesFromCfdi ids={chosen} open={making} onOpenChange={setMaking} onDone={async () => { setPicked(new Set()); await refresh(); }} />
       <UploadCfdi open={upload} onOpenChange={setUpload} defaultDirection={tab} onDone={refresh} />
       <CfdiDetail id={openId} onClose={() => setOpenId(null)} />
     </>
   );
 }
 
+interface BulkResult { file: string; status: "CREATED" | "DUPLICATE" | "ERROR" | "IGNORED"; message?: string; fiscal_uuid?: string; direction?: string }
+const STATUS_TEXT: Record<BulkResult["status"], { label: string; tone: "ok" | "warn" | "bad" | "muted" }> = { CREATED: { label: "Cargado", tone: "ok" }, DUPLICATE: { label: "Ya existía", tone: "warn" }, ERROR: { label: "Error", tone: "bad" }, IGNORED: { label: "Ignorado", tone: "muted" } };
+
+/** Carga masiva: varios XML (con sus PDF del mismo nombre) o un ZIP. Cada archivo se procesa por separado. */
 function UploadCfdi({ open, onOpenChange, defaultDirection, onDone }: { open: boolean; onOpenChange: (o: boolean) => void; defaultDirection: "ISSUED" | "RECEIVED"; onDone: () => Promise<unknown> }) {
-  const xml = useRef<HTMLInputElement>(null); const pdf = useRef<HTMLInputElement>(null);
+  const input = useRef<HTMLInputElement>(null);
   const [dir, setDir] = useState<"" | "ISSUED" | "RECEIVED">(""); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
+  const [out, setOut] = useState<{ summary: { created: number; duplicates: number; errors: number; ignored: number }; results: BulkResult[] } | null>(null);
   async function go() {
-    const x = xml.current?.files?.[0]; if (!x) { setError("Selecciona el XML del CFDI."); return; }
-    setBusy(true); setError(null);
+    const files = Array.from(input.current?.files ?? []); if (files.length === 0) { setError("Selecciona uno o más archivos XML (y sus PDF) o un ZIP."); return; }
+    setBusy(true); setError(null); setOut(null);
     try {
-      const fd = new FormData(); fd.append("xml", x); const p = pdf.current?.files?.[0]; if (p) fd.append("pdf", p); if (dir) fd.append("direction", dir);
-      const res = await fetch("/api/v1/cfdi", { method: "POST", body: fd, credentials: "same-origin" }); const data = await res.json().catch(() => null);
+      const fd = new FormData(); for (const f of files) fd.append("files", f); if (dir) fd.append("direction", dir);
+      const res = await fetch("/api/v1/cfdi/bulk", { method: "POST", body: fd, credentials: "same-origin" }); const data = await res.json().catch(() => null);
       if (!res.ok) throw new ApiError(res.status, data?.title ?? "Error", data?.detail);
-      await onDone(); onOpenChange(false);
-    } catch (e) { setError(apiErr(e, "No se pudo cargar el CFDI.")); } finally { setBusy(false); }
+      setOut(data); await onDone();
+    } catch (e) { setError(apiErr(e, "No se pudieron cargar los archivos.")); } finally { setBusy(false); }
   }
   return (
-    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) setError(null); }}><DialogContent>
-      <DialogHeader><DialogTitle>Cargar CFDI</DialogTitle><DialogDescription>Sube el XML timbrado (obligatorio) y, si quieres, el PDF. Leemos el XML; el folio fiscal no se puede repetir.</DialogDescription></DialogHeader>
-      <div className="space-y-3">
-        <div className="space-y-1.5"><Label htmlFor="c-xml">XML *</Label><input id="c-xml" ref={xml} type="file" accept=".xml,text/xml,application/xml" className="block w-full text-sm" /></div>
-        <div className="space-y-1.5"><Label htmlFor="c-pdf">PDF (opcional)</Label><input id="c-pdf" ref={pdf} type="file" accept=".pdf,application/pdf" className="block w-full text-sm" /></div>
-        <div className="space-y-1.5"><Label htmlFor="c-dir">Tipo de comprobante</Label>
-          <select id="c-dir" className="h-9 w-full rounded-lg border bg-background px-2 text-sm" value={dir} onChange={(e) => setDir(e.target.value as typeof dir)}>
-            <option value="">Detectar por el RFC de mi organización</option><option value="RECEIVED">Recibido (me lo emitió un proveedor)</option><option value="ISSUED">Emitido (lo emití yo)</option></select>
-          <p className="text-xs text-muted-foreground">Si tu organización tiene RFC registrado, se deduce solo; si no, elige uno. Pestaña actual: {defaultDirection === "ISSUED" ? "emitidas" : "recibidas"}.</p></div>
-        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      </div>
-      <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancelar</Button><Button onClick={() => void go()} disabled={busy}>{busy ? "Leyendo…" : "Cargar"}</Button></DialogFooter>
+    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { setError(null); setOut(null); } }}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+      <DialogHeader><DialogTitle>Cargar CFDI</DialogTitle><DialogDescription>Sube varios XML a la vez, o un ZIP con ellos. Si incluyes el PDF con el mismo nombre que el XML, se guarda junto. El folio fiscal no se puede repetir.</DialogDescription></DialogHeader>
+      {!out ? (
+        <div className="space-y-3">
+          <div className="space-y-1.5"><Label htmlFor="c-files">Archivos (.xml, .pdf o .zip) *</Label><input id="c-files" ref={input} type="file" multiple accept=".xml,.pdf,.zip,text/xml,application/xml,application/pdf,application/zip" className="block w-full text-sm" /></div>
+          <div className="space-y-1.5"><Label htmlFor="c-dir">Tipo de comprobante</Label>
+            <select id="c-dir" className="h-9 w-full rounded-lg border bg-background px-2 text-sm" value={dir} onChange={(e) => setDir(e.target.value as typeof dir)}>
+              <option value="">Detectar por el RFC de mi organización</option><option value="RECEIVED">Recibidos (me los emitieron)</option><option value="ISSUED">Emitidos (los emití yo)</option></select>
+            <p className="text-xs text-muted-foreground">Con tu RFC registrado se deduce solo para cada comprobante. Pestaña actual: {defaultDirection === "ISSUED" ? "emitidas" : "recibidas"}.</p></div>
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        </div>
+      ) : (
+        <div className="space-y-3 text-sm">
+          <p role="status" className="font-medium">{out.summary.created} cargado{out.summary.created === 1 ? "" : "s"} · {out.summary.duplicates} ya existían · {out.summary.errors} con error{out.summary.ignored ? ` · ${out.summary.ignored} ignorados` : ""}</p>
+          <ul className="max-h-72 space-y-1.5 overflow-y-auto">{out.results.map((r, i) => (
+            <li key={i} className="flex items-start justify-between gap-2 rounded-lg border px-3 py-2"><span className="min-w-0"><span className="block truncate font-medium">{r.file}</span>{r.message && <span className="block text-xs text-muted-foreground">{r.message}</span>}</span><StatusBadge label={STATUS_TEXT[r.status].label} tone={STATUS_TEXT[r.status].tone} /></li>))}</ul>
+        </div>)}
+      <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>{out ? "Cerrar" : "Cancelar"}</Button>{!out && <Button onClick={() => void go()} disabled={busy}>{busy ? "Leyendo…" : "Cargar"}</Button>}</DialogFooter>
+    </DialogContent></Dialog>
+  );
+}
+
+/** Crea un gasto por cada CFDI recibido seleccionado, ya ligado a su comprobante. */
+function ExpensesFromCfdi({ ids, open, onOpenChange, onDone }: { ids: string[]; open: boolean; onOpenChange: (o: boolean) => void; onDone: () => Promise<unknown> }) {
+  const [category, setCategory] = useState(""); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
+  const [out, setOut] = useState<{ summary: { created: number; skipped: number; errors: number }; results: { cfdi_id: string; status: string; message?: string }[] } | null>(null);
+  async function go() {
+    setBusy(true); setError(null);
+    try { setOut(await api("/cfdi/expenses", { body: { cfdi_ids: ids, category: category.trim() || undefined } })); await onDone(); }
+    catch (e) { setError(apiErr(e, "No se pudieron crear los gastos.")); } finally { setBusy(false); }
+  }
+  return (
+    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { setOut(null); setError(null); } }}><DialogContent>
+      <DialogHeader><DialogTitle>Crear gastos desde {ids.length} factura{ids.length === 1 ? "" : "s"}</DialogTitle><DialogDescription>Se crea un gasto por cada una (fecha, monto y emisor del CFDI) ya ligado a su comprobante. No se duplican las que ya tienen gasto.</DialogDescription></DialogHeader>
+      {!out ? (
+        <div className="space-y-3"><div className="space-y-1.5"><Label htmlFor="e-cat">Categoría (opcional, para todas)</Label><Input id="e-cat" maxLength={80} value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Insumos, servicios…" /></div>{error && <p role="alert" className="text-sm text-destructive">{error}</p>}</div>
+      ) : (
+        <div className="space-y-2 text-sm"><p role="status" className="font-medium">{out.summary.created} gasto{out.summary.created === 1 ? "" : "s"} creado{out.summary.created === 1 ? "" : "s"} · {out.summary.skipped} omitido{out.summary.skipped === 1 ? "" : "s"} · {out.summary.errors} con error</p>
+          {out.results.filter((r) => r.status !== "CREATED").map((r) => <p key={r.cfdi_id} className="text-xs text-muted-foreground">{r.status === "SKIPPED" ? "Omitido" : "Error"}: {r.message}</p>)}
+          <Link href="/gastos" className="inline-block underline">Ver gastos</Link></div>)}
+      <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>{out ? "Cerrar" : "Cancelar"}</Button>{!out && <Button onClick={() => void go()} disabled={busy}>{busy ? "Creando…" : "Crear gastos"}</Button>}</DialogFooter>
     </DialogContent></Dialog>
   );
 }

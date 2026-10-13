@@ -4,10 +4,11 @@
 import { randomUUID } from "node:crypto";
 import { Client, db, orgId, APP, env } from "./client.mjs";
 import { createClient } from "@supabase/supabase-js";
+import JSZip from "jszip";
 
 if (process.env.PROCURA_TEST_CONFIRM !== "yes") { console.error("Define PROCURA_TEST_CONFIRM=yes para confirmar que puedes escribir datos de prueba en la base de .env.local."); process.exit(2); }
 
-let pass = 0, fail = 0; const failures = [];
+let r; let pass = 0, fail = 0; const failures = [];
 const check = (name, ok, extra = "") => { if (ok) { pass++; console.log("  ✔", name); } else { fail++; failures.push(name); console.log("  ✘", name, extra); } };
 const D = (b) => Number(b); // bigint serializado como número por la API
 
@@ -34,7 +35,7 @@ try {
   const body = { sold_at: "2026-10-06", description: `Comida de prueba ${tag}`, payment_method: "CARD", lines: [
     { description: "Platillo", quantity: 3, unit_price_minor: 15000, tax_rate: 0.16 }, { description: "Bebida", quantity: 2, unit_price_minor: 5000, discount_minor: 1000, tax_rate: 0.16 } ] };
   const idem = randomUUID();
-  let r = await axel.call("/sales", "POST", body, { "idempotency-key": idem }); const sale = r.body; created.sales.push(sale?.id);
+  r = await axel.call("/sales", "POST", body, { "idempotency-key": idem }); const sale = r.body; created.sales.push(sale?.id);
   check("crea la venta (201)", r.status === 201, JSON.stringify(r.body)?.slice(0, 200));
   const gross = 45000 + 10000, tax = Math.round(45000 * 0.16) + Math.round(9000 * 0.16), total = gross - 1000 + tax;
   check("subtotal, descuento, impuestos y total correctos", D(sale.subtotal_minor) === gross && D(sale.discount_minor) === 1000 && D(sale.tax_minor) === tax && D(sale.total_minor) === total, `${sale.subtotal_minor}/${sale.tax_minor}/${sale.total_minor}`);
@@ -117,6 +118,28 @@ try {
     check("al rechazarse, el comprador ya no conserva ese CFDI recibido", ((await axel.call("/cfdi?direction=RECEIVED&q=" + uInv)).body?.data ?? []).length === 0);
   }
 
+  console.log("Carga masiva (XML + PDF + ZIP) y gastos desde CFDI");
+  const b1 = U(), b2 = U(), b3 = U();
+  const zip = new JSZip(); zip.file("carpeta/uno.xml", cfdiXml(b1, "100.00", "116.00", { rfcE: "AAA010101AAA", rfcR: "EKU9003173C9" })); zip.file("carpeta/uno.pdf", "%PDF-1.4 prueba"); zip.file("dos.xml", cfdiXml(b2, "200.00", "232.00", { rfcE: "AAA010101AAA", rfcR: "EKU9003173C9" })); zip.file("roto.xml", "<html>no es cfdi</html>"); zip.file("notas.txt", "x");
+  const zipBytes = await zip.generateAsync({ type: "nodebuffer" });
+  const bulk = async (fileList, dir) => { const f = new FormData(); for (const [n, b, t] of fileList) f.append("files", new Blob([b], { type: t }), n); if (dir) f.append("direction", dir); const r = await fetch(`${APP}/api/v1/cfdi/bulk`, { method: "POST", headers: { cookie: axel.cookie() }, body: f }); return { status: r.status, body: await r.json().catch(() => null) }; };
+  r = await bulk([["lote.zip", zipBytes, "application/zip"], ["suelto.xml", cfdiXml(b3, "50.00", "58.00", { rfcE: "AAA010101AAA", rfcR: "EKU9003173C9" }), "text/xml"]], "RECEIVED");
+  check("carga masiva: 3 comprobantes cargados, 1 con error y 1 ignorado", r.status === 200 && r.body.summary.created === 3 && r.body.summary.errors === 1 && r.body.summary.ignored === 1, JSON.stringify(r.body?.summary));
+  created.cfdi.push(...(await axel.call("/cfdi?direction=RECEIVED&q=AAA010101AAA")).body.data.map((d) => d.id));
+  check("el PDF del mismo nombre se guarda junto al XML", ((await axel.call("/cfdi?direction=RECEIVED&q=" + b1)).body?.data?.[0]?.has_pdf) === true);
+  r = await bulk([["otra-vez.xml", cfdiXml(b3, "50.00", "58.00", { rfcE: "AAA010101AAA", rfcR: "EKU9003173C9" }), "text/xml"]], "RECEIVED");
+  check("repetir un comprobante se reporta como «ya existía»", r.body?.summary?.duplicates === 1 && r.body?.summary?.created === 0);
+  const ids3 = ((await axel.call("/cfdi?direction=RECEIVED&q=AAA010101AAA")).body?.data ?? []).filter((d) => Number(d.allocated_minor) === 0).map((d) => d.id);
+  r = await axel.call("/cfdi/expenses", "POST", { cfdi_ids: ids3.slice(0, 3), category: "Insumos" });
+  check("crea un gasto por cada factura recibida, ligado y por el importe total", r.status === 200 && r.body.summary.created === Math.min(3, ids3.length), JSON.stringify(r.body?.summary));
+  for (const x of r.body?.results ?? []) if (x.expense_id) created.expenses.push(x.expense_id);
+  const firstExp = (await axel.call(`/expenses/${r.body.results.find((x) => x.expense_id).expense_id}`)).body;
+  check("el gasto nace facturado, pendiente de pago, con monto y emisor del CFDI", firstExp.invoicing_status === "INVOICED" && firstExp.payment_status === "PENDING" && !!firstExp.supplier_name && firstExp.category === "Insumos");
+  r = await axel.call("/cfdi/expenses", "POST", { cfdi_ids: ids3.slice(0, 3) });
+  check("repetir no duplica gastos", r.body?.summary?.created === 0 && r.body?.summary?.skipped === Math.min(3, ids3.length));
+  check("un CFDI emitido no origina un gasto", (await axel.call("/cfdi/expenses", "POST", { cfdi_ids: [A.id] })).body?.summary?.errors === 1);
+  check("solo con permiso: un solicitante no carga en masa (403)", (await luis.call("/cfdi/expenses", "POST", { cfdi_ids: ids3.slice(0, 1) })).status === 403);
+
   console.log("Resumen financiero");
   r = await axel.call("/finance/summary?from=2026-10-01&to=2026-10-31");
   const mx = r.body?.by_currency?.MXN;
@@ -140,7 +163,7 @@ try {
 
   console.log("Proveedor fiscal: sin simulaciones");
   r = await axel.call("/fiscal/provider");
-  check("declara que no está configurado y sin capacidades implementadas", r.status === 200 && r.body.configured === false && Object.values(r.body.capabilities).every((v) => v === false));
+  check("declara solo lo que está implementado (emitir); recuperar, vigencia, PDF y XML siguen apagados", r.status === 200 && r.body.capabilities.issue === true && !r.body.capabilities.fetchIssued && !r.body.capabilities.fetchReceived && !r.body.capabilities.statusLookup && !r.body.capabilities.downloadPdf);
   check("la sincronización responde 501, no finge", (await axel.call("/fiscal/sync", "POST", {})).status === 501);
 } catch (e) {
   fail++; failures.push("excepción: " + e.message); console.error(e);
@@ -149,7 +172,8 @@ try {
   const c = await db();
   try {
     await c.query("begin"); await c.query("set local session_replication_role = replica");
-    const sales = created.sales.filter(Boolean), exps = created.expenses.filter(Boolean);
+    const sales = created.sales.filter(Boolean);
+    const exps = [...new Set([...created.expenses.filter(Boolean), ...(await c.query("select id from expenses where organization_id = $1 and external_reference like 'CFDI:%' and created_at > now() - interval '1 hour'", [meridian])).rows.map((x) => x.id)])];
     const docs = (await c.query("select id, xml_storage_key from cfdi_documents where organization_id = any($1) and (id = any($2) or source = 'MANUAL_UPLOAD' and created_at > now() - interval '1 hour')", [[meridian, golfo], created.cfdi.filter(Boolean)])).rows;
     const invs = created.invoices.filter(Boolean);
     const invRows = (await c.query("select id, xml_storage_key, pdf_storage_key from supplier_invoices where id = any($1)", [invs])).rows;

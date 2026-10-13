@@ -277,6 +277,8 @@ Detalle del modelo y de lo que NO hace en [FINANZAS.md](FINANZAS.md). Importes e
 | POST | `/sales/{id}/payments` `{ paid_at, amount_minor, method?, external_reference?, notes? }` · `/payments/{pid}/void` `{ reason }` · `/expenses/{id}/payments` (+ `/void`) | `payment.manage` |
 | POST / DELETE | `/sales/{id}/cfdi` `{ cfdi_id, amount_minor? }` · `/sales/{id}/cfdi/{linkId}` `{ reason }` · lo mismo en `/expenses/{id}/cfdi` | `cfdi.manage` |
 | GET / POST | `/cfdi?direction=&q=&from=&to=&unlinked=1` · `POST` multipart `xml`, `pdf?`, `direction?` (se deduce del RFC de la organización) | `cfdi.read` / `cfdi.manage` |
+| POST | `/cfdi/bulk` multipart `files` (varios XML y PDF, o ZIP; el PDF se empareja con el XML del mismo nombre), `direction?` — cada archivo se procesa por separado; responde `{ summary, results[] }` con `CREATED \| DUPLICATE \| ERROR \| IGNORED` | `cfdi.manage` |
+| POST | `/cfdi/expenses` `{ cfdi_ids[] (≤100), category? }` — crea un gasto por CFDI recibido (tipo I, vigente), ligado por el importe total; no duplica (referencia `CFDI:<UUID>`) | `expense.manage` + `cfdi.manage` |
 | GET | `/cfdi/{id}` (operaciones ligadas + URLs firmadas XML/PDF) | `cfdi.read` |
 | GET / POST | `/customers` | `sale.read` / `sale.manage` |
 | GET | `/finance/summary?from=&to=` — por moneda: ventas registradas, facturación emitida/recibida, cobros, gastos, pagos, por cobrar/pagar, operaciones sin CFDI y diferencias | `finance.read` |
