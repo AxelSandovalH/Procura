@@ -9,10 +9,12 @@ import { Input } from "@/components/ui/input";
 import { useSession } from "@/hooks/use-session";
 import { api } from "@/lib/api-client";
 import { money } from "@/lib/format";
+import { Coverage, Donut, HBars, MonthlyBars } from "@/components/app/charts";
 
 type Bucket = { count: number; total_minor: number | string };
 interface Diff { kind: "sale" | "expense"; id: string; label: string; registered_minor: number | string; documented_minor: number | string; difference_minor: number | string }
 interface Cur { sales_registered: Bucket; invoicing_issued: Bucket; invoices_received: Bucket; collections_received: Bucket; expenses_registered: Bucket; payments_made: Bucket; receivable: Bucket; payable: Bucket; sales_without_cfdi: Bucket; expenses_without_cfdi: Bucket; differences: Diff[] }
+interface ChartData { months: { month: string; sales: number; expenses: number; collected: number; paid: number }[]; categories: { label: string; total_minor: number }[]; suppliers: { label: string; total_minor: number }[]; docs: { with: number; without: number } }
 interface Summary { period: { from: string; to: string }; by_currency: Record<string, Cur>; notice: string }
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
@@ -30,6 +32,7 @@ export default function FinanzasPage() {
   const session = useSession();
   const [range, setRange] = useState(monthRange(0));
   const q = useQuery({ queryKey: ["finance", range.from, range.to], queryFn: () => api<Summary>(`/finance/summary?from=${range.from}&to=${range.to}`), enabled: session.can("finance.read") });
+  const charts = useQuery({ queryKey: ["finance", "charts", range.from, range.to], queryFn: () => api<{ by_currency: Record<string, ChartData> }>(`/finance/charts?from=${range.from}&to=${range.to}`), enabled: session.can("finance.read") });
   if (!session.can("finance.read")) return <p className="text-sm text-muted-foreground">No tienes permiso para ver el resumen financiero.</p>;
   const currencies = Object.keys(q.data?.by_currency ?? {});
   return (
@@ -56,6 +59,15 @@ export default function FinanzasPage() {
             <div><h3 className="mb-2 text-sm font-medium text-muted-foreground">Pendientes (al {q.data!.period.to})</h3><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Stat title="Ventas por cobrar" hint="saldo vivo" b={d.receivable} currency={cur} tone="warn" /><Stat title="Gastos por pagar" hint="saldo vivo" b={d.payable} currency={cur} tone="warn" />
               <Stat title="Ventas sin CFDI" hint="del periodo" b={d.sales_without_cfdi} currency={cur} tone="warn" /><Stat title="Gastos sin CFDI" hint="del periodo" b={d.expenses_without_cfdi} currency={cur} tone="warn" /></div></div>
+            {charts.data?.by_currency[cur] && (() => { const c = charts.data!.by_currency[cur]!; return (
+              <div className="grid gap-4 lg:grid-cols-2">
+                <Card className="lg:col-span-2"><CardHeader><CardTitle>Últimos 6 meses</CardTitle></CardHeader><CardContent><div className="grid gap-6 md:grid-cols-2">
+                  <div><p className="mb-1 text-sm font-medium">Registrado</p><MonthlyBars data={c.months} currency={cur} series={[{ key: "sales", label: "Ventas", color: "#10b981" }, { key: "expenses", label: "Gastos", color: "#f59e0b" }]} /></div>
+                  <div><p className="mb-1 text-sm font-medium">Dinero que entró y salió</p><MonthlyBars data={c.months} currency={cur} series={[{ key: "collected", label: "Cobros", color: "#6366f1" }, { key: "paid", label: "Pagos", color: "#ec4899" }]} /></div></div></CardContent></Card>
+                <Card><CardHeader><CardTitle>Gastos por categoría</CardTitle></CardHeader><CardContent><Donut items={c.categories} currency={cur} centerLabel="Total" /></CardContent></Card>
+                <Card><CardHeader><CardTitle>Principales proveedores</CardTitle></CardHeader><CardContent><HBars items={c.suppliers} currency={cur} /></CardContent></Card>
+                <Card className="lg:col-span-2"><CardHeader><CardTitle>Gasto documentado</CardTitle></CardHeader><CardContent><Coverage withDoc={c.docs.with} withoutDoc={c.docs.without} currency={cur} /></CardContent></Card>
+              </div>); })()}
             <Card><CardHeader><CardTitle>Diferencias entre lo registrado y lo documentado</CardTitle></CardHeader><CardContent>
               {d.differences.length === 0 ? <p className="text-sm text-muted-foreground">Sin diferencias: lo que tiene CFDI coincide con su total.</p> : (
                 <ul className="divide-y text-sm">{d.differences.map((x) => (
