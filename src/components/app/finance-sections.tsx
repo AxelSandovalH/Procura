@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Ban, Link2, Plus, Unlink } from "lucide-react";
+import { Ban, Link2, Plus, Unlink, Upload } from "lucide-react";
 import { StatusBadge } from "@/components/app/status-badge";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { Button } from "@/components/ui/button";
@@ -67,10 +67,29 @@ export function CfdiSection({ base, links, currency, totalMinor, documentedMinor
   const { can } = useSession();
   const [pick, setPick] = useState(""); const [amount, setAmount] = useState(""); const [error, setError] = useState<string | null>(null); const [unlinking, setUnlinking] = useState<CfdiLinkRow | null>(null);
   const canManage = can("cfdi.manage") && !voided;
+  const fileRef = useRef<HTMLInputElement>(null); const [uploading, setUploading] = useState(false);
   const options = useQuery({ queryKey: ["cfdi", "available", direction], queryFn: () => api<{ data: { id: string; fiscal_uuid: string; series: string | null; folio: string | null; issuer_name: string | null; receiver_name: string | null; total_minor: number | string; pending_to_allocate_minor: number | string; currency: string; cfdi_type: string; sat_status: string }[] }>(`/cfdi?direction=${direction}`), enabled: canManage });
   const linked = new Set(links.map((l) => l.cfdi.id));
   const avail = (options.data?.data ?? []).filter((c) => c.currency === currency && c.cfdi_type === "I" && c.sat_status !== "CANCELADO" && !linked.has(c.id) && Number(c.pending_to_allocate_minor) > 0);
   const diff = Number(totalMinor) - Number(documentedMinor);
+  /** Sube el XML (y su PDF opcional) y lo liga a esta operación en un solo paso; si el CFDI ya estaba registrado, usa el existente. */
+  async function uploadAndLink(files: FileList | null) {
+    const xml = Array.from(files ?? []).find((f) => /\.xml$/i.test(f.name)); const pdf = Array.from(files ?? []).find((f) => /\.pdf$/i.test(f.name));
+    if (fileRef.current) fileRef.current.value = "";
+    if (!xml) { setError("Selecciona el archivo XML del CFDI (y, si quieres, su PDF)."); return; }
+    setUploading(true); setError(null);
+    try {
+      const text = await xml.text(); const uuid = text.match(/UUID="([0-9A-Fa-f-]{36})"/)?.[1];
+      const fd = new FormData(); fd.append("xml", xml); if (pdf) fd.append("pdf", pdf); fd.append("direction", direction);
+      const res = await fetch("/api/v1/cfdi", { method: "POST", body: fd, credentials: "same-origin" }); const data = await res.json().catch(() => null);
+      let cfdiId: string | undefined = data?.id;
+      if (res.status === 409 && uuid) cfdiId = (await api<{ data: { id: string }[] }>(`/cfdi?direction=${direction}&q=${encodeURIComponent(uuid)}`)).data[0]?.id; // ya estaba registrado: se usa ese
+      else if (!res.ok) throw new ApiError(res.status, data?.title ?? "Error", data?.detail);
+      if (!cfdiId) throw new ApiError(409, "Conflicto", "Ese CFDI ya está registrado en otra dirección (emitido/recibido) de tu organización.");
+      await api(`${base}/cfdi`, { body: { cfdi_id: cfdiId, ...(amount.trim() ? { amount_minor: toMinor(amount) } : {}) } });
+      setAmount(""); await onChange();
+    } catch (e) { await onChange().catch(() => {}); setError(apiErr(e, "No se pudo cargar y ligar el CFDI.")); } finally { setUploading(false); }
+  }
   async function link() {
     if (!pick) return; setError(null);
     try { await api(`${base}/cfdi`, { body: { cfdi_id: pick, ...(amount.trim() ? { amount_minor: toMinor(amount) } : {}) } }); setPick(""); setAmount(""); await onChange(); }
@@ -97,6 +116,8 @@ export function CfdiSection({ base, links, currency, totalMinor, documentedMinor
           </select>
           <Input aria-label="Importe a documentar" className="w-36" inputMode="decimal" placeholder="Importe (opcional)" value={amount} onChange={(e) => setAmount(e.target.value)} />
           <Button variant="outline" onClick={() => void link()} disabled={!pick}><Link2 />Ligar</Button>
+          <input ref={fileRef} type="file" multiple accept=".xml,.pdf,text/xml,application/xml,application/pdf" className="sr-only" aria-label="Archivo XML del CFDI" onChange={(e) => void uploadAndLink(e.target.files)} />
+          <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}><Upload />{uploading ? "Cargando…" : "Cargar XML y ligar"}</Button>
         </div>)}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <ActionDialog open={!!unlinking} onOpenChange={(o) => !o && setUnlinking(null)} title="Desligar CFDI" description="La operación volverá a quedar sin documentar por ese importe. La acción queda en el historial." fieldLabel="Motivo" required destructive confirmLabel="Desligar"
