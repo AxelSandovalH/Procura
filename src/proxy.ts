@@ -34,4 +34,4 @@ export function proxy(req: NextRequest) {
 
 // Los archivos estáticos públicos (iconos, logo, imágenes, robots…) no pasan por el filtro de sesión: sin esto un visitante anónimo
 // recibía un 307 a /login en /icon.svg, /apple-icon.png y /brand/*, y el navegador no podía mostrar el icono de la pestaña.
-export const config = { matcher: ["/((?!api|_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|webmanifest)$).*)"] };
+export const config = { matcher: ["/((?!api|_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml|webmanifest)$|google[a-z0-9]+\\.html$).*)"] };
