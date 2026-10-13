@@ -50,7 +50,7 @@ export default function GastosPage() {
           <p className="mt-1 text-sm text-muted-foreground">{canManage ? "Registra un gasto, regístrale pagos y lígalo a su factura." : "Cuando se registren aparecerán aquí."}</p></div>
       ) : (
         <div className="overflow-x-auto rounded-xl border"><Table>
-          <TableHeader><TableRow>{unpaid.length > 0 && <TableHead className="w-8"><input type="checkbox" aria-label="Seleccionar todos los gastos por pagar" checked={chosen.length === unpaid.length} onChange={(e) => setPicked(e.target.checked ? new Set(unpaid.map((x) => x.id)) : new Set())} /></TableHead>}<TableHead>Fecha</TableHead><TableHead>Descripción</TableHead><TableHead>Proveedor</TableHead><TableHead className="text-right">Monto</TableHead><TableHead>Pago</TableHead><TableHead>Factura (XML)</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow>{unpaid.length > 0 && <TableHead className="w-8"><input type="checkbox" aria-label="Seleccionar todos los gastos por pagar" checked={chosen.length === unpaid.length} onChange={(e) => setPicked(e.target.checked ? new Set(unpaid.map((x) => x.id)) : new Set())} /></TableHead>}<TableHead>Fecha</TableHead><TableHead>Descripción</TableHead><TableHead>Proveedor</TableHead><TableHead className="text-right">Monto</TableHead><TableHead>Pago</TableHead><TableHead>CFDI ligado</TableHead></TableRow></TableHeader>
           <TableBody>{rows.map((e) => (
             <TableRow key={e.id} className="cursor-pointer" onClick={() => setOpenId(e.id)}>
               {unpaid.length > 0 && <TableCell onClick={(ev) => ev.stopPropagation()}>{unpaid.some((x) => x.id === e.id) ? <input type="checkbox" aria-label={`Seleccionar ${e.description}`} checked={picked.has(e.id)} onChange={() => toggle(e.id)} /> : null}</TableCell>}
@@ -159,9 +159,9 @@ function MarkPaid({ ids, open, onOpenChange, onDone }: { ids: string[]; open: bo
 /** ¿Tiene XML (CFDI) ligado? Lo más visible de la lista: verde con palomita = sí; ámbar = parcial; rojo suave = sin XML. */
 function XmlBadge({ status, count, voided, awaiting = false }: { status: string; count: number; voided: boolean; awaiting?: boolean }) {
   if (voided) return <span className="text-xs text-muted-foreground">—</span>;
-  const [cls, Icon, text] = status === "INVOICED" ? ["border-emerald-600/40 bg-emerald-600/10 text-emerald-800 dark:text-emerald-300", FileCheck2, count > 1 ? `${count} XML ligados` : "XML ligado"]
-    : status === "PARTIAL" ? ["border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-300", FileClock, "XML parcial"]
-    : awaiting ? ["border-dashed border-amber-500/60 bg-amber-500/10 text-amber-800 dark:text-amber-300", FileClock, "PDF · falta XML"] as const
-    : ["border-dashed border-muted-foreground/40 text-muted-foreground", FileX2, "Sin XML"] as const;
+  const [cls, Icon, text] = status === "INVOICED" ? ["border-emerald-600/40 bg-emerald-600/10 text-emerald-800 dark:text-emerald-300", FileCheck2, count > 1 ? `${count} CFDI ligados` : "CFDI ligado"]
+    : status === "PARTIAL" ? ["border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-300", FileClock, "CFDI parcial"]
+    : awaiting ? ["border-dashed border-amber-500/60 bg-amber-500/10 text-amber-800 dark:text-amber-300", FileClock, "CFDI en PDF"] as const
+    : ["border-dashed border-muted-foreground/40 text-muted-foreground", FileX2, "Sin CFDI"] as const;
   return <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-1 text-xs font-medium ${cls}`}><Icon className="size-3.5" aria-hidden />{text}</span>;
 }

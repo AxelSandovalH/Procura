@@ -83,7 +83,7 @@ function SettingsCard({ s }: { s: Settings }) {
         {chk("El solicitante puede aprobar sus propias requisiciones", "requester_can_self_approve")}
         {sel("¿Cuándo se aprueba?", TIMING, "approval_timing")}
         {sel("¿Dónde se llevan los gastos?", EXPENSES, "expenses_managed_by")}
-        {chk("Un gasto con XML ligado se marca como pagado", "expenses_paid_when_xml", "Si ya tienes el XML de la factura, asumo que ya pagaste. Al encenderlo se aplica también a los gastos que ya tienen XML. Cada pago se puede anular después; desligar el XML no lo revierte.")}
+        {chk("Un gasto con CFDI (XML ligado o factura en PDF) se marca como pagado", "expenses_paid_when_xml", "Si ya tienes la factura (el XML ligado, o su PDF con folio fiscal), asumo que ya pagaste. Al encenderlo se aplica también a los gastos que ya la tienen. Cada pago se puede anular después; desligar el XML no lo revierte.")}
         {sel("Reaprobación al editar", REAPP, "reapproval_policy")}
         {sel("Ingreso de nuevos miembros", JOIN, "membership_join_policy")}
         {sel("Solicitudes de relación", REL, "relationship_request_policy")}

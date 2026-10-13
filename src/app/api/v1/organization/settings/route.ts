@@ -46,8 +46,8 @@ export const PATCH = route(async (req) => {
     // Al encender la regla se aplica a lo que ya tiene XML ligado y sigue sin pagarse.
     let backfilled = 0;
     if (body.expenses_paid_when_xml === true && !before.expenses_paid_when_xml) {
-      const open = await tx.expenses.findMany({ where: { organization_id: actor.organizationId, voided_at: null, documented_minor: { gt: 0 } }, select: { id: true, amount_minor: true, documented_minor: true, paid_minor: true } });
-      for (const e of open) if ((e.documented_minor < e.amount_minor ? e.documented_minor : e.amount_minor) > e.paid_minor && await autoPayFromXml(tx, actor.organizationId, actor.membershipId, e.id)) backfilled++;
+      const open = await tx.expenses.findMany({ where: { organization_id: actor.organizationId, voided_at: null, OR: [{ documented_minor: { gt: 0 } }, { cfdi_uuid_hint: { not: null } }] }, select: { id: true, amount_minor: true, documented_minor: true, paid_minor: true } });
+      for (const e of open) if (e.paid_minor < e.amount_minor && await autoPayFromXml(tx, actor.organizationId, actor.membershipId, e.id)) backfilled++;
       if (backfilled > 0) await audit(tx, { ...auditBase(actor), action: "expenses.paid_by_rule_applied", resourceType: "organization_settings", resourceId: actor.organizationId, metadata: { expenses: backfilled } });
     }
     return { ...after, backfilled_expenses: backfilled };

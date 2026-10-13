@@ -8,7 +8,7 @@ import { audit, auditBase } from "@/lib/audit";
 import { idempotent } from "@/lib/http/idempotency";
 import { assertExpensesManagedHere, expenseView } from "@/lib/billing/expenses";
 import { materializeReceived } from "@/lib/billing/cfdi-docs";
-import { addPayment, linkCfdi, linkExpenseByUuid } from "@/lib/finance/ops";
+import { addPayment, autoPayFromXml, linkCfdi, linkExpenseByUuid } from "@/lib/finance/ops";
 import { expenseStatuses } from "@/lib/finance/views";
 import type { Prisma } from "@prisma/client";
 
@@ -73,7 +73,7 @@ export const POST = route(async (req) => {
         await audit(tx, { ...auditBase(actor), action: "payment.created", resourceType: "expense", resourceId: e.id, resourceLabel: e.description, metadata: { payment_id: p.payment.id, amount_minor: body.amount_minor, method: paid.method } });
       }
       for (const id of cfdi_ids) await linkCfdi(tx, actor.organizationId, actor.membershipId, "expense", e.id, id);
-      if (cfdi_uuid && cfdi_ids.length === 0) await linkExpenseByUuid(tx, actor.organizationId, actor.membershipId, e.id, cfdi_uuid);
+      if (cfdi_uuid && cfdi_ids.length === 0) { await linkExpenseByUuid(tx, actor.organizationId, actor.membershipId, e.id, cfdi_uuid); await autoPayFromXml(tx, actor.organizationId, actor.membershipId, e.id); }
       await audit(tx, { ...auditBase(actor), action: "expense.created", resourceType: "expense", resourceId: e.id, resourceLabel: e.description, metadata: { amount_minor: e.amount_minor.toString(), currency: e.currency, cfdi: cfdi_ids.length } });
       return expenseView(tx, await tx.expenses.findUniqueOrThrow({ where: { id: e.id } }));
     });

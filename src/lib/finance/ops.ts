@@ -91,13 +91,14 @@ export async function autoPayFromXml(tx: Tx, organizationId: string, membershipI
   if (!settings?.expenses_paid_when_xml) return false;
   const e = await tx.expenses.findFirst({ where: { id: expenseId, organization_id: organizationId } });
   if (!e || e.voided_at) return false;
-  const target = e.documented_minor < e.amount_minor ? e.documented_minor : e.amount_minor;
+  // Con XML ligado se paga lo documentado; una factura en PDF con folio fiscal (el XML aún no llega) cuenta como el gasto completo.
+  const target = e.documented_minor > BigInt(0) ? (e.documented_minor < e.amount_minor ? e.documented_minor : e.amount_minor) : e.cfdi_uuid_hint ? e.amount_minor : BigInt(0);
   const owed = target - e.paid_minor;
   if (owed <= BigInt(0)) return false;
   const link = await tx.cfdi_links.findFirst({ where: { expense_id: e.id }, orderBy: { created_at: "asc" } });
   const cfdi = link ? await tx.cfdi_documents.findUnique({ where: { id: link.cfdi_id }, select: { fiscal_payment_form: true } }) : null;
   const method = (cfdi?.fiscal_payment_form && FORM_TO_METHOD[cfdi.fiscal_payment_form]) || undefined;
-  const { payment } = await addPayment(tx, organizationId, membershipId, "expense", e.id, { paid_at: e.spent_at, amount_minor: Number(owed), method, notes: "Pagado por regla: el gasto tiene XML ligado" });
+  const { payment } = await addPayment(tx, organizationId, membershipId, "expense", e.id, { paid_at: e.spent_at, amount_minor: Number(owed), method, notes: e.documented_minor > BigInt(0) ? "Pagado por regla: el gasto tiene XML ligado" : "Pagado por regla: el gasto tiene su factura (CFDI) en PDF" });
   await audit(tx, { actorType: membershipId ? "USER" : "SYSTEM", membershipId, organizationId, action: "payment.created", resourceType: "expense", resourceId: e.id, resourceLabel: e.description, metadata: { payment_id: payment.id, amount_minor: owed.toString(), auto: "expenses_paid_when_xml" } });
   return true;
 }
