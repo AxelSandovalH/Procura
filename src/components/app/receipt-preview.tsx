@@ -27,12 +27,12 @@ function One({ file }: { file: Att }) {
     <figure className="space-y-1">
       <figcaption className="flex items-center justify-between gap-2 text-xs text-muted-foreground"><span className="flex min-w-0 items-center gap-1.5"><FileText className="size-3.5 shrink-0" aria-hidden /><span className="truncate">Ticket · {file.filename}</span></span><a href={url} target="_blank" rel="noopener" className="inline-flex shrink-0 items-center gap-1 underline"><ExternalLink className="size-3" aria-hidden />Abrir</a></figcaption>
       {isPdf
-        ? <iframe src={url} title={`Vista previa de ${file.filename}`} className="h-72 w-full rounded-lg border bg-white" />
+        ? <iframe src={url} title={`Vista previa de ${file.filename}`} className="h-[26rem] w-full rounded-lg border bg-white" />
         : (
           <>
             <button type="button" onClick={() => setZoom(true)} className="block w-full overflow-hidden rounded-lg border bg-muted/30 focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Ampliar ${file.filename}`}>
               {/* eslint-disable-next-line @next/next/no-img-element -- URL firmada de Storage, no una imagen estática del sitio */}
-              <img src={url} alt={`Ticket ${file.filename}`} className="mx-auto max-h-64 w-auto object-contain" loading="lazy" />
+              <img src={url} alt={`Ticket ${file.filename}`} className="mx-auto max-h-[26rem] w-auto object-contain" loading="lazy" />
             </button>
             <Dialog open={zoom} onOpenChange={setZoom}><DialogContent className="max-h-[92vh] overflow-auto sm:max-w-3xl">
               <DialogHeader><DialogTitle>Ticket</DialogTitle><DialogDescription className="break-all">{file.filename}</DialogDescription></DialogHeader>

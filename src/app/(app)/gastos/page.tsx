@@ -111,18 +111,24 @@ function ExpenseSheet({ id, onClose, canManage, onChange }: { id: string | null;
   const q = useQuery({ queryKey: ["expense", id], queryFn: () => api<ExpenseDetail>(`/expenses/${id}`), enabled: !!id });
   const e = q.data;
   return (
-    <Dialog open={!!id} onOpenChange={(o) => !o && onClose()}><DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden sm:max-w-xl">
+    <Dialog open={!!id} onOpenChange={(o) => !o && onClose()}><DialogContent className="max-h-[92vh] overflow-y-auto overflow-x-hidden sm:max-w-5xl">
       {!e ? <div className="h-32 animate-pulse rounded bg-muted" /> : (<>
         <DialogHeader><DialogTitle className="break-words pr-6">{e.description}</DialogTitle><DialogDescription>{dateShort(e.spent_at)} · {e.category ?? "Sin categoría"}{e.supplier_name ? ` · ${e.supplier_name}` : ""}</DialogDescription></DialogHeader>
-        <div className="min-w-0 space-y-5 text-sm">
-          <div className="flex items-baseline justify-between gap-3"><span className="text-muted-foreground">Monto</span><span className="text-lg font-semibold tabular-nums">{money(e.amount_minor, e.currency)}</span></div>
-          <div className="flex flex-wrap gap-1.5"><StatusBadge {...(PAYMENT_STATUS[e.payment_status] ?? { label: e.payment_status, tone: "neutral" as const })} /><StatusBadge {...(INVOICING_STATUS[e.invoicing_status] ?? { label: e.invoicing_status, tone: "neutral" as const })} /></div>
-          {e.voided_at && <p className="rounded-lg bg-muted px-3 py-2">Gasto anulado: {e.void_reason}</p>}
-          {e.order_id && <Link href={`/ordenes/${e.order_id}`} className="inline-block underline">Ver la orden</Link>}
-          <ReceiptPreview expenseId={e.id} />
-          <BillingDataCard paymentMethod={e.payments.find((p) => !p.voided_at)?.method} />
-          <PaymentsSection base={`/expenses/${e.id}`} payments={e.payments} currency={e.currency} pendingMinor={e.pending_to_pay_minor} voided={!!e.voided_at} kind="expense" onChange={onChange} />
-          <CfdiSection base={`/expenses/${e.id}`} links={e.cfdi} currency={e.currency} totalMinor={e.amount_minor} documentedMinor={e.documented_minor} direction="RECEIVED" voided={!!e.voided_at} onChange={onChange} />
+        <div className="grid min-w-0 gap-6 text-sm md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+          {/* Columna izquierda: el comprobante (ticket o PDF) y el estado del gasto. En pantalla ancha se queda a la vista al desplazarse. */}
+          <div className="min-w-0 space-y-4 md:sticky md:top-0 md:self-start">
+            <div className="flex items-baseline justify-between gap-3"><span className="text-muted-foreground">Monto</span><span className="text-lg font-semibold tabular-nums">{money(e.amount_minor, e.currency)}</span></div>
+            <div className="flex flex-wrap gap-1.5"><StatusBadge {...(PAYMENT_STATUS[e.payment_status] ?? { label: e.payment_status, tone: "neutral" as const })} /><StatusBadge {...(INVOICING_STATUS[e.invoicing_status] ?? { label: e.invoicing_status, tone: "neutral" as const })} /></div>
+            {e.voided_at && <p className="rounded-lg bg-muted px-3 py-2">Gasto anulado: {e.void_reason}</p>}
+            {e.order_id && <Link href={`/ordenes/${e.order_id}`} className="inline-block underline">Ver la orden</Link>}
+            <ReceiptPreview expenseId={e.id} />
+          </div>
+          {/* Columna derecha: lo que se hace con el gasto. */}
+          <div className="min-w-0 space-y-5">
+            <BillingDataCard paymentMethod={e.payments.find((p) => !p.voided_at)?.method} />
+            <PaymentsSection base={`/expenses/${e.id}`} payments={e.payments} currency={e.currency} pendingMinor={e.pending_to_pay_minor} voided={!!e.voided_at} kind="expense" onChange={onChange} />
+            <CfdiSection base={`/expenses/${e.id}`} links={e.cfdi} currency={e.currency} totalMinor={e.amount_minor} documentedMinor={e.documented_minor} direction="RECEIVED" voided={!!e.voided_at} onChange={onChange} />
+          </div>
         </div>
         <DialogFooter>{canManage && !e.voided_at && <Button variant="destructive" onClick={() => setVoiding(true)}>Anular gasto</Button>}<Button variant="outline" onClick={onClose}>Cerrar</Button></DialogFooter>
         <ActionDialog open={voiding} onOpenChange={setVoiding} title="Anular gasto" description="No se borra: queda anulado con tu motivo y sus CFDI se liberan. Antes hay que anular sus pagos." fieldLabel="Motivo" required destructive confirmLabel="Anular"
