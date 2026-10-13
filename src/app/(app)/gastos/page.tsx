@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Receipt } from "lucide-react";
+import { FileCheck2, FileClock, FileX2, Plus, Receipt } from "lucide-react";
 import { BillingDataCard } from "@/components/app/billing-data";
 import { ScanReceiptButton } from "@/components/app/scan-receipt";
 import { PageHeader } from "@/components/app/page-header";
@@ -19,7 +19,7 @@ import { api } from "@/lib/api-client";
 import { dateShort, money, toMinor } from "@/lib/format";
 import { INVOICING_STATUS, PAYMENT_METHOD, PAYMENT_STATUS } from "@/lib/ui/status";
 
-interface Expense { id: string; spent_at: string; description: string; category: string | null; amount_minor: number | string; currency: string; supplier_name: string | null; order_id: string | null; source: string; voided_at: string | null; payment_status: string; invoicing_status: string }
+interface Expense { id: string; spent_at: string; description: string; category: string | null; amount_minor: number | string; currency: string; supplier_name: string | null; order_id: string | null; source: string; voided_at: string | null; payment_status: string; invoicing_status: string; cfdi_count?: number }
 interface ExpenseDetail extends Expense { void_reason: string | null; pending_to_pay_minor: number | string; documented_minor: number | string; payments: PaymentRow[]; cfdi: CfdiLinkRow[] }
 interface CfdiOpt { id: string; fiscal_uuid: string; series: string | null; folio: string | null; issuer_name: string | null; total_minor: number | string; pending_to_allocate_minor: number | string; currency: string; cfdi_type: string; sat_status: string }
 const label = (i: { series: string | null; folio: string | null; fiscal_uuid: string }) => [i.series, i.folio].filter(Boolean).join("-") || i.fiscal_uuid.slice(0, 8);
@@ -48,15 +48,16 @@ export default function GastosPage() {
           <p className="mt-1 text-sm text-muted-foreground">{canManage ? "Registra un gasto, regístrale pagos y lígalo a su factura." : "Cuando se registren aparecerán aquí."}</p></div>
       ) : (
         <div className="overflow-x-auto rounded-xl border"><Table>
-          <TableHeader><TableRow>{unpaid.length > 0 && <TableHead className="w-8"><input type="checkbox" aria-label="Seleccionar todos los gastos por pagar" checked={chosen.length === unpaid.length} onChange={(e) => setPicked(e.target.checked ? new Set(unpaid.map((x) => x.id)) : new Set())} /></TableHead>}<TableHead>Fecha</TableHead><TableHead>Descripción</TableHead><TableHead>Categoría</TableHead><TableHead>Proveedor</TableHead><TableHead className="text-right">Monto</TableHead><TableHead>Pago</TableHead><TableHead>Facturación</TableHead></TableRow></TableHeader>
+          <TableHeader><TableRow>{unpaid.length > 0 && <TableHead className="w-8"><input type="checkbox" aria-label="Seleccionar todos los gastos por pagar" checked={chosen.length === unpaid.length} onChange={(e) => setPicked(e.target.checked ? new Set(unpaid.map((x) => x.id)) : new Set())} /></TableHead>}<TableHead>Fecha</TableHead><TableHead>Descripción</TableHead><TableHead>Proveedor</TableHead><TableHead className="text-right">Monto</TableHead><TableHead>Pago</TableHead><TableHead>Factura (XML)</TableHead></TableRow></TableHeader>
           <TableBody>{rows.map((e) => (
             <TableRow key={e.id} className="cursor-pointer" onClick={() => setOpenId(e.id)}>
               {unpaid.length > 0 && <TableCell onClick={(ev) => ev.stopPropagation()}>{unpaid.some((x) => x.id === e.id) ? <input type="checkbox" aria-label={`Seleccionar ${e.description}`} checked={picked.has(e.id)} onChange={() => toggle(e.id)} /> : null}</TableCell>}
-              <TableCell>{dateShort(e.spent_at)}</TableCell><TableCell className="font-medium"><button className="text-left underline-offset-2 hover:underline" onClick={() => setOpenId(e.id)}>{e.description}</button></TableCell>
-              <TableCell className="text-muted-foreground">{e.category ?? "—"}</TableCell><TableCell className="text-muted-foreground">{e.supplier_name ?? "—"}</TableCell>
-              <TableCell className="text-right tabular-nums">{money(e.amount_minor, e.currency)}</TableCell>
+              <TableCell className="whitespace-nowrap">{dateShort(e.spent_at)}</TableCell>
+              <TableCell className="max-w-[22rem]"><button className="block max-w-full truncate text-left font-medium underline-offset-2 hover:underline" title={e.description} onClick={() => setOpenId(e.id)}>{e.description}</button>{e.category && <span className="block truncate text-xs text-muted-foreground">{e.category}</span>}</TableCell>
+              <TableCell className="max-w-[12rem] truncate text-muted-foreground" title={e.supplier_name ?? undefined}>{e.supplier_name ?? "—"}</TableCell>
+              <TableCell className="whitespace-nowrap text-right tabular-nums">{money(e.amount_minor, e.currency)}</TableCell>
               <TableCell><StatusBadge {...(PAYMENT_STATUS[e.payment_status] ?? { label: e.payment_status, tone: "neutral" as const })} /></TableCell>
-              <TableCell><StatusBadge {...(INVOICING_STATUS[e.invoicing_status] ?? { label: e.invoicing_status, tone: "neutral" as const })} /></TableCell>
+              <TableCell><XmlBadge status={e.invoicing_status} count={e.cfdi_count ?? 0} voided={!!e.voided_at} /></TableCell>
             </TableRow>))}</TableBody>
         </Table></div>)}
       <MarkPaid ids={chosen} open={paying} onOpenChange={setPaying} onDone={async () => { setPicked(new Set()); await refresh(); }} />
@@ -145,4 +146,13 @@ function MarkPaid({ ids, open, onOpenChange, onDone }: { ids: string[]; open: bo
       <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>{out ? "Cerrar" : "Cancelar"}</Button>{!out && <Button onClick={() => void go()} disabled={busy}>{busy ? "Registrando…" : "Marcar como pagados"}</Button>}</DialogFooter>
     </DialogContent></Dialog>
   );
+}
+
+/** ¿Tiene XML (CFDI) ligado? Lo más visible de la lista: verde con palomita = sí; ámbar = parcial; rojo suave = sin XML. */
+function XmlBadge({ status, count, voided }: { status: string; count: number; voided: boolean }) {
+  if (voided) return <span className="text-xs text-muted-foreground">—</span>;
+  const [cls, Icon, text] = status === "INVOICED" ? ["border-emerald-600/40 bg-emerald-600/10 text-emerald-800 dark:text-emerald-300", FileCheck2, count > 1 ? `${count} XML ligados` : "XML ligado"]
+    : status === "PARTIAL" ? ["border-amber-500/50 bg-amber-500/10 text-amber-800 dark:text-amber-300", FileClock, "XML parcial"]
+    : ["border-dashed border-muted-foreground/40 text-muted-foreground", FileX2, "Sin XML"] as const;
+  return <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border px-2 py-1 text-xs font-medium ${cls}`}><Icon className="size-3.5" aria-hidden />{text}</span>;
 }
