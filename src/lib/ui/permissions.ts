@@ -24,6 +24,9 @@ export const PERMISSION_GROUPS: { title: string; items: Record<string, string> }
   { title: "Facturas y gastos", items: {
     "invoice.submit": "Adjuntar facturas a una orden (proveedor)", "invoice.read": "Ver facturas de las órdenes", "invoice.review": "Aceptar con diferencia o rechazar facturas",
     "expense.read": "Ver gastos", "expense.manage": "Registrar gastos y ligarlos a facturas" } },
+  { title: "Finanzas", items: {
+    "sale.read": "Ver ventas e ingresos", "sale.manage": "Registrar y editar ventas", "payment.manage": "Registrar cobros y pagos", "cfdi.read": "Ver comprobantes fiscales (CFDI)",
+    "cfdi.manage": "Cargar CFDI y ligarlos a ventas y gastos", "finance.read": "Ver el resumen financiero" } },
   { title: "Colaboración", items: {
     "conversation.shared.read": "Leer conversaciones compartidas", "conversation.shared.post": "Escribir en conversaciones compartidas", "note.internal.read": "Leer notas internas",
     "note.internal.post": "Escribir notas internas", "attachment.upload": "Subir adjuntos", "attachment.delete_own": "Borrar adjuntos propios" } },

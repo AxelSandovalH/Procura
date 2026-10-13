@@ -16,6 +16,9 @@ export interface ParsedCfdi {
   subtotalMinor: bigint;
   taxMinor: bigint;
   totalMinor: bigint;
+  discountMinor: bigint;
+  paymentMethod: string | null;   // PUE / PPD
+  paymentForm: string | null;     // clave SAT de forma de pago
 }
 
 const MAX_XML_BYTES = 2 * 1024 * 1024;
@@ -74,6 +77,8 @@ export function parseCfdi(xml: Buffer): ParsedCfdi {
     subtotalMinor: decimalToMinor(attr(root, "SubTotal"), "SubTotal"),
     taxMinor: taxText ? decimalToMinor(taxText, "impuestos trasladados") : BigInt(0),
     totalMinor: decimalToMinor(attr(root, "Total"), "Total"),
+    discountMinor: attr(root, "Descuento") ? decimalToMinor(attr(root, "Descuento"), "Descuento") : BigInt(0),
+    paymentMethod: attr(root, "MetodoPago"), paymentForm: attr(root, "FormaPago"),
   };
 }
 

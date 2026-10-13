@@ -30,6 +30,7 @@ export default function Organizacion() {
     <div className="grid gap-6 lg:grid-cols-2">
       {session.can("organization.update") && <General org={q.data.organization} />}
       {session.can("settings.manage") && q.data.settings && <SettingsCard s={q.data.settings} />}
+      {session.can("cfdi.read") && <FiscalCard />}
     </div>
   );
 }
@@ -88,5 +89,23 @@ function SettingsCard({ s }: { s: Settings }) {
         {f.portal_enabled && <div className="space-y-1.5"><Label htmlFor="c-wt">Texto de bienvenida del portal</Label><Textarea id="c-wt" rows={3} value={f.welcome} onChange={(e) => setF({ ...f, welcome: e.target.value })} /></div>}
         <div className="flex items-center gap-3"><Button type="submit" disabled={busy}>Guardar configuración</Button>{msg && <span role="status" className="text-xs text-muted-foreground">{msg}</span>}</div>
       </form></CardContent></Card>
+  );
+}
+
+interface FiscalInfo { provider: string; configured: boolean; capabilities: Record<string, boolean>; notes: string[] }
+const CAPS: [string, string][] = [["issue", "Emitir CFDI"], ["fetchIssued", "Recuperar CFDI emitidos"], ["fetchReceived", "Recuperar CFDI recibidos"], ["statusLookup", "Consultar vigencia ante el SAT"], ["downloadXml", "Descargar XML"], ["downloadPdf", "Descargar PDF"]];
+
+/** Estado real de la facturación electrónica: qué está configurado y qué capacidades existen de verdad. */
+function FiscalCard() {
+  const q = useQuery({ queryKey: ["fiscal-provider"], queryFn: () => api<FiscalInfo>("/fiscal/provider"), staleTime: 60_000 });
+  if (!q.data) return null;
+  const p = q.data;
+  return (
+    <Card><CardHeader><CardTitle>Facturación electrónica (CFDI)</CardTitle></CardHeader><CardContent className="space-y-3 text-sm">
+      <p>Proveedor fiscal: <span className="font-medium capitalize">{p.provider}</span> · {p.configured ? "credenciales presentes en el servidor" : "sin configurar"}</p>
+      <ul className="grid gap-1 sm:grid-cols-2">{CAPS.map(([k, name]) => <li key={k} className="flex items-center gap-2"><span aria-hidden className={p.capabilities[k] ? "text-emerald-600" : "text-muted-foreground"}>{p.capabilities[k] ? "●" : "○"}</span><span className={p.capabilities[k] ? "" : "text-muted-foreground"}>{name}{p.capabilities[k] ? "" : " — no disponible"}</span></li>)}</ul>
+      <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">{p.notes.map((n) => <li key={n}>{n}</li>)}</ul>
+      <p className="text-xs text-muted-foreground">Mientras tanto puedes cargar XML manualmente en Facturas; los de tus proveedores aparecen solos.</p>
+    </CardContent></Card>
   );
 }

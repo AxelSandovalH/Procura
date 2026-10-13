@@ -12,6 +12,7 @@ export const PERMISSIONS = [
   "delivery.register","conversation.shared.read","conversation.shared.post","note.internal.read","note.internal.post",
   "attachment.upload","attachment.delete_own",
   "invoice.submit","invoice.read","invoice.review","expense.read","expense.manage",
+  "sale.read","sale.manage","payment.manage","cfdi.read","cfdi.manage","finance.read",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

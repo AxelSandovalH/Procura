@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test": "vitest run",
+    "test:integration": "PROCURA_TEST_CONFIRM=yes node tests/integration/finance.smoke.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -46,7 +48,8 @@
     "eslint-config-next": "16.3.6",
     "prisma": "^7.10.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,

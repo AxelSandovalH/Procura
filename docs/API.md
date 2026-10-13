@@ -265,6 +265,25 @@ El proveedor adjunta el CFDI (XML timbrado, PDF opcional) a una orden suya; Proc
 
 Diferencias que marca la validación (`discrepancies[]`, `ERROR` deja la factura «con diferencias»): `MONEDA_DISTINTA`, `EXCEDE_ORDEN` (suma de facturas > total de la orden, tolerancia $1), `EXCEDE_RECIBIDO` (subtotal facturado > subtotal recibido y aceptado); informativas (`WARN`): RFC sin registrar, sin recepción aún. Eventos: `invoice.submitted`, `invoice.accepted`, `invoice.rejected` (agregado `order`).
 
+### Finanzas: ventas, cobros/pagos, CFDI
+
+Detalle del modelo y de lo que NO hace en [FINANZAS.md](FINANZAS.md). Importes en unidades menores; `POST` de creación aceptan `Idempotency-Key` (obligatoria con llave de API).
+
+| Método | Ruta | Permiso |
+|---|---|---|
+| GET / POST | `/sales` `{ sold_at, description, customer_id?, currency, payment_method?, notes?, lines[{description, quantity, unit_price_minor, discount_minor?, tax_rate (0.16)}], collect_now? }` — filtros: `from, to, collection_status, invoicing_status, customer_id, q` | `sale.read` / `sale.manage` (`collect_now` requiere `payment.manage`) |
+| GET / PATCH | `/sales/{id}` (editar no puede bajar el total de lo cobrado o documentado) | `sale.read` / `sale.manage` |
+| POST | `/sales/{id}/void` `{ reason }` · `/invoicing-flag` `{ flag: PENDING\|INCIDENT\|null }` | `sale.manage` |
+| POST | `/sales/{id}/payments` `{ paid_at, amount_minor, method?, external_reference?, notes? }` · `/payments/{pid}/void` `{ reason }` · `/expenses/{id}/payments` (+ `/void`) | `payment.manage` |
+| POST / DELETE | `/sales/{id}/cfdi` `{ cfdi_id, amount_minor? }` · `/sales/{id}/cfdi/{linkId}` `{ reason }` · lo mismo en `/expenses/{id}/cfdi` | `cfdi.manage` |
+| GET / POST | `/cfdi?direction=&q=&from=&to=&unlinked=1` · `POST` multipart `xml`, `pdf?`, `direction?` (se deduce del RFC de la organización) | `cfdi.read` / `cfdi.manage` |
+| GET | `/cfdi/{id}` (operaciones ligadas + URLs firmadas XML/PDF) | `cfdi.read` |
+| GET / POST | `/customers` | `sale.read` / `sale.manage` |
+| GET | `/finance/summary?from=&to=` — por moneda: ventas registradas, facturación emitida/recibida, cobros, gastos, pagos, por cobrar/pagar, operaciones sin CFDI y diferencias | `finance.read` |
+| GET / POST | `/fiscal/provider` (estado real y capacidades) · `/fiscal/sync` (`501` mientras no esté implementada) | `cfdi.read` / `cfdi.manage` |
+
+Cambios en gastos: `POST /expenses` acepta `cfdi_ids[]` (ya no `supplier_invoice_ids`) y devuelve estados `payment_status` / `invoicing_status`, `payments[]` y `cfdi[]`. Se retiraron `POST /expenses/{id}/invoices` y `DELETE …/invoices/{iid}` (sustituidos por `/cfdi`).
+
 ### Lo que un ERP puede hacer en MVP (OD-22)
 1. `POST /requisitions` (con `submit: true` opcional).
 2. `GET /requisitions/{id}` y `GET /requisitions?external_reference=`.

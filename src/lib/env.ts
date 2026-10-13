@@ -10,6 +10,10 @@ const schema = z.object({
   SENTRY_DSN: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
+  // Proveedor fiscal (opcional). Las credenciales viven solo en variables de entorno del servidor.
+  FISCALAPI_API_KEY: z.string().optional(),
+  FISCALAPI_TENANT: z.string().optional(),
+  FISCALAPI_URL: z.string().url().optional(),
 });
 
 let cached: z.infer<typeof schema> | null = null;

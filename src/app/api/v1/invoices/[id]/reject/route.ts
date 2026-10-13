@@ -20,7 +20,12 @@ export const POST = route(async (req, params) => {
     if (!i) throw Problem.notFound();
     if (i.status === "REJECTED") throw Problem.conflict("La factura ya está rechazada.");
     if ((await tx.expense_invoices.count({ where: { supplier_invoice_id: i.id } })) > 0) throw Problem.conflict("La factura está ligada a un gasto; desliga el gasto antes de rechazarla.");
-    const updated = await tx.supplier_invoices.update({ where: { id: i.id }, data: { status: "REJECTED", reviewed_by_membership_id: actor.membershipId, reviewed_at: new Date(), review_reason: reason ?? null, updated_at: new Date() } });
+    if (i.buyer_cfdi_id) {
+      const links = await tx.cfdi_links.count({ where: { cfdi_id: i.buyer_cfdi_id } });
+      if (links > 0) throw Problem.conflict("El CFDI de esta factura está ligado a una operación; desvincúlalo antes de rechazarla.");
+    }
+    const updated = await tx.supplier_invoices.update({ where: { id: i.id }, data: { buyer_cfdi_id: null, status: "REJECTED", reviewed_by_membership_id: actor.membershipId, reviewed_at: new Date(), review_reason: reason ?? null, updated_at: new Date() } });
+    if (i.buyer_cfdi_id) await tx.cfdi_documents.delete({ where: { id: i.buyer_cfdi_id } });
     const order = await tx.orders.findUniqueOrThrow({ where: { id: i.order_id }, select: { order_number: true } });
     const visibleTo = [i.buyer_organization_id, i.supplier_organization_id];
     await audit(tx, { ...auditBase(actor), visibleTo, action: "invoice.rejected", resourceType: "order", resourceId: i.order_id, resourceLabel: order.order_number, reason, metadata: { invoice_id: i.id, fiscal_uuid: i.fiscal_uuid } });

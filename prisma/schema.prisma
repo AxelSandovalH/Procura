@@ -2552,6 +2552,8 @@ model supplier_invoices {
   reviewed_by_membership_id String?                 @db.Uuid
   reviewed_at               DateTime?               @db.Timestamptz(6)
   review_reason             String?
+  buyer_cfdi_id             String?                 @db.Uuid
+  supplier_cfdi_id          String?                 @db.Uuid
   created_at                DateTime                @default(now()) @db.Timestamptz(6)
   updated_at                DateTime                @default(now()) @db.Timestamptz(6)
 
@@ -2577,6 +2579,8 @@ model expenses {
   created_by_membership_id String?        @db.Uuid
   voided_at                DateTime?      @db.Timestamptz(6)
   void_reason              String?
+  paid_minor               BigInt         @default(0)
+  documented_minor         BigInt         @default(0)
   created_at               DateTime       @default(now()) @db.Timestamptz(6)
   updated_at               DateTime       @default(now()) @db.Timestamptz(6)
 
@@ -2591,5 +2595,164 @@ model expense_invoices {
   created_at          DateTime @default(now()) @db.Timestamptz(6)
 
   @@id([expense_id, supplier_invoice_id])
+  @@schema("public")
+}
+
+enum cfdi_direction {
+  ISSUED
+  RECEIVED
+
+  @@schema("public")
+}
+
+enum payment_direction {
+  IN
+  OUT
+
+  @@schema("public")
+}
+
+model customers {
+  id              String    @id @default(dbgenerated("app.uuid_v7()")) @db.Uuid
+  organization_id String    @db.Uuid
+  name            String
+  tax_id          String?
+  email           String?
+  archived_at     DateTime? @db.Timestamptz(6)
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+model sales {
+  id                       String    @id @default(dbgenerated("app.uuid_v7()")) @db.Uuid
+  organization_id          String    @db.Uuid
+  folio                    String
+  sold_at                  DateTime  @db.Date
+  customer_id              String?   @db.Uuid
+  description              String
+  currency                 String    @db.Char(3)
+  subtotal_minor           BigInt
+  discount_minor           BigInt    @default(0)
+  tax_minor                BigInt    @default(0)
+  total_minor              BigInt
+  payment_method           String?
+  invoicing_flag           String?
+  notes                    String?
+  collected_minor          BigInt    @default(0)
+  documented_minor         BigInt    @default(0)
+  created_by_membership_id String?   @db.Uuid
+  voided_at                DateTime? @db.Timestamptz(6)
+  void_reason              String?
+  created_at               DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@unique([organization_id, folio])
+  @@schema("public")
+}
+
+model sale_lines {
+  id               String  @id @default(dbgenerated("app.uuid_v7()")) @db.Uuid
+  organization_id  String  @db.Uuid
+  sale_id          String  @db.Uuid
+  line_number      Int
+  description      String
+  quantity         Decimal @db.Decimal(18, 4)
+  unit_price_minor BigInt
+  discount_minor   BigInt  @default(0)
+  tax_rate         Decimal @default(0) @db.Decimal(6, 4)
+  tax_minor        BigInt  @default(0)
+  total_minor      BigInt
+
+  @@unique([sale_id, line_number])
+  @@schema("public")
+}
+
+model cfdi_documents {
+  id                       String         @id @default(dbgenerated("app.uuid_v7()")) @db.Uuid
+  organization_id          String         @db.Uuid
+  direction                cfdi_direction
+  fiscal_uuid              String
+  cfdi_version             String?
+  cfdi_type                String         @default("I")
+  series                   String?
+  folio                    String?
+  issued_at                DateTime?      @db.Timestamptz(6)
+  issuer_rfc               String
+  issuer_name              String?
+  receiver_rfc             String
+  receiver_name            String?
+  currency                 String         @db.Char(3)
+  exchange_rate            Decimal?       @db.Decimal(18, 6)
+  subtotal_minor           BigInt
+  discount_minor           BigInt         @default(0)
+  tax_minor                BigInt         @default(0)
+  total_minor              BigInt
+  fiscal_payment_method    String?
+  fiscal_payment_form      String?
+  sat_status               String         @default("UNKNOWN")
+  sat_status_checked_at    DateTime?      @db.Timestamptz(6)
+  xml_storage_key          String?
+  xml_filename             String?
+  pdf_storage_key          String?
+  pdf_filename             String?
+  source                   String
+  provider                 String?
+  provider_external_id     String?
+  last_synced_at           DateTime?      @db.Timestamptz(6)
+  allocated_minor          BigInt         @default(0)
+  created_by_membership_id String?        @db.Uuid
+  created_at               DateTime       @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime       @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+model cfdi_links {
+  id                       String   @id @default(dbgenerated("app.uuid_v7()")) @db.Uuid
+  organization_id          String   @db.Uuid
+  cfdi_id                  String   @db.Uuid
+  sale_id                  String?  @db.Uuid
+  expense_id               String?  @db.Uuid
+  amount_minor             BigInt
+  created_by_membership_id String?  @db.Uuid
+  created_at               DateTime @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+model payments {
+  id                       String            @id @default(dbgenerated("app.uuid_v7()")) @db.Uuid
+  organization_id          String            @db.Uuid
+  direction                payment_direction
+  sale_id                  String?           @db.Uuid
+  expense_id               String?           @db.Uuid
+  paid_at                  DateTime          @db.Date
+  amount_minor             BigInt
+  currency                 String            @db.Char(3)
+  method                   String?
+  external_reference       String?
+  notes                    String?
+  created_by_membership_id String?           @db.Uuid
+  voided_at                DateTime?         @db.Timestamptz(6)
+  void_reason              String?
+  created_at               DateTime          @default(now()) @db.Timestamptz(6)
+
+  @@schema("public")
+}
+
+model fiscal_provider_connections {
+  id                  String    @id @default(dbgenerated("app.uuid_v7()")) @db.Uuid
+  organization_id     String    @db.Uuid
+  provider            String
+  status              String    @default("PENDING")
+  external_account_id String?
+  last_synced_at      DateTime? @db.Timestamptz(6)
+  last_error          String?
+  created_at          DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@unique([organization_id, provider])
   @@schema("public")
 }

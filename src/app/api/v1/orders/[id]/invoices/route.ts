@@ -10,6 +10,7 @@ import { emitEvent, notifyPermissionHolders } from "@/lib/events/emit";
 import { supabaseAdmin, ensureAttachmentsBucket, ATTACHMENTS_BUCKET } from "@/lib/supabase/admin";
 import { sanitizeFilename, validateFile } from "@/lib/attachments/validate";
 import { assertFiscalIdentity, evaluateInvoice, parseCfdi } from "@/lib/billing/cfdi";
+import { createCfdiDocument } from "@/lib/billing/cfdi-docs";
 import { invoiceSummary, LIVE_STATUSES, publicInvoice, receivedSubtotalMinor } from "@/lib/billing/invoices";
 
 const INVOICEABLE = ["CONFIRMED", "IN_PROCESS", "COMPLETED"];
@@ -89,6 +90,11 @@ export const POST = route(async (req, params) => {
           pdf_storage_key: pdfBytes ? `${base}.pdf` : null, pdf_filename: pdfName, uploaded_by_membership_id: actor.membershipId,
         },
       });
+      // Copia emitida del proveedor (única fuente de verdad del dato fiscal en su organización). Si ya existía la de una factura rechazada, se reutiliza.
+      const prior = await tx.cfdi_documents.findFirst({ where: { organization_id: actor.organizationId, fiscal_uuid: cfdi.fiscalUuid }, select: { id: true } });
+      const issued = prior ?? await createCfdiDocument(tx, { organizationId: actor.organizationId, membershipId: actor.membershipId, direction: "ISSUED", cfdi, source: "SUPPLIER_ORDER",
+        files: { xmlKey: `${base}.xml`, xmlName: sanitizeFilename(xmlFile.name || "factura.xml"), pdfKey: pdfBytes ? `${base}.pdf` : null, pdfName } });
+      await tx.supplier_invoices.update({ where: { id: invoice.id }, data: { supplier_cfdi_id: issued.id } });
       const label = [cfdi.series, cfdi.folio].filter(Boolean).join("-") || cfdi.fiscalUuid.slice(0, 8);
       const visibleTo = [order.buyer_organization_id, order.supplier_organization_id];
       await audit(tx, { ...auditBase(actor), visibleTo, action: "invoice.submitted", resourceType: "order", resourceId: order.id, resourceLabel: order.order_number, metadata: { invoice_id: invoice.id, fiscal_uuid: cfdi.fiscalUuid, total_minor: cfdi.totalMinor.toString(), status } });

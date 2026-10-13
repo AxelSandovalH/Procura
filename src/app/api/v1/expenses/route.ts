@@ -5,7 +5,11 @@ import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
-import { assertExpensesManagedHere, expenseWithInvoices, loadLinkableInvoices } from "@/lib/billing/expenses";
+import { idempotent } from "@/lib/http/idempotency";
+import { assertExpensesManagedHere, expenseView } from "@/lib/billing/expenses";
+import { materializeReceived } from "@/lib/billing/cfdi-docs";
+import { linkCfdi } from "@/lib/finance/ops";
+import { expenseStatuses } from "@/lib/finance/views";
 import type { Prisma } from "@prisma/client";
 
 const Create = z.object({
@@ -18,7 +22,7 @@ const Create = z.object({
   supplier_name: z.string().trim().max(200).optional(),
   order_id: z.uuid().optional(),
   external_reference: z.string().trim().max(200).optional(),
-  supplier_invoice_ids: z.array(z.uuid()).max(20).default([]),
+  cfdi_ids: z.array(z.uuid()).max(20).default([]),
 });
 
 export const GET = route(async (req) => {
@@ -37,9 +41,9 @@ export const GET = route(async (req) => {
   const data = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
     const settings = await tx.organization_settings.findUnique({ where: { organization_id: actor.organizationId }, select: { expenses_managed_by: true } });
     const rows = await tx.expenses.findMany({ where, orderBy: [{ spent_at: "desc" }, { created_at: "desc" }], take: 200 });
-    const links = rows.length ? await tx.expense_invoices.findMany({ where: { expense_id: { in: rows.map((r) => r.id) } }, select: { expense_id: true } }) : [];
-    const counts = new Map<string, number>(); for (const l of links) counts.set(l.expense_id, (counts.get(l.expense_id) ?? 0) + 1);
-    return { managed_by: settings?.expenses_managed_by ?? "PROCURA", rows: rows.map((r) => ({ ...r, invoice_count: counts.get(r.id) ?? 0 })) };
+    const links = rows.length ? await tx.cfdi_links.findMany({ where: { expense_id: { in: rows.map((r) => r.id) } }, select: { expense_id: true } }) : [];
+    const counts = new Map<string, number>(); for (const l of links) counts.set(l.expense_id!, (counts.get(l.expense_id!) ?? 0) + 1);
+    return { managed_by: settings?.expenses_managed_by ?? "PROCURA", rows: rows.map((r) => ({ ...r, ...expenseStatuses(r), cfdi_count: counts.get(r.id) ?? 0 })) };
   });
   return NextResponse.json({ managed_by: data.managed_by, data: data.rows });
 });
@@ -48,18 +52,21 @@ export const POST = route(async (req) => {
   const actor = await requireActor(req);
   authorize(actor, "expense.manage");
   const body = await json(req, (d) => Create.parse(d));
-  const out = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
-    await assertExpensesManagedHere(tx, actor.organizationId);
-    if (body.order_id) {
-      const o = await tx.orders.findFirst({ where: { id: body.order_id, buyer_organization_id: actor.organizationId }, select: { id: true } });
-      if (!o) throw Problem.badRequest("La orden no existe o no es tuya");
-    }
-    const invoices = await loadLinkableInvoices(tx, actor, body.supplier_invoice_ids);
-    const { supplier_invoice_ids, spent_at, ...rest } = body; void supplier_invoice_ids;
-    const e = await tx.expenses.create({ data: { ...rest, spent_at: new Date(spent_at), amount_minor: BigInt(body.amount_minor), organization_id: actor.organizationId, source: body.order_id ? "PROCURA" : "MANUAL", created_by_membership_id: actor.membershipId } });
-    if (invoices.length) await tx.expense_invoices.createMany({ data: invoices.map((i) => ({ expense_id: e.id, supplier_invoice_id: i.id, organization_id: actor.organizationId })) });
-    await audit(tx, { ...auditBase(actor), action: "expense.created", resourceType: "expense", resourceId: e.id, resourceLabel: e.description, metadata: { amount_minor: e.amount_minor.toString(), currency: e.currency, invoices: invoices.length } });
-    return expenseWithInvoices(tx, e);
+  if (body.cfdi_ids.length > 0) authorize(actor, "cfdi.manage");
+  return idempotent(req, actor, body, async () => {
+    const out = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
+      await assertExpensesManagedHere(tx, actor.organizationId);
+      if (body.order_id) {
+        const o = await tx.orders.findFirst({ where: { id: body.order_id, buyer_organization_id: actor.organizationId }, select: { id: true } });
+        if (!o) throw Problem.badRequest("La orden no existe o no es tuya");
+      }
+      const { cfdi_ids, spent_at, ...rest } = body;
+      const e = await tx.expenses.create({ data: { ...rest, spent_at: new Date(spent_at), amount_minor: BigInt(body.amount_minor), organization_id: actor.organizationId, source: body.order_id ? "PROCURA" : "MANUAL", created_by_membership_id: actor.membershipId } });
+      if (cfdi_ids.length) await materializeReceived(tx, actor.organizationId, actor.membershipId);
+      for (const id of cfdi_ids) await linkCfdi(tx, actor.organizationId, actor.membershipId, "expense", e.id, id);
+      await audit(tx, { ...auditBase(actor), action: "expense.created", resourceType: "expense", resourceId: e.id, resourceLabel: e.description, metadata: { amount_minor: e.amount_minor.toString(), currency: e.currency, cfdi: cfdi_ids.length } });
+      return expenseView(tx, await tx.expenses.findUniqueOrThrow({ where: { id: e.id } }));
+    });
+    return { status: 201, body: out };
   });
-  return NextResponse.json(out, { status: 201 });
 });

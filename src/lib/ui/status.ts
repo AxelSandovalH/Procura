@@ -53,3 +53,19 @@ export const TONE_CLASS: Record<Tone, string> = {
 export const INVOICE_STATUS: Record<string, { label: string; tone: Tone }> = {
   VALIDATED: { label: "Validada", tone: "ok" }, DISCREPANCY: { label: "Con diferencias", tone: "warn" }, ACCEPTED: { label: "Aceptada con diferencia", tone: "info" }, REJECTED: { label: "Rechazada", tone: "bad" },
 };
+
+/** Cobro de ventas y pago de gastos usan los mismos estados; cambia solo la palabra. */
+export const COLLECTION_STATUS: Record<string, { label: string; tone: Tone }> = {
+  PENDING: { label: "Pendiente de cobro", tone: "warn" }, PARTIAL: { label: "Cobro parcial", tone: "info" }, COLLECTED: { label: "Cobrada", tone: "ok" }, VOIDED: { label: "Anulada", tone: "muted" },
+};
+export const PAYMENT_STATUS: Record<string, { label: string; tone: Tone }> = {
+  PENDING: { label: "Pendiente de pago", tone: "warn" }, PARTIAL: { label: "Pago parcial", tone: "info" }, COLLECTED: { label: "Pagado", tone: "ok" }, VOIDED: { label: "Anulado", tone: "muted" },
+};
+export const INVOICING_STATUS: Record<string, { label: string; tone: Tone }> = {
+  NONE: { label: "Sin facturar", tone: "muted" }, PENDING: { label: "Facturación pendiente", tone: "warn" }, PARTIAL: { label: "Facturación parcial", tone: "info" },
+  INVOICED: { label: "Facturada", tone: "ok" }, INCIDENT: { label: "Incidencia de facturación", tone: "bad" },
+};
+export const SAT_STATUS: Record<string, { label: string; tone: Tone }> = {
+  UNKNOWN: { label: "Vigencia sin verificar", tone: "muted" }, VIGENTE: { label: "Vigente", tone: "ok" }, CANCELADO: { label: "Cancelado", tone: "bad" },
+};
+export const PAYMENT_METHOD: Record<string, string> = { CASH: "Efectivo", CARD: "Tarjeta", TRANSFER: "Transferencia", OTHER: "Otro" };
