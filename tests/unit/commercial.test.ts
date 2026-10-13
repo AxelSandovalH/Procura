@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { FINANCE_PLANS, NOT_IMPLEMENTED, SAT_RECOVERY, STAMP_PACKS, TAX_NOTE, chargeBreakdown } from "@/lib/commercial/plans";
 import { contribution, creditRevenueMinor, stampCostMinor } from "@/lib/commercial/economics";
+import { FEATURE_MIN_PLAN, PLAN_NAME, allows } from "@/lib/billing/entitlements";
 import { coveredByExisting } from "@/lib/fiscal/download";
 
 describe("estructura comercial", () => {
   it("los precios son los definidos y Control es el recomendado", () => {
-    expect(FINANCE_PLANS.map((p) => [p.id, p.price])).toEqual([["esencial", 499], ["control", 999], ["negocio", 1799]]);
+    expect(FINANCE_PLANS.map((p) => [p.id, p.price])).toEqual([["esencial", 499], ["control", 999], ["negocio", 1799], ["empresa", 4990]]);
     expect(FINANCE_PLANS.filter((p) => p.featured).map((p) => p.id)).toEqual(["control"]);
   });
   it("cada prestación anunciada indica dónde existe en el producto", () => { for (const p of FINANCE_PLANS) for (const f of p.features) expect(f.verified.length, f.text).toBeGreaterThan(2); });
@@ -16,7 +17,7 @@ describe("estructura comercial", () => {
   });
   it("los límites de recuperación del SAT siguen pendientes y sin cobro de excedente", () => {
     expect(SAT_RECOVERY.limits.requestsPerMonth).toBeNull(); expect(SAT_RECOVERY.limits.cfdiPerMonth).toBeNull(); expect(SAT_RECOVERY.overage.enabled).toBe(false);
-    expect(SAT_RECOVERY.includedIn).toEqual(["negocio"]);
+    expect(SAT_RECOVERY.includedIn).toEqual(["negocio", "empresa"]);
   });
   it("los paquetes de timbrado no están disponibles todavía", () => { expect(STAMP_PACKS.available).toBe(false); });
 });
@@ -56,4 +57,22 @@ describe("cargo por servicio de pago e IVA", () => {
     expect(chargeBreakdown(20_000)).toEqual({ price: 20_000, fee: 800, tax: 3_328, total: 24_128 });
   });
   it("el aviso de precios menciona el cargo", () => { expect(TAX_NOTE).toMatch(/4%/); });
+});
+
+describe("un solo esquema: lo anunciado coincide con lo que el sistema aplica", () => {
+  const order = ["esencial", "control", "negocio", "empresa"];
+  it("el plan mínimo de cada función respeta el orden de los planes", () => {
+    expect(FEATURE_MIN_PLAN.procurement).toBe("control"); expect(FEATURE_MIN_PLAN.finance_reports).toBe("control"); expect(FEATURE_MIN_PLAN.bank).toBe("negocio"); expect(FEATURE_MIN_PLAN.advanced_approvals).toBe("negocio"); expect(FEATURE_MIN_PLAN.api).toBe("empresa");
+    for (const p of order) expect(PLAN_NAME[p as keyof typeof PLAN_NAME]).toBeTruthy();
+  });
+  it("cada plan permite lo suyo y lo de los planes anteriores", () => {
+    const can = (plan: string, f: Parameters<typeof allows>[1]) => allows({ kind: "PLAN", plan: plan as "esencial" }, f);
+    expect([can("esencial", "procurement"), can("control", "procurement"), can("control", "bank"), can("negocio", "bank"), can("negocio", "api"), can("empresa", "api"), can("empresa", "procurement")]).toEqual([false, true, false, true, false, true, true]);
+    expect(allows({ kind: "LEGACY" }, "api")).toBe(true); expect(allows({ kind: "NEW" }, "procurement")).toBe(false); expect(allows({ kind: "LAPSED" }, "cfdi")).toBe(false);
+  });
+  it("Empresa se muestra «desde» y hereda de Negocio; nadie promete lo no aplicado", () => {
+    const e = FINANCE_PLANS.find((p) => p.id === "empresa")!; expect(e.priceFrom).toBe(true); expect(e.inherits).toBe("Negocio");
+    const all = FINANCE_PLANS.flatMap((p) => p.features.map((f) => f.text)).join(" | ").toLowerCase();
+    for (const bad of ["entregas parciales", "catálogos por proveedor", "usuarios ampliables", "organizaciones y sucursales"]) expect(all, bad).not.toContain(bad);
+  });
 });

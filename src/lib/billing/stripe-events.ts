@@ -6,7 +6,7 @@ import { audit } from "@/lib/audit";
 import { GRACE_DAYS } from "@/lib/billing/entitlements";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const PLANS = ["esencial", "control", "negocio"] as const;
+const PLANS = ["esencial", "control", "negocio", "empresa"] as const;
 const SYSTEM = (organizationId: string) => ({ actorType: "SYSTEM" as const, actorId: null, membershipId: null, apiKeyId: null, organizationId });
 
 async function ensureRow(tx: Tx, organizationId: string) {

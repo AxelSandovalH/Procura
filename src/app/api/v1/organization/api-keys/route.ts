@@ -6,6 +6,7 @@ import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { generateApiKey, assertRolesAllowed } from "@/lib/auth/api-keys";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 const Create = z.object({
   name: z.string().trim().min(1).max(80),
@@ -28,6 +29,7 @@ export const GET = route(async (req) => {
 export const POST = route(async (req) => {
   const actor = await requireActor(req);
   authorize(actor, "api_key.manage");
+  await assertFeature(actor.organizationId, "api");
   if (actor.type !== "USER") throw Problem.forbidden("Las API keys solo las gestionan personas");
   const body = await json(req, (d) => Create.parse(d));
   const { secret, hash, prefix } = generateApiKey();

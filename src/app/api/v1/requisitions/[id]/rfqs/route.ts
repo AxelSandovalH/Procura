@@ -6,6 +6,7 @@ import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { issueRfqs } from "@/lib/sourcing/issue-rfq";
 import { isoDateOptional } from "@/lib/validation";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 const Create = z.object({
   supplier_organization_ids: z.array(z.uuid()).min(1),
@@ -35,6 +36,7 @@ export const GET = route(async (req, params) => {
 export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
   authorize(actor, "rfq.issue");
+  await assertFeature(actor.organizationId, "procurement");
   const body = await json(req, (d) => Create.parse(d));
 
   const created = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, (tx) =>

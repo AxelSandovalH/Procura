@@ -9,7 +9,7 @@ import { requirePrimaryAdmin } from "@/lib/billing/guard";
 import { PLAN_PRODUCT_ID, SERVICE_FEE_PRODUCT_ID, ensureProduct, ivaTaxRateId, planForProduct, stripe } from "@/lib/billing/stripe";
 import { FINANCE_PLANS, SERVICE_FEE, chargeBreakdown } from "@/lib/commercial/plans";
 
-const Body = z.object({ plan: z.enum(["esencial", "control", "negocio"]) });
+const Body = z.object({ plan: z.enum(["esencial", "control", "negocio", "empresa"]) });
 
 /**
  * Cambia el plan de una suscripción activa con el precio que define Procura; Stripe prorratea la diferencia. El plan de la organización NO se

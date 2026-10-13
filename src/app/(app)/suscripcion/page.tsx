@@ -62,15 +62,15 @@ function PlanInner() {
         {sub?.has_customer && d.can_manage && <Button variant="outline" disabled={busy === "portal" || !ready.enabled} onClick={() => void go("portal", "/billing/portal", {})}>{busy === "portal" ? "Abriendo…" : "Administrar suscripción (tarjeta, recibos, cancelar)"}</Button>}
       </CardContent></Card>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {FINANCE_PLANS.map((p) => {
           const current = d.plan === p.id && d.access === "PLAN"; const subscribed = !!(sub && ["ACTIVE", "PAST_DUE"].includes(sub.status) && sub.plan); const can = d.can_manage && ready.enabled && ready.plans[p.id] && !current;
           return (
             <Card key={p.id} className={p.featured ? "border-foreground/60" : ""}><CardHeader><CardTitle className="flex items-center justify-between">{p.name}{current && <span className="rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">Tu plan</span>}</CardTitle></CardHeader>
               <CardContent className="space-y-3 text-sm">
-                <p><span className="text-2xl font-semibold tabular-nums">${p.price.toLocaleString("es-MX")}</span> <span className="text-muted-foreground">MXN / mes + IVA</span></p>
+                <p>{p.priceFrom && <span className="block text-xs text-muted-foreground">Desde</span>}<span className="text-2xl font-semibold tabular-nums">${p.price.toLocaleString("es-MX")}</span> <span className="text-muted-foreground">MXN / mes + IVA</span></p>
                 <p className="text-xs text-muted-foreground">Cada mes pagas aprox. {money(chargeBreakdown(p.price * 100).total)}: el precio, 4% de cargo por servicio de pago y 16% de IVA sobre ambos.</p>
-                <ul className="space-y-1.5">{p.features.slice(0, 4).map((f) => <li key={f.text} className="flex gap-2"><Check className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />{f.text}</li>)}</ul>
+                <ul className="space-y-1.5">{p.features.slice(0, 5).map((f) => <li key={f.text} className="flex gap-2"><Check className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />{f.text}</li>)}</ul>
                 <Button className="w-full" variant={p.featured ? "default" : "outline"} disabled={!can || busy === p.id} onClick={() => void (subscribed ? change(p.id) : go(p.id, "/billing/checkout", { plan: p.id }))}>{current ? "Plan actual" : busy === p.id ? (subscribed ? "Cambiando…" : "Abriendo…") : !ready.plans[p.id] ? "No disponible aún" : subscribed ? `Cambiar a ${p.name}` : `Contratar ${p.name}`}</Button>
               </CardContent></Card>);
         })}

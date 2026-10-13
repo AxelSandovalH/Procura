@@ -41,4 +41,4 @@ export function contribution(s: Scenario, a: Assumptions = DEFAULT_ASSUMPTIONS) 
   const costs = stampCost + emissionFixed + recoveryCost + ocr + fees;
   return { subscription, credits, stampCost, emissionFixed, recoveryCost, ocr, fees, contribution: subscription + credits - costs };
 }
-const SAT_INCLUDED = (id: string) => id === "negocio";
+const SAT_INCLUDED = (id: string) => id === "negocio" || id === "empresa";

@@ -11,7 +11,7 @@ import { PLAN_PRODUCT_ID, SERVICE_FEE_PRODUCT_ID, ensureProduct, ivaTaxRateId, s
 import { FINANCE_PLANS, SERVICE_FEE, chargeBreakdown } from "@/lib/commercial/plans";
 import { getOrCreateCustomer } from "@/lib/billing/customer";
 
-const Body = z.object({ plan: z.enum(["esencial", "control", "negocio"]) });
+const Body = z.object({ plan: z.enum(["esencial", "control", "negocio", "empresa"]) });
 
 /** Inicia el pago de la suscripción mensual en Stripe (Checkout). Devuelve la URL a la que se envía a la persona. */
 export const POST = route(async (req) => {

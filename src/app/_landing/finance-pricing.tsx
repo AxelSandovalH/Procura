@@ -15,7 +15,8 @@ function PlanCard({ plan }: { plan: FinancePlan }) {
         <h3 id={`fp-${plan.id}`} className="text-lg font-semibold tracking-tight">{plan.name}</h3>
         {f && <span className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-medium text-primary-foreground">Recomendado</span>}
       </div>
-      <p className="mt-4 flex flex-wrap items-baseline gap-x-1.5">
+      <p className="mt-4 flex min-h-[4.25rem] flex-wrap content-end items-baseline gap-x-1.5">
+        {plan.priceFrom && <span className="w-full text-sm text-muted-foreground">Desde</span>}
         <span className="text-4xl font-semibold tracking-tight tabular-nums">{mxn.format(plan.price)}</span>
         <span className="text-sm text-muted-foreground">{CURRENCY} / mes + IVA</span>
       </p>
@@ -39,10 +40,10 @@ export function FinancePricing() {
     <>
       <section id="precios" aria-labelledby="precios-titulo" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20 sm:py-28">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 id="precios-titulo" className="text-3xl font-semibold tracking-tight sm:text-4xl">Precios claros para ordenar tu administración.</h2>
-          <p className="mt-4 text-lg text-muted-foreground">Elige el plan según qué tanto quieres controlar. Los servicios fiscales con costo variable se muestran aparte, para que sepas qué pagas y por qué.</p>
+          <h2 id="precios-titulo" className="text-3xl font-semibold tracking-tight sm:text-4xl">Un solo sistema, cuatro planes.</h2>
+          <p className="mt-4 text-lg text-muted-foreground">Compras, gastos, ventas y facturación juntos. Elige el plan según qué tanto quieres controlar; los servicios fiscales con costo variable se muestran aparte, para que sepas qué pagas y por qué.</p>
         </div>
-        <div className="mt-14 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div className="mt-14 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
           {FINANCE_PLANS.map((p) => <PlanCard key={p.id} plan={p} />)}
         </div>
         <p className="mt-6 text-center text-xs text-muted-foreground">{TAX_NOTE} Al crear tu cuenta no se realiza ningún cobro automático.</p>
@@ -56,7 +57,7 @@ export function FinancePricing() {
             </div>
             <div className="rounded-2xl border p-5">
               <dt className="font-medium">Recuperación de CFDI del SAT</dt>
-              <dd className="mt-2 text-sm text-muted-foreground">Trae a Procura las facturas que te emitieron. Está incluida en {FINANCE_PLANS.find((p) => p.id === SAT_RECOVERY.includedIn[0])!.name}, y sus límites dependen del plan y de la política de consumo. Es un servicio distinto al timbrado, con costos propios del proveedor fiscal, y no se promete un volumen ilimitado.</dd>
+              <dd className="mt-2 text-sm text-muted-foreground">Trae a Procura las facturas que te emitieron. Está incluida desde {FINANCE_PLANS.find((p) => p.id === SAT_RECOVERY.includedIn[0])!.name}, y sus límites dependen del plan y de la política de consumo. Es un servicio distinto al timbrado, con costos propios del proveedor fiscal, y no se promete un volumen ilimitado.</dd>
             </div>
             <div className="rounded-2xl border p-5">
               <dt className="font-medium">Timbrado de CFDI propios</dt>
@@ -65,10 +66,7 @@ export function FinancePricing() {
           </dl>
         </div>
 
-        <div className="mx-auto mt-12 flex max-w-3xl flex-col items-start justify-between gap-4 rounded-2xl border bg-muted/30 p-6 sm:flex-row sm:items-center">
-          <div><h3 className="font-semibold tracking-tight">¿Buscas gestionar compras con tus proveedores?</h3><p className="mt-1 text-sm text-muted-foreground">Requisiciones, aprobaciones, cotizaciones y órdenes tienen sus propios planes.</p></div>
-          <Link href="/precios/compras" className={cn(buttonVariants({ variant: "outline" }), "shrink-0")}>Ver planes de compras<ArrowRight className="size-4" aria-hidden /></Link>
-        </div>
+        <p className="mx-auto mt-10 max-w-3xl text-center text-sm text-muted-foreground">Tus proveedores no pagan para trabajar contigo: cotizan, confirman órdenes y registran entregas dentro del flujo sin contratar un plan. El acompañamiento en la puesta en marcha se cotiza aparte de la suscripción.</p>
       </section>
     </>
   );

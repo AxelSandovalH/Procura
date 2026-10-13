@@ -7,6 +7,7 @@ import { idempotent } from "@/lib/http/idempotency";
 import { createRequisition, CreateRequisition } from "@/lib/requisitions/create";
 import { requisitionVisibilityWhere } from "@/lib/requisitions/visibility";
 import type { Prisma, requisition_status, requisition_priority, requisition_type } from "@prisma/client";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 export const GET = route(async (req) => {
   const actor = await requireActor(req);
@@ -53,6 +54,7 @@ export const GET = route(async (req) => {
 export const POST = route(async (req) => {
   const actor = await requireActor(req);
   authorize(actor, "requisition.create");
+  await assertFeature(actor.organizationId, "procurement");
   const body = await json(req, (d) => CreateRequisition.parse(d));
 
   return idempotent(req, actor, body, async () => {

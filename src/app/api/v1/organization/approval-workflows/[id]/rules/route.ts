@@ -6,6 +6,7 @@ import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import type { Prisma } from "@prisma/client";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 const Condition = z.object({
   min_amount_minor: z.number().int().min(0).optional(),
@@ -42,6 +43,8 @@ export const POST = route(async (req, params) => {
   const actor = await requireActor(req);
   authorize(actor, "approval_workflow.manage");
   const body = await json(req, (d) => Create.parse(d));
+  // Un nivel de aprobación va desde el plan Control; varios niveles, desde Negocio.
+  if (body.level > 1) await assertFeature(actor.organizationId, "advanced_approvals");
 
   const rule = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
     const workflow = await tx.approval_workflows.findFirst({ where: { id: params.id, organization_id: actor.organizationId } });

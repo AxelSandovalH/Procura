@@ -7,6 +7,7 @@ import { ConceptInput, createRequisition } from "@/lib/requisitions/create";
 import { isoDateOptional } from "@/lib/validation";
 import { idempotent } from "@/lib/http/idempotency";
 import { issueRfqs } from "@/lib/sourcing/issue-rfq";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 const Body = z.object({
   title: z.string().trim().min(1).max(200),
@@ -27,6 +28,7 @@ const Body = z.object({
 export const POST = route(async (req) => {
   const actor = await requireActor(req);
   authorize(actor, "requisition.create");
+  await assertFeature(actor.organizationId, "procurement");
   const parsed = await json(req, (d) => Body.parse(d));
   const { supplier_organization_ids, due_days, ...rest } = parsed;
 

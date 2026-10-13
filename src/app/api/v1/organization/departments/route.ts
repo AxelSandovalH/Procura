@@ -5,6 +5,7 @@ import { requireActor } from "@/lib/auth/context";
 import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 const Create = z.object({
   name: z.string().trim().min(1).max(120),
@@ -29,6 +30,7 @@ export const GET = route(async (req) => {
 export const POST = route(async (req) => {
   const actor = await requireActor(req);
   authorize(actor, "department.manage");
+  await assertFeature(actor.organizationId, "structure");
   const body = await json(req, (d) => Create.parse(d));
 
   const dept = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {

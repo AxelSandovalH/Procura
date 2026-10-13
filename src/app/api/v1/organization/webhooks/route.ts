@@ -6,6 +6,7 @@ import { authorize } from "@/lib/auth/policy";
 import { withContext } from "@/lib/db/client";
 import { audit, auditBase } from "@/lib/audit";
 import { generateWebhookSecret } from "@/lib/events/webhook-secret";
+import { assertFeature } from "@/lib/billing/entitlements";
 
 const Create = z.object({
   url: z.url().regex(/^https:\/\//, "Debe ser HTTPS"),
@@ -25,6 +26,7 @@ export const GET = route(async (req) => {
 export const POST = route(async (req) => {
   const actor = await requireActor(req);
   authorize(actor, "webhook.manage");
+  await assertFeature(actor.organizationId, "api");
   const body = await json(req, (d) => Create.parse(d));
   const { secret } = generateWebhookSecret();
 

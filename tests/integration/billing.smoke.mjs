@@ -64,6 +64,25 @@ try {
   check("pero sí conserva lo básico: gastos", (await axel.call("/expenses")).status === 200);
   await send("customer.subscription.updated", subEv("procura_plan_negocio"));
 
+  // Un solo esquema: qué permite cada plan en compras, estructura y API (sin bloquear a los proveedores)
+  const rule = { level: 2, condition: {}, approver_type: "DEPARTMENT_HEAD" }, wf = randomUUID();
+  await send("customer.subscription.updated", subEv("procura_plan_esencial"));
+  check("Esencial NO incluye compras: crear una requisición responde 402", (await axel.call("/requisitions", "POST", {})).status === 402);
+  await send("customer.subscription.updated", subEv("procura_plan_control"));
+  r = await axel.call("/requisitions", "POST", {}); check("Control sí incluye compras (pasa el plan: falla solo por datos, 422)", r.status === 422, `${r.status} ${JSON.stringify(r.body).slice(0, 120)}`);
+  check("Control incluye aprobación de UN nivel (pasa el plan)", (await axel.call(`/organization/approval-workflows/${wf}/rules`, "POST", { ...rule, level: 1 })).status !== 402);
+  r = await axel.call(`/organization/approval-workflows/${wf}/rules`, "POST", rule); check("Control NO incluye varios niveles de aprobación (402)", r.status === 402 && r.body.required_plan === "negocio", JSON.stringify(r.body));
+  check("Control NO incluye departamentos y ubicaciones (402)", (await axel.call("/organization/departments", "POST", {})).status === 402 && (await axel.call("/organization/locations", "POST", {})).status === 402);
+  check("Control NO incluye API ni webhooks (402)", (await axel.call("/organization/api-keys", "POST", {})).status === 402 && (await axel.call("/organization/webhooks", "POST", {})).status === 402);
+  await send("customer.subscription.updated", subEv("procura_plan_negocio"));
+  check("Negocio incluye varios niveles y estructura (pasan el plan)", (await axel.call(`/organization/approval-workflows/${wf}/rules`, "POST", rule)).status !== 402 && (await axel.call("/organization/departments", "POST", {})).status === 422);
+  r = await axel.call("/organization/api-keys", "POST", {}); check("Negocio NO incluye API (402): es de Empresa", r.status === 402 && r.body.required_plan === "empresa", JSON.stringify(r.body));
+  await send("customer.subscription.updated", subEv("procura_plan_empresa")); b = await bill();
+  check("Empresa se reconoce como plan", b.plan === "empresa", JSON.stringify(b.plan));
+  check("Empresa incluye API y webhooks, y todo lo anterior", (await axel.call("/organization/api-keys", "POST", {})).status === 422 && (await axel.call("/organization/webhooks", "POST", {})).status === 422 && (await axel.call("/bank/accounts")).status === 200 && (await axel.call("/finance/summary")).status === 200);
+  check("un proveedor sin plan puede responder: las cotizaciones recibidas no se bloquean (no hay 402 en leer su bandeja)", (await axel.call("/rfqs")).status !== 402);
+  await send("customer.subscription.updated", subEv("procura_plan_negocio"));
+
   // Pago fallido, gracia y vencimiento
   r = await send("invoice.payment_failed", { id: "in_ficticia_1", customer: "cus_ficticio_1" }); b = await bill();
   check("pago fallido: pasa a «pago pendiente» con 7 días de gracia", b.subscription.status === "PAST_DUE" && !!b.subscription.grace_until && b.plan === "negocio", JSON.stringify(b.subscription));

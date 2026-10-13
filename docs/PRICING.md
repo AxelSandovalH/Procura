@@ -17,15 +17,22 @@ Este documento acompaña a `src/lib/commercial/plans.ts` (planes, límites y paq
 | Cuentas por cobrar y por pagar | Implementadas (saldos en Finanzas). |
 | Exportación de información fiscal y financiera | **No existe** (solo importaciones). No se anuncia. |
 
-## 2. Planes (MXN, más IVA)
+## 2. Planes (MXN, más IVA y 4% de cargo por servicio de pago)
 
-| Plan | Precio | Incluye (solo lo implementado) |
+**Un solo esquema** (compras + finanzas + fiscal). Sustituye a los planes de compras anteriores (Starter $1,490, Business $3,490, Enterprise $7,990 y Custom desde $15,000), que se retiraron; sus URL redirigen a la portada.
+
+| Plan | Precio | Qué agrega (acumulativo) |
 |---|---|---|
 | Esencial | $499/mes | Ingresos y gastos, comprobante por gasto, notas, listados con estados |
-| Control (recomendado) | $999/mes | Esencial + pagos parciales, saldos por cobrar/pagar, CFDI ligados, Finanzas con reportes, datos para el contador |
-| Negocio | $1,799/mes | Control + recuperación de CFDI del SAT (con límites), OCR, duplicados, conciliación CSV, emisión/cancelación, portal de autofacturación |
+| Control (recomendado) | $999/mes | **Compras** (requisiciones, aprobación de un nivel, cotizaciones, órdenes y recepción), proveedores y catálogo, pagos parciales, saldos, CFDI ligados, Finanzas con reportes y exportaciones |
+| Negocio | $1,799/mes | Recuperación del SAT (con límites), OCR, duplicados, conciliación CSV, emisión/cancelación/PDF, portal de autofacturación, aprobaciones de varios niveles, departamentos y ubicaciones |
+| Empresa | desde $4,990/mes | API y webhooks, acompañamiento en la puesta en marcha e integraciones a la medida (cotizados aparte) |
 
-**Tres conceptos separados:** (1) suscripción, (2) recuperación de CFDI del SAT (costo variable del proveedor, con límites pendientes), (3) timbrado (créditos aparte, aún no disponibles).
+**Conceptos separados:** suscripción · recuperación de CFDI del SAT (desde Negocio, con límites pendientes) · timbrado (créditos aparte). Los proveedores no pagan para cotizar, confirmar órdenes y registrar entregas: esas acciones **nunca** se restringen por plan (solo se restringe lo que crea el comprador: requisiciones, compras rápidas y solicitudes de cotización).
+
+**Qué se aplica en el sistema** (`FEATURE_MIN_PLAN`, `lib/billing/entitlements.ts`): `procurement` → Control; `finance_reports`, `cfdi` → Control; `bank`, `sat_recovery`, `ocr`, `issuing`, `advanced_approvals`, `structure` → Negocio; `api` → Empresa.
+
+**No se aplica todavía** (por eso no se anuncia): topes de usuarios y almacenamiento, entregas parciales o catálogos por proveedor como exclusivos de un plan (los usa también el proveedor, que no paga).
 
 ## 3. Costos reales observados (gastos de la organización)
 

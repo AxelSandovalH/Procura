@@ -17,10 +17,14 @@ export function chargeBreakdown(priceMinor: number) {
 
 export interface PlanFeature { text: string; /** dónde vive en el producto, para auditar que existe */ verified: string }
 export interface FinancePlan {
-  id: "esencial" | "control" | "negocio"; name: string; price: number; tagline: string; featured?: boolean;
+  id: "esencial" | "control" | "negocio" | "empresa"; name: string; price: number; /** muestra «Desde» antes del precio */ priceFrom?: boolean; tagline: string; featured?: boolean;
   inherits: string | null; features: PlanFeature[];
 }
 
+/**
+ * Esquema único (compras + finanzas + fiscal): cuatro planes que sustituyen a los anteriores de compras (Starter, Business, Enterprise y Custom).
+ * Lo que cada plan permite lo aplica `lib/billing/entitlements.ts` (FEATURE_MIN_PLAN); ambos deben decir lo mismo.
+ */
 export const FINANCE_PLANS: FinancePlan[] = [
   {
     id: "esencial", name: "Esencial", price: 499, inherits: null, tagline: "Para pequeños negocios que necesitan organizar su administración.",
@@ -32,14 +36,14 @@ export const FINANCE_PLANS: FinancePlan[] = [
     ],
   },
   {
-    id: "control", name: "Control", price: 999, inherits: "Esencial", featured: true, tagline: "Para negocios que necesitan controlar sus operaciones financieras.",
+    id: "control", name: "Control", price: 999, inherits: "Esencial", featured: true, tagline: "Para negocios que controlan sus finanzas y sus compras.",
     features: [
+      { text: "Compras: requisiciones, aprobación de un nivel, cotizaciones con comparativo y órdenes con recepción", verified: "/requisiciones, /aprobaciones, /solicitudes, /ordenes" },
+      { text: "Proveedores conectados y catálogo", verified: "/relaciones, /catalogo" },
       { text: "Pagos y cobros parciales, y pago de varios gastos a la vez", verified: "payments, gastos/mark-paid" },
       { text: "Saldos por cobrar y por pagar", verified: "finance/summary" },
       { text: "Carga de CFDI (XML, PDF o ZIP) y vínculo con cada gasto o venta", verified: "/facturas, cfdi_links" },
-      { text: "Crear gastos a partir de tus facturas recibidas", verified: "cfdi/expenses" },
-      { text: "Reportes de Finanzas: tendencia, categorías, proveedores y gasto con y sin CFDI", verified: "/finanzas, finance/charts" },
-      { text: "Datos fiscales listos para pedir tu factura y lista de gastos sin CFDI para revisar con tu contador", verified: "billing-data, /finanzas" },
+      { text: "Reportes de Finanzas con gráficas y exportaciones (CSV y XML) para tu contador", verified: "/finanzas, finance/charts, finance/export" },
     ],
   },
   {
@@ -51,6 +55,14 @@ export const FINANCE_PLANS: FinancePlan[] = [
       { text: "Conciliación bancaria por archivo CSV, con sugerencias", verified: "/banco" },
       { text: "Emisión, PDF y cancelación de CFDI 4.0 con retenciones de RESICO; el timbrado se paga aparte", verified: "sales/[id]/invoice, cfdi/[id]/cancel" },
       { text: "Portal público de autofacturación para tus clientes (consume tus timbres)", verified: "[slug]/facturar" },
+      { text: "Aprobaciones de varios niveles y reglas por departamento y ubicación", verified: "approval-workflows/[id]/rules, departments, locations" },
+    ],
+  },
+  {
+    id: "empresa", name: "Empresa", price: 4990, priceFrom: true, inherits: "Negocio", tagline: "Para operaciones grandes o que se conectan con su ERP o su punto de venta.",
+    features: [
+      { text: "API y webhooks firmados para conectar tu ERP o tu punto de venta", verified: "organization/api-keys, organization/webhooks" },
+      { text: "Acompañamiento en la puesta en marcha e integraciones a tu medida, cotizados aparte", verified: "servicio comercial (no es una función del sistema)" },
     ],
   },
 ];
@@ -66,7 +78,7 @@ export const NOT_IMPLEMENTED = [
 
 /** Recuperación de CFDI del SAT: servicio SEPARADO del timbrado. Los límites están PENDIENTES hasta conocer el costo real por RFC del proveedor. */
 export const SAT_RECOVERY = {
-  includedIn: ["negocio"] as const,
+  includedIn: ["negocio", "empresa"] as const,
   /** null = pendiente de definir. Mientras tanto no se promete ningún volumen ni se cobra excedente. */
   limits: { requestsPerMonth: null as number | null, cfdiPerMonth: null as number | null },
   overage: { enabled: false },
