@@ -21,6 +21,8 @@ export async function effectivePlan(organizationId: string, now = new Date()): P
   const [s, org] = await withContext({ organizationId }, (tx) => Promise.all([tx.organization_subscriptions.findUnique({ where: { organization_id: organizationId } }), tx.organizations.findUnique({ where: { id: organizationId }, select: { created_at: true } })]));
   if (!s || (s.status === "NONE" && !s.plan)) return !org || org.created_at < BILLING_LEGACY_BEFORE ? { kind: "LEGACY" } : { kind: "NEW" };
   const plan = s.plan as PlanId | null;
+  // Cortesía o prueba dada a mano (sin suscripción de Stripe): vence en su fecha; las de Stripe las renueva el webhook.
+  if (s.status === "ACTIVE" && !s.stripe_subscription_id && s.current_period_end && s.current_period_end < now) return { kind: "LAPSED" };
   if (plan && (s.status === "ACTIVE" || (s.status === "PAST_DUE" && s.grace_until && s.grace_until > now))) return { kind: "PLAN", plan };
   return { kind: "LAPSED" };
 }
