@@ -83,4 +83,4 @@ En **Ventas → Importar ventas** se sube el CSV que exporta el punto de venta (
 - Conserva el folio del ticket como folio de la venta (sirve para el portal de autofacturación); sin folio se asigna `VTA-xxxxx`.
 - Idempotente: cada fila lleva `external_ref` (`F:<folio>` o hash), reimportar no duplica. Un folio ya usado por otra venta se informa y no se crea.
 - Por omisión quedan cobradas (crea el cobro con la forma de pago); se puede desmarcar.
-- Límite: 1,000 ventas por archivo. Solo CSV por ahora. Permiso `sale.manage` (+ `payment.manage` si cobra). Endpoint: `POST /api/v1/sales/import` (`dry_run` para la vista previa).
+- Límite: 1,000 ventas por archivo. Acepta CSV y Excel (.xlsx; se usa la primera hoja con datos, convertida en el navegador). Permiso `sale.manage` (+ `payment.manage` si cobra). Endpoint: `POST /api/v1/sales/import` (`dry_run` para la vista previa).
