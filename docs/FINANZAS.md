@@ -88,3 +88,7 @@ En **Ventas → Importar ventas** se sube el CSV que exporta el punto de venta (
 ## Comprobantes en una venta
 
 En el detalle de una venta, la tarjeta **Comprobantes** guarda tickets de depósito, recibos o cualquier soporte de la venta y de sus cobros (adjunto con ancla `SALE`, interno, nunca compartido). Ver requiere `sale.read`; subir, `attachment.upload`. Una venta puede tener varios cobros parciales (p. ej. un acuerdo en tres pagos): el cobro y la facturación siguen siendo independientes.
+
+## Registrar una venta desde un ticket (foto o PDF)
+
+En **Ventas → Desde ticket**: se toma la foto o se sube el PDF del ticket de venta, el lector de Claude (el mismo de gastos, función OCR del plan Negocio) propone folio, fecha, total, IVA y forma de pago, y la persona revisa y confirma. Al guardar se crea la venta con el folio del ticket (sirve para el portal de autofacturación; si el folio ya existe no se duplica), opcionalmente cobrada, y el ticket queda como comprobante de la venta. Endpoint: `POST /api/v1/sales/scan` (solo lee, no guarda; permiso `sale.manage`, 60 lecturas por hora). Requiere `ANTHROPIC_API_KEY` en el servidor.

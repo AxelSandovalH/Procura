@@ -14,7 +14,7 @@ try {
   let r = await imp(axel, csv, { dry_run: true, tax_percent: 16 });
   check("vista previa: 3 ventas nuevas; omite la cancelada y la devolución", r.status === 200 && r.body.rows === 3 && r.body.new === 3 && r.body.skipped.canceled === 1 && r.body.skipped.refunds === 1, JSON.stringify(r.body));
   check("la vista previa no escribe nada", !(await sale(`${tag}-1`)));
-  r = await imp(axel, csv, { tax_percent: 16, mark_collected: true }); check("importa 3 ventas por $1,505.49", r.status === 200 && r.body.created === 3 && r.body.total_minor === 150549, JSON.stringify(r.body));
+  r = await imp(axel, csv, { tax_percent: 16, mark_collected: true }); check("importa 3 ventas por $1,505.49", r.status === 200 && r.body.created === 3 && r.body.total_minor === 150549 && r.body.ids?.length === 3, JSON.stringify(r.body));
   const s1 = await sale(`${tag}-1`), s2 = await sale(`${tag}-2`), s3 = await sale(`${tag}-3`);
   check("la venta conserva el folio del ticket y su total exacto", s1 && Number(s1.total_minor) === 116000 && Number(s2.total_minor) === 24550 && Number(s3.total_minor) === 9999, JSON.stringify([s1?.folio, s1?.total_minor]));
   check("subtotal + IVA suma exactamente el total del ticket (en los tres)", [s1, s2, s3].every((s) => Number(s.subtotal_minor) + Number(s.tax_minor) === Number(s.total_minor)));

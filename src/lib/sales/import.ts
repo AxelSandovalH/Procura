@@ -65,7 +65,7 @@ export function splitTotal(total: number, pct: number): { base: number; tax: num
 
 
 export interface ImportOptions { taxPercent: 0 | 8 | 16; markCollected: boolean; currency: string }
-export interface ImportResult { created: number; duplicates: number; folio_conflicts: string[]; total_minor: number }
+export interface ImportResult { created: number; duplicates: number; folio_conflicts: string[]; total_minor: number; ids: string[] }
 const CHUNK = 100;
 
 /**
@@ -73,7 +73,7 @@ const CHUNK = 100;
  * Si el folio del ticket ya lo usa OTRA venta (p. ej. capturada a mano), se informa y no se crea. Con `markCollected`, cada venta queda cobrada el día de la venta.
  */
 export async function importSales(withTx: <T>(fn: (tx: Tx) => Promise<T>) => Promise<T>, organizationId: string, membershipId: string | null, rows: (PosRow & { external_ref: string })[], opts: ImportOptions): Promise<ImportResult> {
-  const out: ImportResult = { created: 0, duplicates: 0, folio_conflicts: [], total_minor: 0 };
+  const out: ImportResult = { created: 0, duplicates: 0, folio_conflicts: [], total_minor: 0, ids: [] };
   for (let i = 0; i < rows.length; i += CHUNK) {
     const chunk = rows.slice(i, i + CHUNK);
     await withTx(async (tx) => {
@@ -99,7 +99,7 @@ export async function importSales(withTx: <T>(fn: (tx: Tx) => Promise<T>) => Pro
       const byFolio = new Map(created.map((c) => [c.folio, c.id]));
       await tx.sale_lines.createMany({ data: withFolio.map(({ r, folio }) => { const s = splitTotal(r.total_minor, opts.taxPercent); return { organization_id: organizationId, sale_id: byFolio.get(folio)!, line_number: 1, description: r.description ?? (r.folio ? `Ticket ${r.folio}` : `Ventas del ${r.sold_at}`), quantity: 1, unit_price_minor: BigInt(s.base), discount_minor: BigInt(0), tax_rate: opts.taxPercent / 100, tax_minor: BigInt(s.tax), total_minor: BigInt(r.total_minor) }; }) });
       if (opts.markCollected) await tx.payments.createMany({ data: withFolio.map(({ r, folio }) => ({ organization_id: organizationId, direction: "IN" as const, sale_id: byFolio.get(folio)!, paid_at: new Date(r.sold_at), amount_minor: BigInt(r.total_minor), currency: opts.currency, method: r.method ?? undefined, notes: "Cobro importado del punto de venta", created_by_membership_id: membershipId })) });
-      out.created += created.length; out.total_minor += withFolio.reduce((s, { r }) => s + r.total_minor, 0);
+      out.ids.push(...created.map((c) => c.id)); out.created += created.length; out.total_minor += withFolio.reduce((s, { r }) => s + r.total_minor, 0);
     });
   }
   return out;
