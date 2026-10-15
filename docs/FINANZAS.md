@@ -96,3 +96,7 @@ En **Ventas → Desde ticket**: se toma la foto o se sube el PDF del ticket de v
 ## Estado de cuenta en PDF (BBVA y otros)
 
 En **Banco → Importar movimientos** se puede subir el **PDF** del estado de cuenta además del CSV. El lector de Claude extrae los movimientos (fecha de operación, descripción, cargos, abonos, saldo y referencia; deduce el año con el periodo) y los convierte en el mismo CSV de siempre, que pasa por la vista previa, la detección de duplicados y la confirmación habituales: reimportar el mismo periodo no duplica. Cruza lo leído contra los totales de cargos y abonos que imprime el propio estado de cuenta y avisa si no cuadran (señal de que falta algún movimiento). Endpoint: `POST /api/v1/bank/accounts/{id}/read-pdf` (solo lee, no guarda; planes con banco y OCR, 20 lecturas por hora, PDF de hasta 10 MB). Requiere `ANTHROPIC_API_KEY`.
+
+## Conciliación con gastos en otra moneda
+
+Para un cargo de una cuenta en pesos, además de las coincidencias exactas de importe, Banco ofrece los **gastos pendientes en otra moneda** (p. ej. USD pagados con tarjeta en pesos). El importe no coincide porque lo fija el banco, así que se puntúan por fecha (el cargo suele llegar hasta 30 días después; 5 días antes como máximo) y por nombre, y se muestra el **tipo de cambio implícito** (cargo ÷ importe del gasto; en cuentas en pesos se descartan los fuera de 10–40). Al conciliar, el gasto queda pagado completo **en su propia moneda** y la nota del pago guarda lo que cargó el banco y el tipo de cambio.

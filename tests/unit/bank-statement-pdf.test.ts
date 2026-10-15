@@ -24,3 +24,20 @@ describe("estado de cuenta en PDF → CSV", () => {
     expect(rows).toBe(2); expect(dropped).toBe(2); expect(warnings[0]).toMatch(/2 movimientos/);
   });
 });
+
+import { suggestForeign, type Candidate } from "@/lib/bank/match";
+describe("gastos en dólares como sugerencia de un cargo en pesos", () => {
+  const usd = (id: string, date: string, usdMinor: number, who: string): Candidate => ({ kind: "expense", id, label: `${who} plan`, date, amount_minor: usdMinor, counterparty: who, currency: "USD" });
+  const txn = { posted_at: "2026-10-12", description: "COMPRA VERCEL INC SAN FRANCISCO", amount_minor: -41250 };
+  it("ofrece el gasto en USD aunque el importe no coincida, con el tipo de cambio implícito", () => {
+    const s = suggestForeign(txn, "MXN", [usd("a", "2026-10-10", 2000, "Vercel")]);
+    expect(s).toHaveLength(1); expect(s[0]!.fx).toEqual({ currency: "USD", original_minor: 2000, rate: 20.625 }); expect(s[0]!.reason).toMatch(/coincide «vercel»/);
+  });
+  it("descarta tipos de cambio absurdos, fechas lejanas y gastos en la moneda de la cuenta", () => {
+    expect(suggestForeign(txn, "MXN", [usd("a", "2026-10-10", 50, "Vercel"), usd("b", "2026-08-01", 2000, "Vercel"), { ...usd("c", "2026-10-10", 2000, "x"), currency: "MXN" }])).toEqual([]);
+  });
+  it("ordena por cercanía y nombre", () => {
+    const s = suggestForeign(txn, "MXN", [usd("lejos", "2026-09-25", 2000, "Otro"), usd("cerca", "2026-10-11", 2000, "Vercel")]);
+    expect(s.map((x) => x.id)).toEqual(["cerca", "lejos"]);
+  });
+});

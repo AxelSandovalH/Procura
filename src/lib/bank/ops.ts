@@ -33,6 +33,16 @@ export async function loadCandidates(tx: Tx, organizationId: string, currency: s
   return out;
 }
 
+/** Gastos pendientes en una moneda distinta a la de la cuenta (p. ej. USD pagados con una tarjeta en pesos). */
+export async function loadForeignExpenses(tx: Tx, organizationId: string, accountCurrency: string): Promise<Candidate[]> {
+  const out: Candidate[] = [];
+  for (const e of await tx.expenses.findMany({ where: { organization_id: organizationId, voided_at: null, currency: { not: accountCurrency } }, orderBy: { spent_at: "desc" }, take: 300 })) {
+    const pending = Number(e.amount_minor - e.paid_minor);
+    if (pending > 0) out.push({ kind: "expense", id: e.id, label: e.description, date: iso(e.spent_at), amount_minor: pending, counterparty: e.supplier_name, currency: e.currency });
+  }
+  return out;
+}
+
 async function openTxn(tx: Tx, organizationId: string, id: string) {
   const t = await tx.bank_transactions.findFirst({ where: { id, organization_id: organizationId } });
   if (!t) throw Problem.notFound("El movimiento no existe");
@@ -63,6 +73,18 @@ export async function reconcile(tx: Tx, organizationId: string, membershipId: st
   const kind = target.expense_id ? "expense" : target.sale_id ? "sale" : null;
   if (!kind) throw Problem.badRequest("Indica el pago, gasto o venta con el que se concilia.");
   if ((kind === "expense") !== outflow) throw Problem.badRequest(outflow ? "Un cargo se concilia con un gasto." : "Un abono se concilia con una venta.");
+  // Un gasto en otra moneda (p. ej. USD) se liquida completo: el pago queda en la moneda del gasto y la nota guarda lo que cargó el banco y el tipo de cambio implícito.
+  if (kind === "expense") {
+    const e = await tx.expenses.findFirst({ where: { id: target.expense_id!, organization_id: organizationId, voided_at: null } });
+    if (e && e.currency !== acct.currency) {
+      const pending = e.amount_minor - e.paid_minor;
+      if (pending <= BigInt(0)) throw Problem.conflict("Ese gasto ya está pagado.");
+      const rate = Number(abs) / Number(pending);
+      const note = `Conciliado con el banco: cargo de ${(Number(abs) / 100).toFixed(2)} ${acct.currency} (tipo de cambio implícito ${rate.toFixed(4)}). ${t.description}`.slice(0, 300);
+      const { payment } = await addPayment(tx, organizationId, membershipId, "expense", e.id, { paid_at: t.posted_at, amount_minor: Number(pending), notes: note });
+      return link(tx, organizationId, membershipId, t.id, payment.id, "foreign_expense", t.description);
+    }
+  }
   const { payment } = await addPayment(tx, organizationId, membershipId, kind, (target.expense_id ?? target.sale_id)!, { paid_at: t.posted_at, amount_minor: Number(abs), notes: `Conciliado con el banco: ${t.description}`.slice(0, 300) });
   return link(tx, organizationId, membershipId, t.id, payment.id, kind, t.description);
 }

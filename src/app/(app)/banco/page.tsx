@@ -14,7 +14,7 @@ import { api } from "@/lib/api-client";
 import { dateShort, money } from "@/lib/format";
 
 interface Account { id: string; name: string; bank: string | null; currency: string; last4: string | null; unmatched: number; matched: number }
-interface Suggestion { kind: "payment" | "expense" | "sale"; id: string; payment_id?: string; label: string; date: string; amount_minor: number; score: number; reason: string }
+interface Suggestion { kind: "payment" | "expense" | "sale"; id: string; payment_id?: string; label: string; date: string; amount_minor: number; score: number; reason: string; fx?: { currency: string; original_minor: number; rate: number } }
 interface Txn { id: string; posted_at: string; description: string; amount_minor: number; status: string; currency: string; suggestions: Suggestion[] }
 interface Preview { total: number; new: number; duplicates: number; skipped: number; from: string; to: string; columns: { date: string; description: string; amount: string }; warnings: string[]; charges_minor: number; deposits_minor: number }
 const TABS = [["UNMATCHED", "Por conciliar"], ["MATCHED", "Conciliados"], ["IGNORED", "Ignorados"]] as const;
@@ -61,10 +61,10 @@ export default function BancoPage() {
                 {t.status === "UNMATCHED" && canWrite && (<>
                   {t.suggestions.map((s) => (
                     <div key={`${s.kind}${s.id}`} className="rounded-lg border bg-muted/30 p-2">
-                      <p className="break-words">{s.label}</p><p className="text-xs text-muted-foreground">{dateShort(s.date)} · {s.reason} · {s.score}%</p>
+                      <p className="break-words">{s.label}{s.fx && <span className="ml-1 whitespace-nowrap font-medium">· {money(s.fx.original_minor, s.fx.currency)}</span>}</p><p className="text-xs text-muted-foreground">{dateShort(s.date)} · {s.reason} · {s.score}%</p>
                       <Button size="sm" className="mt-1" onClick={() => void act(`/bank/transactions/${t.id}/reconcile`, s.kind === "payment" ? { payment_id: s.payment_id } : s.kind === "expense" ? { expense_id: s.id } : { sale_id: s.id })}>Conciliar</Button>
                     </div>))}
-                  {t.suggestions.length === 0 && <p className="text-xs text-muted-foreground">Sin coincidencias exactas de importe.</p>}
+                  {t.suggestions.length === 0 && <p className="text-xs text-muted-foreground">Sin coincidencias exactas de importe. Si pagaste un gasto en otra moneda, aparece aquí con su tipo de cambio implícito.</p>}
                   <div className="flex flex-wrap gap-1">{t.amount_minor < 0 && <Button size="sm" variant="outline" onClick={() => setToExpense(t)}>Crear gasto</Button>}<Button size="sm" variant="ghost" onClick={() => void act(`/bank/transactions/${t.id}/ignore`, { ignored: true })}>Ignorar</Button></div>
                 </>)}
                 {t.status === "MATCHED" && <div className="flex items-center gap-2"><span className="text-emerald-700">Conciliado</span>{canWrite && <Button size="sm" variant="ghost" onClick={() => void act(`/bank/transactions/${t.id}/unmatch`, {})}>Deshacer</Button>}</div>}
