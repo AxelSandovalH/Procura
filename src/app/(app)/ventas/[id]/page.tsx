@@ -6,6 +6,7 @@ import { AlertTriangle, ArrowLeft, Ban } from "lucide-react";
 import { StatusBadge } from "@/components/app/status-badge";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { Files } from "@/components/app/collaboration-panel";
+import { ChangeCustomer } from "@/components/app/change-customer";
 import { IssueInvoiceButton } from "@/components/app/issue-invoice";
 import { CfdiSection, PaymentsSection, apiErr, type CfdiLinkRow, type PaymentRow } from "@/components/app/finance-sections";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ export default function SalePage({ params }: { params: Promise<{ id: string }> }
           <div className="flex flex-wrap items-center gap-2"><span className="font-mono text-sm text-muted-foreground">{s.folio}</span>
             <StatusBadge {...(COLLECTION_STATUS[s.collection_status] ?? { label: s.collection_status, tone: "neutral" as const })} /><StatusBadge {...(INVOICING_STATUS[s.invoicing_status] ?? { label: s.invoicing_status, tone: "neutral" as const })} /></div>
           <h1 className="text-2xl font-semibold tracking-tight">{s.description}</h1>
-          <p className="text-sm text-muted-foreground">{dateShort(s.sold_at)}{s.customer ? ` · ${s.customer.name}` : ""}{s.payment_method ? ` · ${PAYMENT_METHOD[s.payment_method] ?? s.payment_method}` : ""}</p>
+          <p className="text-sm text-muted-foreground">{dateShort(s.sold_at)}{s.customer ? ` · ${s.customer.name}` : ""}{s.payment_method ? ` · ${PAYMENT_METHOD[s.payment_method] ?? s.payment_method}` : ""}{manage && <> · <ChangeCustomer saleId={s.id} current={s.customer} locked={s.cfdi.length > 0} onDone={refresh} /></>}</p>
         </div>
         {manage && <div className="flex flex-wrap items-center gap-2">
           <IssueInvoiceButton sale={s} onDone={refresh} />

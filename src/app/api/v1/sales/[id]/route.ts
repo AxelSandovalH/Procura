@@ -35,6 +35,8 @@ export const PATCH = route(async (req, params) => {
     const s = await tx.sales.findFirst({ where: { id: params.id, organization_id: actor.organizationId } });
     if (!s) throw Problem.notFound();
     if (s.voided_at) throw Problem.conflict("La venta está anulada");
+    if (body.customer_id !== undefined && body.customer_id !== s.customer_id && (await tx.cfdi_links.count({ where: { sale_id: s.id } })) > 0)
+      throw Problem.conflict("La venta ya tiene una factura ligada a su cliente actual; desliga el comprobante antes de cambiar el cliente.");
     if (body.customer_id) {
       const c = await tx.customers.findFirst({ where: { id: body.customer_id, organization_id: actor.organizationId, archived_at: null }, select: { id: true } });
       if (!c) throw Problem.badRequest("El cliente no existe en tu organización");
