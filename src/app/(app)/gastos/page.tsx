@@ -9,6 +9,7 @@ import { BillingDataCard } from "@/components/app/billing-data";
 import { ScanReceiptButton } from "@/components/app/scan-receipt";
 import { PageHeader } from "@/components/app/page-header";
 import { StatusBadge } from "@/components/app/status-badge";
+import { AttachReceiptButton } from "@/components/app/attach-receipt";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { CfdiSection, PaymentsSection, apiErr, type CfdiLinkRow, type PaymentRow } from "@/components/app/finance-sections";
 import { Button } from "@/components/ui/button";
@@ -122,6 +123,7 @@ function ExpenseSheet({ id, onClose, canManage, onChange }: { id: string | null;
             <div className="flex flex-wrap gap-1.5"><StatusBadge {...(PAYMENT_STATUS[e.payment_status] ?? { label: e.payment_status, tone: "neutral" as const })} /><StatusBadge {...(INVOICING_STATUS[e.invoicing_status] ?? { label: e.invoicing_status, tone: "neutral" as const })} /></div>
             {e.voided_at && <p className="rounded-lg bg-muted px-3 py-2">Gasto anulado: {e.void_reason}</p>}
             {e.order_id && <Link href={`/ordenes/${e.order_id}`} className="inline-block underline">Ver la orden</Link>}
+            {canManage && !e.voided_at && <AttachReceiptButton expenseId={e.id} />}
             <ReceiptPreview expenseId={e.id} />
           </div>
           {/* Columna derecha: lo que se hace con el gasto. */}
