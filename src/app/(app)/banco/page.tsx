@@ -106,11 +106,20 @@ function NewAccount({ open, onOpenChange, onDone }: { open: boolean; onOpenChang
 
 function ImportDialog({ open, onOpenChange, account, onDone }: { open: boolean; onOpenChange: (o: boolean) => void; account: Account; onDone: () => Promise<unknown> }) {
   const [csv, setCsv] = useState<string | null>(null); const [name, setName] = useState(""); const [prev, setPrev] = useState<Preview | null>(null); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
-  const reset = () => { setCsv(null); setName(""); setPrev(null); setError(null); };
+  const [reading, setReading] = useState(false); const [pdfWarnings, setPdfWarnings] = useState<string[]>([]);
+  const reset = () => { setCsv(null); setName(""); setPrev(null); setError(null); setPdfWarnings([]); setReading(false); };
   async function pick(file: File | undefined) {
     if (!file) return; reset(); setBusy(true);
-    try { const text = await readText(file); setCsv(text); setName(file.name); setPrev(await api<Preview>(`/bank/accounts/${account.id}/import`, { body: { csv: text, dry_run: true } })); }
-    catch (er) { setError(apiErr(er, "No pude leer el archivo.")); } finally { setBusy(false); }
+    try {
+      const pdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name); let text: string;
+      if (pdf) {
+        if (file.size > 10 * 1024 * 1024) throw new Error("El PDF excede 10 MB.");
+        setReading(true); const fd = new FormData(); fd.append("file", file);
+        const res = await fetch(`/api/v1/bank/accounts/${account.id}/read-pdf`, { method: "POST", body: fd, credentials: "same-origin" }); const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.detail ?? data?.title ?? "No se pudo leer el PDF."); text = data.csv as string; setPdfWarnings(data.warnings as string[]);
+      } else text = await readText(file);
+      setCsv(text); setName(file.name); setPrev(await api<Preview>(`/bank/accounts/${account.id}/import`, { body: { csv: text, dry_run: true } })); }
+    catch (er) { setError(er instanceof Error && !(er as { fieldErrors?: unknown }).fieldErrors ? er.message : apiErr(er, "No pude leer el archivo.")); } finally { setBusy(false); setReading(false); }
   }
   async function confirm() {
     setBusy(true); setError(null);
@@ -119,16 +128,16 @@ function ImportDialog({ open, onOpenChange, account, onDone }: { open: boolean; 
   }
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) reset(); onOpenChange(o); }}><DialogContent>
-      <DialogHeader><DialogTitle>Importar movimientos · {account.name}</DialogTitle><DialogDescription>Sube el estado de cuenta en CSV (el banco lo llama «exportar movimientos»). Necesita fecha, descripción y monto (o cargos y abonos).</DialogDescription></DialogHeader>
+      <DialogHeader><DialogTitle>Importar movimientos · {account.name}</DialogTitle><DialogDescription>Sube el estado de cuenta en PDF (BBVA y otros bancos: lo leemos con Claude y tú revisas antes de importar) o el CSV que exporta tu banco (fecha, descripción y monto, o cargos y abonos).</DialogDescription></DialogHeader>
       <div className="space-y-3 text-sm">
-        <input type="file" accept=".csv,.txt,text/csv" aria-label="Archivo CSV" onChange={(e) => void pick(e.target.files?.[0])} />
-        {busy && <p className="text-muted-foreground">Leyendo…</p>}
+        <input type="file" accept=".pdf,.csv,.txt,application/pdf,text/csv" aria-label="Archivo del estado de cuenta (PDF o CSV)" onChange={(e) => void pick(e.target.files?.[0])} />
+        {busy && <p className="text-muted-foreground">{reading ? "Leyendo el PDF… puede tardar hasta un minuto." : "Leyendo…"}</p>}
         {prev && (
           <div className="space-y-1 rounded-lg border bg-muted/30 p-3">
             <p className="font-medium">{name}</p>
             <p>{prev.total} movimientos del {dateShort(prev.from)} al {dateShort(prev.to)}: <b>{prev.new} nuevos</b>{prev.duplicates > 0 && `, ${prev.duplicates} ya estaban`}.</p>
             <p className="text-xs text-muted-foreground">Columnas usadas: {prev.columns.date} · {prev.columns.description} · {prev.columns.amount}. Cargos nuevos {money(prev.charges_minor, account.currency)} · abonos nuevos {money(prev.deposits_minor, account.currency)}.</p>
-            {prev.warnings.map((w) => <p key={w} className="text-xs text-amber-700">{w}</p>)}
+            {[...pdfWarnings, ...prev.warnings].map((w) => <p key={w} className="text-xs text-amber-700">{w}</p>)}
           </div>)}
         {error && <p role="alert" className="text-destructive">{error}</p>}
       </div>

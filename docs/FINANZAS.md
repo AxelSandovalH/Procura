@@ -92,3 +92,7 @@ En el detalle de una venta, la tarjeta **Comprobantes** guarda tickets de depós
 ## Registrar una venta desde un ticket (foto o PDF)
 
 En **Ventas → Desde ticket**: se toma la foto o se sube el PDF del ticket de venta, el lector de Claude (el mismo de gastos, función OCR del plan Negocio) propone folio, fecha, total, IVA y forma de pago, y la persona revisa y confirma. Al guardar se crea la venta con el folio del ticket (sirve para el portal de autofacturación; si el folio ya existe no se duplica), opcionalmente cobrada, y el ticket queda como comprobante de la venta. Endpoint: `POST /api/v1/sales/scan` (solo lee, no guarda; permiso `sale.manage`, 60 lecturas por hora). Requiere `ANTHROPIC_API_KEY` en el servidor.
+
+## Estado de cuenta en PDF (BBVA y otros)
+
+En **Banco → Importar movimientos** se puede subir el **PDF** del estado de cuenta además del CSV. El lector de Claude extrae los movimientos (fecha de operación, descripción, cargos, abonos, saldo y referencia; deduce el año con el periodo) y los convierte en el mismo CSV de siempre, que pasa por la vista previa, la detección de duplicados y la confirmación habituales: reimportar el mismo periodo no duplica. Cruza lo leído contra los totales de cargos y abonos que imprime el propio estado de cuenta y avisa si no cuadran (señal de que falta algún movimiento). Endpoint: `POST /api/v1/bank/accounts/{id}/read-pdf` (solo lee, no guarda; planes con banco y OCR, 20 lecturas por hora, PDF de hasta 10 MB). Requiere `ANTHROPIC_API_KEY`.
