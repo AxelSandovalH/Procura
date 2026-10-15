@@ -40,6 +40,14 @@ export async function loadForeignExpenses(tx: Tx, organizationId: string, accoun
     const pending = Number(e.amount_minor - e.paid_minor);
     if (pending > 0) out.push({ kind: "expense", id: e.id, label: e.description, date: iso(e.spent_at), amount_minor: pending, counterparty: e.supplier_name, currency: e.currency });
   }
+  // Gastos en otra moneda que ya se marcaron como pagados: falta confirmar su pago contra el cargo del banco.
+  const linked = new Set((await tx.bank_transactions.findMany({ where: { organization_id: organizationId, payment_id: { not: null } }, select: { payment_id: true } })).map((x) => x.payment_id!));
+  const pays = (await tx.payments.findMany({ where: { organization_id: organizationId, voided_at: null, direction: "OUT", currency: { not: accountCurrency } }, orderBy: { paid_at: "desc" }, take: 300 })).filter((p) => !linked.has(p.id));
+  const exp = new Map((await tx.expenses.findMany({ where: { id: { in: pays.map((p) => p.expense_id).filter((x): x is string => !!x) } }, select: { id: true, description: true, supplier_name: true, spent_at: true } })).map((e) => [e.id, e]));
+  for (const p of pays) {
+    const e = p.expense_id ? exp.get(p.expense_id) : undefined;
+    out.push({ kind: "payment", id: p.id, payment_id: p.id, label: `Pago registrado: ${e?.description ?? "—"}`, date: iso(e?.spent_at ?? p.paid_at), amount_minor: Number(p.amount_minor), counterparty: e?.supplier_name ?? null, currency: p.currency });
+  }
   return out;
 }
 
@@ -64,11 +72,13 @@ export async function reconcile(tx: Tx, organizationId: string, membershipId: st
     const p = await tx.payments.findFirst({ where: { id: target.payment_id, organization_id: organizationId, voided_at: null } });
     if (!p) throw Problem.notFound("El pago no existe o está anulado");
     if ((p.direction === "OUT") !== outflow) throw Problem.badRequest(outflow ? "Un cargo solo concilia con un pago, no con un cobro." : "Un abono solo concilia con un cobro, no con un pago.");
-    if (p.amount_minor !== abs) throw Problem.badRequest("El importe del pago no coincide con el del movimiento.");
-    if (p.currency !== acct.currency) throw Problem.badRequest("La moneda no coincide con la de la cuenta.");
+    const foreign = p.currency !== acct.currency; // pago en otra moneda (p. ej. USD) contra un cargo en pesos: el importe lo fija el tipo de cambio del banco
+    if (foreign && !outflow) throw Problem.badRequest("Solo un cargo puede conciliarse con un pago en otra moneda.");
+    if (!foreign && p.amount_minor !== abs) throw Problem.badRequest("El importe del pago no coincide con el del movimiento.");
     if (await tx.bank_transactions.findFirst({ where: { payment_id: p.id }, select: { id: true } })) throw Problem.conflict("Ese pago ya está conciliado con otro movimiento.");
-    await tx.payments.update({ where: { id: p.id }, data: { paid_at: t.posted_at } });
-    return link(tx, organizationId, membershipId, t.id, p.id, "existing_payment", t.description);
+    const fxNote = foreign ? `Conciliado con el banco: cargo de ${(Number(abs) / 100).toFixed(2)} ${acct.currency} (tipo de cambio implícito ${(Number(abs) / Number(p.amount_minor)).toFixed(4)}).` : null;
+    await tx.payments.update({ where: { id: p.id }, data: { paid_at: t.posted_at, ...(fxNote ? { notes: [p.notes, fxNote].filter(Boolean).join(" ").slice(0, 500) } : {}) } });
+    return link(tx, organizationId, membershipId, t.id, p.id, foreign ? "foreign_payment" : "existing_payment", t.description);
   }
   const kind = target.expense_id ? "expense" : target.sale_id ? "sale" : null;
   if (!kind) throw Problem.badRequest("Indica el pago, gasto o venta con el que se concilia.");
