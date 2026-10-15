@@ -10,6 +10,7 @@ import { ScanReceiptButton } from "@/components/app/scan-receipt";
 import { PageHeader } from "@/components/app/page-header";
 import { StatusBadge } from "@/components/app/status-badge";
 import { AttachReceiptButton } from "@/components/app/attach-receipt";
+import { EditExpenseButton } from "@/components/app/edit-expense";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { CfdiSection, PaymentsSection, apiErr, type CfdiLinkRow, type PaymentRow } from "@/components/app/finance-sections";
 import { Button } from "@/components/ui/button";
@@ -135,7 +136,7 @@ function ExpenseSheet({ id, onClose, canManage, onChange }: { id: string | null;
             <ExpenseNotes expenseId={e.id} canWrite={canManage} />
           </div>
         </div>
-        <DialogFooter>{canManage && !e.voided_at && <Button variant="destructive" onClick={() => setVoiding(true)}>Anular gasto</Button>}<Button variant="outline" onClick={onClose}>Cerrar</Button></DialogFooter>
+        <DialogFooter>{canManage && !e.voided_at && <EditExpenseButton expense={{ ...e, paid_minor: Number(e.amount_minor) - Number(e.pending_to_pay_minor) }} onDone={onChange} />}{canManage && !e.voided_at && <Button variant="destructive" onClick={() => setVoiding(true)}>Anular gasto</Button>}<Button variant="outline" onClick={onClose}>Cerrar</Button></DialogFooter>
         <ActionDialog open={voiding} onOpenChange={setVoiding} title="Anular gasto" description="No se borra: queda anulado con tu motivo y sus CFDI se liberan. Antes hay que anular sus pagos." fieldLabel="Motivo" required destructive confirmLabel="Anular"
           onConfirm={async (c) => { await api(`/expenses/${e.id}/void`, { body: { reason: c } }); await onChange(); onClose(); }} />
       </>)}
