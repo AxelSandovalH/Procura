@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ArrowLeft, Ban } from "lucide-react";
 import { StatusBadge } from "@/components/app/status-badge";
 import { ActionDialog } from "@/components/app/action-dialog";
+import { Files } from "@/components/app/collaboration-panel";
 import { IssueInvoiceButton } from "@/components/app/issue-invoice";
 import { CfdiSection, PaymentsSection, apiErr, type CfdiLinkRow, type PaymentRow } from "@/components/app/finance-sections";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,7 @@ export default function SalePage({ params }: { params: Promise<{ id: string }> }
             {s.notes && <p className="mt-3 px-4 text-sm text-muted-foreground">Notas: {s.notes}</p>}
           </CardContent></Card>
           <Card><CardContent className="pt-4"><CfdiSection base={`/sales/${s.id}`} links={s.cfdi} currency={s.currency} totalMinor={s.total_minor} documentedMinor={s.documented_minor} direction="ISSUED" voided={!!s.voided_at} onChange={refresh} /></CardContent></Card>
+          <Card><CardHeader><CardTitle className="text-base">Comprobantes</CardTitle></CardHeader><CardContent className="space-y-2"><p className="text-xs text-muted-foreground">Tickets de depósito, recibos o cualquier soporte de esta venta y de sus cobros.</p><Files anchorType="SALE" anchorId={s.id} canShare={false} /></CardContent></Card>
         </div>
         <div className="min-w-0 space-y-6">
           <Card><CardHeader><CardTitle>Resumen</CardTitle></CardHeader><CardContent><dl className="space-y-2 text-sm">

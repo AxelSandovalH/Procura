@@ -84,3 +84,7 @@ En **Ventas → Importar ventas** se sube el CSV que exporta el punto de venta (
 - Idempotente: cada fila lleva `external_ref` (`F:<folio>` o hash), reimportar no duplica. Un folio ya usado por otra venta se informa y no se crea.
 - Por omisión quedan cobradas (crea el cobro con la forma de pago); se puede desmarcar.
 - Límite: 1,000 ventas por archivo. Acepta CSV y Excel (.xlsx; se usa la primera hoja con datos, convertida en el navegador). Permiso `sale.manage` (+ `payment.manage` si cobra). Endpoint: `POST /api/v1/sales/import` (`dry_run` para la vista previa).
+
+## Comprobantes en una venta
+
+En el detalle de una venta, la tarjeta **Comprobantes** guarda tickets de depósito, recibos o cualquier soporte de la venta y de sus cobros (adjunto con ancla `SALE`, interno, nunca compartido). Ver requiere `sale.read`; subir, `attachment.upload`. Una venta puede tener varios cobros parciales (p. ej. un acuerdo en tres pagos): el cobro y la facturación siguen siendo independientes.

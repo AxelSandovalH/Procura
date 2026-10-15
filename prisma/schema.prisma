@@ -2152,6 +2152,7 @@ enum attachment_anchor_type {
   RECEIPT
   MESSAGE
   CATALOG_IMPORT
+  SALE
 
   @@schema("public")
   EXPENSE

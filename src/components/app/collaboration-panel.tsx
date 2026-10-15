@@ -11,7 +11,7 @@ import { useSession } from "@/hooks/use-session";
 import { api, ApiError } from "@/lib/api-client";
 import { dateTime } from "@/lib/format";
 
-type Anchor = "REQUISITION" | "RFQ" | "QUOTATION" | "ORDER" | "DELIVERY";
+type Anchor = "REQUISITION" | "RFQ" | "QUOTATION" | "ORDER" | "DELIVERY" | "SALE";
 interface Message { id: string; body: string; author_organization_id: string; created_at: string }
 interface Attachment { id: string; filename: string; mime_type: string; size_bytes: number | string; visibility: "INTERNAL" | "SHARED"; mine: boolean; created_at: string }
 
@@ -87,7 +87,7 @@ function Thread({ anchorType, anchorId, visibility, counterpartName }: { anchorT
   );
 }
 
-function Files({ anchorType, anchorId, canShare }: { anchorType: Anchor; anchorId: string; canShare: boolean }) {
+export function Files({ anchorType, anchorId, canShare }: { anchorType: Anchor; anchorId: string; canShare: boolean }) {
   const s = useSession();
   const qc = useQueryClient();
   const key = ["attachments", anchorType, anchorId];

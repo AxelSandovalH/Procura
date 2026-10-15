@@ -11,7 +11,7 @@ import { resolveAnchor } from "@/lib/attachments/anchor";
 import { sanitizeFilename, validateFile } from "@/lib/attachments/validate";
 import { supabaseAdmin, ensureAttachmentsBucket, ATTACHMENTS_BUCKET } from "@/lib/supabase/admin";
 
-const ANCHORS = ["REQUISITION", "REQUISITION_CONCEPT", "RFQ", "QUOTATION", "ORDER", "DELIVERY", "RECEIPT", "MESSAGE", "CATALOG_IMPORT", "EXPENSE"] as const;
+const ANCHORS = ["REQUISITION", "REQUISITION_CONCEPT", "RFQ", "QUOTATION", "ORDER", "DELIVERY", "RECEIPT", "MESSAGE", "CATALOG_IMPORT", "EXPENSE", "SALE"] as const;
 const Meta = z.object({
   anchor_type: z.enum(ANCHORS),
   anchor_id: z.uuid(),
