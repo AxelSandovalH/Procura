@@ -7,7 +7,7 @@ import { audit, type AuditEntry } from "@/lib/audit";
 import { supabaseAdmin, ensureAttachmentsBucket, ATTACHMENTS_BUCKET } from "@/lib/supabase/admin";
 import { parseCfdi } from "@/lib/billing/cfdi";
 import { createCfdiDocument } from "@/lib/billing/cfdi-docs";
-import { linkCfdi } from "@/lib/finance/ops";
+import { linkCfdi, unlinkCfdi } from "@/lib/finance/ops";
 import { saleView } from "@/lib/finance/views";
 import { FiscalProviderError } from "@/lib/fiscal/provider";
 import { getFiscalProvider } from "@/lib/fiscal/fiscalapi";
@@ -23,6 +23,8 @@ export const IssueBody = z.object({
     zip_code: z.string().regex(/^\d{5}$/), cfdi_use_code: z.string().regex(/^[A-Z]\d{2}$/), email: z.string().email().optional(),
   }).optional(),
   save_recipient: z.boolean().default(false),
+  /** Sustitución: id del CFDI vigente de ESTA venta que este nuevo comprobante reemplaza (se desliga al timbrar el nuevo; luego se cancela con motivo 01 indicando el nuevo folio fiscal). */
+  replaces_cfdi_id: z.uuid().optional(),
   /** Retenciones que el cliente (persona moral) hace al emisor: ISR 1.25% (RESICO) e IVA 2/3. Las decide quien emite, con su contador. */
   retentions: z.object({ isr: z.boolean().default(false), iva: z.boolean().default(false) }).default({ isr: false, iva: false }),
   lines: z.array(z.object({ line_id: z.uuid(), product_code: z.string().regex(/^\d{8}$/).optional(), unit_code: z.string().regex(/^[A-Z0-9]{2,3}$/).optional() })).default([]),
@@ -65,7 +67,15 @@ export async function issueSaleCfdi(input: IssueSaleInput) {
     const sale = await tx.sales.findFirst({ where: { id: saleId, organization_id: organizationId } });
     if (!sale) throw Problem.notFound();
     if (sale.voided_at) throw Problem.conflict("La venta está anulada");
-    if (sale.documented_minor > BigInt(0)) throw Problem.conflict("La venta ya tiene CFDI ligados; desvincúlalos antes de emitir uno nuevo.");
+    let replacing: { id: string; linkId: string } | null = null;
+    if (body.replaces_cfdi_id) {
+      const old = await tx.cfdi_documents.findFirst({ where: { id: body.replaces_cfdi_id, organization_id: organizationId, direction: "ISSUED" }, select: { id: true, sat_status: true } });
+      const link = old ? await tx.cfdi_links.findFirst({ where: { sale_id: sale.id, cfdi_id: old.id }, select: { id: true } }) : null;
+      if (!old || !link) throw Problem.badRequest("El CFDI que sustituye debe ser uno emitido por tu organización y ligado a esta venta.");
+      if (old.sat_status === "CANCELADO" || old.sat_status === "CANCELANDO") throw Problem.badRequest("El CFDI que sustituye ya está cancelado (o en proceso de cancelación).");
+      replacing = { id: old.id, linkId: link.id };
+    }
+    if (!replacing && sale.documented_minor > BigInt(0)) throw Problem.conflict("La venta ya tiene CFDI ligados; desvincúlalos antes de emitir uno nuevo.");
     if (sale.total_minor <= BigInt(0)) throw Problem.badRequest("No se puede facturar una venta de total cero");
     const conn = await tx.fiscal_provider_connections.findUnique({ where: { organization_id_provider: { organization_id: organizationId, provider: provider.name } } });
     const cfg = (conn?.settings ?? {}) as { expedition_zip_code?: string; series?: string; default_product_code?: string; default_unit_code?: string; time_zone?: string };
@@ -84,7 +94,7 @@ export async function issueSaleCfdi(input: IssueSaleInput) {
       return { l, product: product!, unit: unit! };
     });
     if (missing.length) throw Problem.badRequest(`Faltan la clave de producto/servicio o de unidad SAT en: ${missing.join(", ")}.`);
-    const live = await tx.fiscal_issue_requests.findFirst({ where: { sale_id: sale.id, status: { in: ["PENDING", "DONE"] } }, select: { status: true } });
+    const live = await tx.fiscal_issue_requests.findFirst({ where: { sale_id: sale.id, status: { in: ["PENDING", "DONE"] }, ...(replacing ? { NOT: { cfdi_id: replacing.id } } : {}) }, select: { status: true } });
     if (live) throw Problem.conflict(live.status === "DONE" ? "Esta venta ya fue facturada." : "Ya hay una emisión en curso para esta venta; espera su resultado.");
     // Créditos de timbrado: si la organización los usa, debe tener al menos uno disponible (saldo menos emisiones en curso). Se descuentan SOLO tras un timbrado exitoso.
     const needsCredit = await creditsRequired(tx, organizationId);
@@ -93,7 +103,7 @@ export async function issueSaleCfdi(input: IssueSaleInput) {
     if (body.save_recipient && body.recipient && customer) await tx.customers.update({ where: { id: customer.id }, data: { tax_id: body.recipient.tax_id.toUpperCase(), tax_regime_code: body.recipient.tax_regime_code, zip_code: body.recipient.zip_code, cfdi_use_code: body.recipient.cfdi_use_code, email: body.recipient.email ?? customer.email, updated_at: new Date() } });
     for (const r of resolved) await tx.sale_lines.update({ where: { id: r.l.id }, data: { sat_product_code: r.product, sat_unit_code: r.unit } });
     const reqRow = await tx.fiscal_issue_requests.create({ data: { organization_id: organizationId, sale_id: sale.id, provider: provider.name, status: "PENDING", created_by_membership_id: membershipId, source: input.source ?? "USER", requester_email: input.requester?.email ?? null, requester_ip_hash: input.requester?.ipHash ?? null } });
-    return { sale, needsCredit, reqRow, rec, resolved, cfg, issuerId: conn.external_account_id, series: cfg.series ?? "A" };
+    return { replacing, sale, needsCredit, reqRow, rec, resolved, cfg, issuerId: conn.external_account_id, series: cfg.series ?? "A" };
   });
 
   const settle = (status: "FAILED" | "DONE", data: { error?: string; provider_invoice_id?: string; cfdi_id?: string }) => withContext(ctx, (tx) => tx.fiscal_issue_requests.update({ where: { id: prep.reqRow.id }, data: { status, ...data, updated_at: new Date() } }));
@@ -132,6 +142,7 @@ export async function issueSaleCfdi(input: IssueSaleInput) {
       const doc = await createCfdiDocument(tx, { organizationId, membershipId, direction: "ISSUED", cfdi: parsed, source: "PROVIDER_ISSUED",
         files: { xmlKey: key, xmlName: `${parsed.fiscalUuid}.xml`, pdfKey: null, pdfName: null } });
       await tx.cfdi_documents.update({ where: { id: doc.id }, data: { provider: provider.name, provider_external_id: issued.providerInvoiceId, sat_status: "VIGENTE", sat_status_checked_at: new Date(), last_synced_at: new Date() } });
+      if (prep.replacing) await unlinkCfdi(tx, organizationId, "sale", prep.sale.id, prep.replacing.linkId);
       await linkCfdi(tx, organizationId, membershipId, "sale", prep.sale.id, doc.id);
       await tx.fiscal_issue_requests.update({ where: { id: prep.reqRow.id }, data: { status: "DONE", cfdi_id: doc.id, provider_invoice_id: issued.providerInvoiceId, updated_at: new Date() } });
       if (prep.needsCredit) await consumeCredit(tx, organizationId, prep.reqRow.id, `Timbrado de ${prep.sale.folio}`);
