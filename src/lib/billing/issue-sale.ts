@@ -94,7 +94,7 @@ export async function issueSaleCfdi(input: IssueSaleInput) {
       return { l, product: product!, unit: unit! };
     });
     if (missing.length) throw Problem.badRequest(`Faltan la clave de producto/servicio o de unidad SAT en: ${missing.join(", ")}.`);
-    const live = await tx.fiscal_issue_requests.findFirst({ where: { sale_id: sale.id, status: { in: ["PENDING", "DONE"] }, ...(replacing ? { NOT: { cfdi_id: replacing.id } } : {}) }, select: { status: true } });
+    const live = await tx.fiscal_issue_requests.findFirst({ where: { sale_id: sale.id, status: { in: ["PENDING", "DONE"] }, replaced_at: null, ...(replacing ? { NOT: { cfdi_id: replacing.id } } : {}) }, select: { status: true } });
     if (live) throw Problem.conflict(live.status === "DONE" ? "Esta venta ya fue facturada." : "Ya hay una emisión en curso para esta venta; espera su resultado.");
     // Créditos de timbrado: si la organización los usa, debe tener al menos uno disponible (saldo menos emisiones en curso). Se descuentan SOLO tras un timbrado exitoso.
     const needsCredit = await creditsRequired(tx, organizationId);
@@ -102,6 +102,8 @@ export async function issueSaleCfdi(input: IssueSaleInput) {
     if (input.precheck) await input.precheck(tx, sale);
     if (body.save_recipient && body.recipient && customer) await tx.customers.update({ where: { id: customer.id }, data: { tax_id: body.recipient.tax_id.toUpperCase(), tax_regime_code: body.recipient.tax_regime_code, zip_code: body.recipient.zip_code, cfdi_use_code: body.recipient.cfdi_use_code, email: body.recipient.email ?? customer.email, updated_at: new Date() } });
     for (const r of resolved) await tx.sale_lines.update({ where: { id: r.l.id }, data: { sat_product_code: r.product, sat_unit_code: r.unit } });
+    // Sustitución: la emisión anterior deja su lugar a la nueva (si algo falla más adelante, esta transacción se revierte entera).
+    if (replacing) await tx.fiscal_issue_requests.updateMany({ where: { sale_id: sale.id, cfdi_id: replacing.id, status: "DONE" }, data: { replaced_at: new Date() } });
     const reqRow = await tx.fiscal_issue_requests.create({ data: { organization_id: organizationId, sale_id: sale.id, provider: provider.name, status: "PENDING", created_by_membership_id: membershipId, source: input.source ?? "USER", requester_email: input.requester?.email ?? null, requester_ip_hash: input.requester?.ipHash ?? null } });
     return { replacing, sale, needsCredit, reqRow, rec, resolved, cfg, issuerId: conn.external_account_id, series: cfg.series ?? "A" };
   });
