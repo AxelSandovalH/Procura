@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { usePasteImage } from "@/hooks/use-paste-image";
 import { useSession } from "@/hooks/use-session";
 import { api, ApiError } from "@/lib/api-client";
 import { toMinor } from "@/lib/format";
@@ -25,7 +26,7 @@ async function compress(file: File, maxSide = 1800): Promise<Blob> {
 }
 
 /** Foto del ticket → borrador de gasto que la persona revisa y confirma. Guarda también la foto como evidencia del gasto. */
-export function ScanReceiptButton({ onSaved }: { onSaved: () => Promise<unknown> }) {
+export function ScanReceiptButton({ onSaved, pasteEnabled = false }: { onSaved: () => Promise<unknown>; pasteEnabled?: boolean }) {
   const { org, can } = useSession();
   const camera = useRef<HTMLInputElement>(null); const gallery = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
@@ -35,6 +36,8 @@ export function ScanReceiptButton({ onSaved }: { onSaved: () => Promise<unknown>
   const [f, setF] = useState({ date: "", amount: "", currency: "MXN", description: "", category: "", supplier: "", method: "", rfc: "" });
   const [paid, setPaid] = useState(true); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   void org;
+  // ⌘V con una captura en la lista de gastos: abre el escáner y la lee como un gasto nuevo (si ya hay una lectura en curso o en revisión, no se pisa).
+  usePasteImage((file) => { if (open && step !== "pick") return; if (!open) { reset(); setOpen(true); } void onFile(file); }, pasteEnabled && can("expense.manage"));
   if (!can("expense.manage")) return null;
 
   function reset() { if (image) URL.revokeObjectURL(image.url); setImage(null); setStep("pick"); setError(null); setDups([]); setHint(null); setDocRef(null); setPaid(true); setF({ date: "", amount: "", currency: "MXN", description: "", category: "", supplier: "", method: "", rfc: "" }); }

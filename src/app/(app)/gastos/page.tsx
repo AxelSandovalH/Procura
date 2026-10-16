@@ -44,7 +44,7 @@ export default function GastosPage() {
   return (
     <>
       <PageHeader title="Gastos" description="Lo que gastó tu organización, su pago y los comprobantes fiscales que lo documentan."
-        actions={canManage ? <div className="flex gap-2"><ScanReceiptButton onSaved={refresh} /><Button onClick={() => setCreating(true)}><Plus />Registrar gasto</Button></div> : undefined} />
+        actions={canManage ? <div className="flex gap-2"><ScanReceiptButton onSaved={refresh} pasteEnabled={!openId && !creating && !paying} /><Button onClick={() => setCreating(true)}><Plus />Registrar gasto</Button></div> : undefined} />
       {erp && <p role="status" className="mb-4 rounded-lg border bg-muted/40 px-3 py-2 text-sm">Los gastos de tu organización los lleva tu ERP. Procura le entrega la orden recibida y la factura ligada; aquí solo ves lo que el ERP te devuelva.</p>}
       {chosen.length > 0 && <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border bg-muted/40 px-3 py-2 text-sm"><span>{chosen.length} seleccionado{chosen.length > 1 ? "s" : ""}</span><Button size="sm" onClick={() => setPaying(true)}>Marcar como pagados</Button><Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>Quitar selección</Button></div>}
       {list.isLoading ? <div className="h-40 animate-pulse rounded-xl bg-muted" /> : rows.length === 0 ? (

@@ -104,3 +104,7 @@ Para un cargo de una cuenta en pesos, además de las coincidencias exactas de im
 ## Crear una venta o ingreso desde un abono del banco
 
 En **Banco → Por conciliar**, un abono sin venta registrada (un pago de Stripe, un anticipo, un SPEI de un cliente) tiene el botón **Crear venta**: se captura la descripción, el cliente (opcional; un nombre nuevo lo crea) y si el abono ya incluye IVA de 16 %, 8 % o no lleva. Se crea la venta por el importe del abono (subtotal + IVA suman exacto), ya cobrada con la fecha del banco, y el movimiento queda conciliado. Endpoint: `POST /api/v1/bank/transactions/{id}/sale` (`sale.manage` + `payment.manage`). Solo abonos; un abono ya conciliado no se puede usar dos veces. Deshacer la conciliación no borra la venta: se anula desde Ventas.
+
+## Pegar una captura para registrar un gasto
+
+En la lista de **Gastos**, ⌘V (o Ctrl+V) con una imagen en el portapapeles —por ejemplo una captura de pantalla del Mac— abre «Escanear ticket» y la lee como un gasto nuevo: se revisa y, al guardar, la captura queda como evidencia del gasto. Con un gasto abierto, ⌘V la adjunta a ese gasto en lugar de crear otro. En el detalle de una venta, ⌘V la agrega a sus comprobantes.
