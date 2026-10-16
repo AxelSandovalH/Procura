@@ -1,7 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Ban, Link2, Plus, Unlink, Upload } from "lucide-react";
+import { Ban, Download, Link2, Plus, Unlink, Upload } from "lucide-react";
 import { StatusBadge } from "@/components/app/status-badge";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { Button } from "@/components/ui/button";
@@ -95,6 +95,14 @@ export function CfdiSection({ base, links, currency, totalMinor, documentedMinor
     try { await api(`${base}/cfdi`, { body: { cfdi_id: pick, ...(amount.trim() ? { amount_minor: toMinor(amount) } : {}) } }); setPick(""); setAmount(""); await onChange(); }
     catch (e) { setError(apiErr(e, "No se pudo ligar el CFDI.")); }
   }
+  async function download(cfdiId: string, kind: "xml" | "pdf") {
+    setError(null);
+    try {
+      const d = await api<{ downloads: { xml_url: string | null; pdf_url: string | null } }>(`/cfdi/${cfdiId}`); const url = kind === "xml" ? d.downloads.xml_url : d.downloads.pdf_url;
+      if (!url) { setError(kind === "xml" ? "Este CFDI no tiene el XML guardado en Procura." : "Este CFDI no tiene PDF guardado; genéralo desde Facturas."); return; }
+      window.open(url, "_blank", "noopener");
+    } catch (e) { setError(apiErr(e, "No se pudo descargar el archivo.")); }
+  }
   return (
     <section className="space-y-2">
       <h3 className="font-medium">Comprobantes fiscales (CFDI)</h3>
@@ -102,7 +110,7 @@ export function CfdiSection({ base, links, currency, totalMinor, documentedMinor
         <ul className="space-y-1.5 text-sm">{links.map((l) => (
           <li key={l.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
             <span className="min-w-0"><span className="font-medium">{cfdiLabel(l.cfdi)}</span> <span className="text-muted-foreground">· {l.cfdi.issuer_name ?? l.cfdi.issuer_rfc} · CFDI {money(l.cfdi.total_minor, l.cfdi.currency)} · documenta </span><span className="font-medium tabular-nums">{money(l.amount_minor, currency)}</span></span>
-            <span className="flex shrink-0 items-center gap-1.5"><StatusBadge {...(SAT_STATUS[l.cfdi.sat_status] ?? { label: l.cfdi.sat_status, tone: "neutral" as const })} />{canManage && <Button size="icon" variant="ghost" aria-label="Desligar CFDI" onClick={() => setUnlinking(l)}><Unlink /></Button>}</span>
+            <span className="flex shrink-0 items-center gap-1.5"><Button size="sm" variant="ghost" aria-label="Descargar XML del CFDI" onClick={() => void download(l.cfdi.id, "xml")}><Download />XML</Button><Button size="sm" variant="ghost" aria-label="Descargar PDF del CFDI" onClick={() => void download(l.cfdi.id, "pdf")}><Download />PDF</Button><StatusBadge {...(SAT_STATUS[l.cfdi.sat_status] ?? { label: l.cfdi.sat_status, tone: "neutral" as const })} />{canManage && <Button size="icon" variant="ghost" aria-label="Desligar CFDI" onClick={() => setUnlinking(l)}><Unlink /></Button>}</span>
           </li>))}</ul>)}
       <p className={`text-sm ${links.length > 0 && diff !== 0 ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`}>
         Documentado {money(documentedMinor, currency)} de {money(totalMinor, currency)}
