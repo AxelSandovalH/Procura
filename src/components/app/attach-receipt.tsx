@@ -1,7 +1,8 @@
 "use client";
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Paperclip } from "lucide-react";
+import { ClipboardPaste, Paperclip } from "lucide-react";
+import { readClipboardImage, usePasteImage } from "@/hooks/use-paste-image";
 import { Button } from "@/components/ui/button";
 
 /** Adjunta al gasto el PDF (p. ej. una factura que llegó sin XML) o la foto de su comprobante. Queda interno y se ve en la vista previa del gasto. */
@@ -18,10 +19,18 @@ export function AttachReceiptButton({ expenseId }: { expenseId: string }) {
       await qc.invalidateQueries({ queryKey: ["expense-receipts", expenseId] });
     } catch (e) { setError(e instanceof Error ? e.message : "No se pudo subir el archivo."); } finally { setBusy(false); if (input.current) input.current.value = ""; }
   }
+  usePasteImage((f) => void upload(f));
+  async function pasteButton() {
+    setError(null);
+    try { const f = await readClipboardImage(); if (!f) { setError("No hay una imagen en el portapapeles. Toma la captura con ⌘⌃⇧4 y vuelve a intentar."); return; } await upload(f); }
+    catch { setError("El navegador no dejó leer el portapapeles. Pega la imagen con ⌘V en esta ventana."); }
+  }
   return (
     <div className="space-y-1">
       <input ref={input} type="file" accept="application/pdf,.pdf,image/*" className="sr-only" aria-label="Elegir PDF o foto del comprobante" onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); }} />
       <Button size="sm" variant="outline" disabled={busy} onClick={() => input.current?.click()}><Paperclip />{busy ? "Subiendo…" : "Adjuntar PDF o foto de la factura"}</Button>
+      <Button size="sm" variant="outline" className="ml-2" disabled={busy} onClick={() => void pasteButton()}><ClipboardPaste />Pegar captura</Button>
+      <p className="text-xs text-muted-foreground">También puedes pegar una captura con ⌘V mientras ves este gasto.</p>
       {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     </div>
   );

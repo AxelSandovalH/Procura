@@ -1,4 +1,5 @@
 "use client";
+import { usePasteImage } from "@/hooks/use-paste-image";
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Lock, Paperclip, Send, Trash2, Users } from "lucide-react";
@@ -109,6 +110,7 @@ export function Files({ anchorType, anchorId, canShare }: { anchorType: Anchor; 
     } catch (e) { setError(e instanceof ApiError ? (e.detail ?? e.title) : "No se pudo subir el archivo."); }
     finally { setBusy(false); if (input.current) input.current.value = ""; }
   }
+  usePasteImage((f) => void upload(f), s.can("attachment.upload"));
   async function download(a: Attachment) {
     setError(null);
     try { const r = await api<{ download_url: string }>(`/attachments/${a.id}`); window.open(r.download_url, "_blank", "noopener"); }
@@ -135,6 +137,7 @@ export function Files({ anchorType, anchorId, canShare }: { anchorType: Anchor; 
         <div className="flex flex-wrap items-center gap-3">
           <input ref={input} type="file" className="sr-only" id={`up-${anchorId}`} onChange={(e) => { const f = e.target.files?.[0]; if (f) void upload(f); }} />
           <Button size="sm" variant="outline" disabled={busy} onClick={() => input.current?.click()}><Paperclip />{busy ? "Subiendo…" : "Adjuntar archivo"}</Button>
+          <span className="text-xs text-muted-foreground">o pega una captura con ⌘V</span>
           {canShare && <label className="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={shareIt} onChange={(e) => setShareIt(e.target.checked)} />Compartir con la contraparte</label>}
         </div>)}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
