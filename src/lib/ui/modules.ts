@@ -24,7 +24,7 @@ export const MODULES: AppModule[] = [
   { id: "banco", label: "Conciliación bancaria", icon: Landmark, prefixes: ["/banco"], sections: [{ href: "/banco", label: "Conciliación bancaria", perm: "finance.read" }] },
   {
     id: "finanzas", label: "Finanzas", icon: LineChart, prefixes: ["/finanzas"],
-    sections: [{ href: "/finanzas", label: "Resumen", perm: "finance.read" }, { href: "/finanzas/exportaciones", label: "Exportaciones", perm: "finance.read" }],
+    sections: [{ href: "/finanzas", label: "Resumen", perm: "finance.read" }, { href: "/finanzas/impuestos", label: "Impuestos", perm: "finance.read" }, { href: "/finanzas/exportaciones", label: "Exportaciones", perm: "finance.read" }],
   },
   {
     id: "relaciones", label: "Relaciones", icon: Handshake, prefixes: ["/relaciones"],

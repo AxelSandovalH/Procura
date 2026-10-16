@@ -112,3 +112,11 @@ En la lista de **Gastos**, ⌘V (o Ctrl+V) con una imagen en el portapapeles —
 ## Calculadora de monto neto (retenciones)
 
 En **Registrar venta**, «Calcular desde el monto neto que quiero recibir»: se escribe lo que el cliente pagará ya con IVA y retenciones y devuelve el subtotal a facturar (`lib/commercial/net-amount.ts`; ISR 1.25 %, IVA retenido 10.6667 %, IVA 16 %, redondeo como el timbrado). «Usar este subtotal» llena el primer concepto y deja una nota en la venta; las retenciones se activan al emitir la factura (casillas de «Emitir factura»). Ejemplo: para recibir $2,088.00 netos se factura un subtotal de $2,006.09; para $10,000.00, $9,607.69.
+
+## Impuestos del mes (RESICO persona física)
+
+**Finanzas → Impuestos** estima, para un mes, cuánto se pagará de ISR e IVA con lo **cobrado y pagado en el mes** (base de flujo). Lógica en `lib/finance/taxes.ts` (con pruebas), endpoint `GET /api/v1/finance/taxes?month=AAAA-MM` (plan Control o superior, `finance.read`).
+- **ISR:** sobre los ingresos cobrados sin IVA, con la tasa mensual de RESICO (1 % hasta $25,000; 1.1 % hasta $50,000; 1.5 % hasta $83,333.33; 2 % hasta $208,333.33; 2.5 % hasta $3.5 millones), aplicada a todo el ingreso del mes. Se resta el ISR que te retuvieron (1.25 % de personas morales). **En RESICO los gastos no se deducen para el ISR.** Avisa cuánto falta para pasar de tramo.
+- **IVA:** cobrado a clientes − IVA acreditable − IVA retenido (10.6667 %). Es acreditable el IVA de gastos pagados en el mes con CFDI vigente; no lo es sin XML, ni en efectivo por más de $2,000. Si sale negativo, se muestra «a favor».
+- Un cobro parcial reconoce solo su parte de la venta; las retenciones se reparten igual. Vence el día 17 del mes siguiente.
+- Es una **estimación**: no considera saldos a favor de meses anteriores, gastos no acreditables por su naturaleza ni la moneda extranjera. La declaración la presenta el contador.
