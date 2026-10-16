@@ -108,3 +108,7 @@ En **Banco → Por conciliar**, un abono sin venta registrada (un pago de Stripe
 ## Pegar una captura para registrar un gasto
 
 En la lista de **Gastos**, ⌘V (o Ctrl+V) con una imagen en el portapapeles —por ejemplo una captura de pantalla del Mac— abre «Escanear ticket» y la lee como un gasto nuevo: se revisa y, al guardar, la captura queda como evidencia del gasto. Con un gasto abierto, ⌘V la adjunta a ese gasto en lugar de crear otro. En el detalle de una venta, ⌘V la agrega a sus comprobantes.
+
+## Calculadora de monto neto (retenciones)
+
+En **Registrar venta**, «Calcular desde el monto neto que quiero recibir»: se escribe lo que el cliente pagará ya con IVA y retenciones y devuelve el subtotal a facturar (`lib/commercial/net-amount.ts`; ISR 1.25 %, IVA retenido 10.6667 %, IVA 16 %, redondeo como el timbrado). «Usar este subtotal» llena el primer concepto y deja una nota en la venta; las retenciones se activan al emitir la factura (casillas de «Emitir factura»). Ejemplo: para recibir $2,088.00 netos se factura un subtotal de $2,006.09; para $10,000.00, $9,607.69.

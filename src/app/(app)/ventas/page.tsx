@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Trash2, TrendingUp } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { ScanSaleButton } from "@/components/app/scan-sale";
+import { NetCalculator } from "@/components/app/net-calculator";
 import { ImportSalesButton } from "@/components/app/import-sales";
 import { StatusBadge } from "@/components/app/status-badge";
 import { apiErr } from "@/components/app/finance-sections";
@@ -112,6 +113,11 @@ function NewSale({ open, onOpenChange }: { open: boolean; onOpenChange: (o: bool
             </div>))}
           <p className="text-xs text-muted-foreground">Cantidad · precio unitario · descuento · IVA (%)</p>
           <Button type="button" size="sm" variant="outline" onClick={() => setLines((ls) => [...ls, blank()])}><Plus />Agregar concepto</Button>
+          <NetCalculator currency={currency} onUse={({ subtotalMinor, netMinor, isr, ivaRet }) => {
+            setLines((ls) => ls.map((l, j) => (j === 0 ? { ...l, quantity: "1", price: (subtotalMinor / 100).toFixed(2), discount: "", tax: "16" } : l)));
+            const note = `Neto pactado a recibir: ${money(netMinor, currency)}${isr || ivaRet ? ` (con retención de ${[isr && "ISR 1.25 %", ivaRet && "IVA 10.6667 %"].filter(Boolean).join(" e ")}: actívala al emitir la factura)` : ""}.`;
+            setF((x) => ({ ...x, notes: x.notes ? `${x.notes}\n${note}` : note }));
+          }} />
         </fieldset>
         <dl className="ml-auto w-full max-w-xs space-y-1 text-sm">
           <div className="flex justify-between"><dt className="text-muted-foreground">Subtotal</dt><dd className="tabular-nums">{money(calc.sub, currency)}</dd></div>
