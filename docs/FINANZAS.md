@@ -120,3 +120,4 @@ En **Registrar venta**, «Calcular desde el monto neto que quiero recibir»: se 
 - **IVA:** cobrado a clientes − IVA acreditable − IVA retenido (10.6667 %). Es acreditable el IVA de gastos pagados en el mes con CFDI vigente; no lo es sin XML, ni en efectivo por más de $2,000. Si sale negativo, se muestra «a favor».
 - Un cobro parcial reconoce solo su parte de la venta; las retenciones se reparten igual. Vence el día 17 del mes siguiente.
 - Es una **estimación**: no considera saldos a favor de meses anteriores, gastos no acreditables por su naturaleza ni la moneda extranjera. La declaración la presenta el contador.
+- **La factura manda sobre la venta:** si una venta tiene CFDI emitidos vigentes, el cálculo toma de ellos el subtotal, el IVA y las retenciones (lo que ve el SAT), no lo capturado en la venta. Así una venta capturada distinto a su factura no falsea el ISR ni el IVA.
