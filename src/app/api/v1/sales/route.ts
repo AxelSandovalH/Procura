@@ -36,7 +36,8 @@ export const GET = route(async (req) => {
   };
   // Los estados se derivan de importes: se filtran sobre la caché (collected/documented) sin traer todo.
   const AND: Prisma.salesWhereInput[] = [];
-  if (collection === "VOIDED") AND.push({ voided_at: { not: null } }); else if (collection) AND.push({ voided_at: null });
+  // Las anuladas no estorban en la lista: solo salen al filtrar por «Anulada» (o con include_voided=1).
+  if (collection === "VOIDED") AND.push({ voided_at: { not: null } }); else if (sp.get("include_voided") !== "1") AND.push({ voided_at: null });
   if (collection === "PENDING") AND.push({ collected_minor: 0 });
   const rows = await withContext({ userId: actor.userId, organizationId: actor.organizationId }, async (tx) => {
     const list = await tx.sales.findMany({ where: { ...where, AND }, orderBy: [{ sold_at: "desc" }, { created_at: "desc" }], take: 500 });
