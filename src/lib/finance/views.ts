@@ -3,7 +3,7 @@ import type { cfdi_documents, expenses, sales } from "@prisma/client";
 import { collectionStatus, documentation, invoicingStatus } from "@/lib/finance/calc";
 
 /** Datos del CFDI que se muestran en una operación (nunca la clave de Storage). */
-const cfdiBrief = (d: cfdi_documents) => ({ id: d.id, direction: d.direction, fiscal_uuid: d.fiscal_uuid, series: d.series, folio: d.folio, issued_at: d.issued_at, issuer_name: d.issuer_name, issuer_rfc: d.issuer_rfc, receiver_rfc: d.receiver_rfc, currency: d.currency, total_minor: d.total_minor, sat_status: d.sat_status, cfdi_type: d.cfdi_type });
+const cfdiBrief = (d: cfdi_documents) => ({ id: d.id, direction: d.direction, fiscal_uuid: d.fiscal_uuid, series: d.series, folio: d.folio, issued_at: d.issued_at, issuer_name: d.issuer_name, issuer_rfc: d.issuer_rfc, receiver_rfc: d.receiver_rfc, currency: d.currency, total_minor: d.total_minor, retained_minor: d.retained_minor, sat_status: d.sat_status, cfdi_type: d.cfdi_type });
 
 async function linksOf(tx: Tx, where: { sale_id: string } | { expense_id: string }) {
   const links = await tx.cfdi_links.findMany({ where, orderBy: { created_at: "asc" } });

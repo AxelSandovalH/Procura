@@ -16,7 +16,7 @@ import { PAYMENT_METHOD, SAT_STATUS } from "@/lib/ui/status";
 export const apiErr = (e: unknown, f: string) => (e instanceof ApiError ? (e.fieldErrors[0]?.message ?? e.detail ?? e.title) : f);
 
 export interface PaymentRow { id: string; paid_at: string; amount_minor: number | string; method: string | null; external_reference: string | null; notes: string | null; voided_at: string | null; void_reason: string | null }
-export interface CfdiLinkRow { id: string; amount_minor: number | string; cfdi: { id: string; fiscal_uuid: string; series: string | null; folio: string | null; issuer_name: string | null; receiver_rfc: string; issuer_rfc: string; currency: string; total_minor: number | string; sat_status: string; direction: string } }
+export interface CfdiLinkRow { id: string; amount_minor: number | string; cfdi: { id: string; fiscal_uuid: string; series: string | null; folio: string | null; issuer_name: string | null; receiver_rfc: string; issuer_rfc: string; currency: string; total_minor: number | string; retained_minor?: number | string; sat_status: string; direction: string } }
 const cfdiLabel = (c: { series: string | null; folio: string | null; fiscal_uuid: string }) => [c.series, c.folio].filter(Boolean).join("-") || c.fiscal_uuid.slice(0, 8);
 
 /** Cobros (venta) o pagos (gasto) parciales de una operación. `base` es /sales/{id} o /expenses/{id}. */
@@ -109,7 +109,7 @@ export function CfdiSection({ base, links, currency, totalMinor, documentedMinor
       {links.length === 0 ? <p className="text-sm text-muted-foreground">Sin CFDI ligados.</p> : (
         <ul className="space-y-1.5 text-sm">{links.map((l) => (
           <li key={l.id} className="flex items-center justify-between gap-2 rounded-lg border px-3 py-2">
-            <span className="min-w-0"><span className="font-medium">{cfdiLabel(l.cfdi)}</span> <span className="text-muted-foreground">· {l.cfdi.issuer_name ?? l.cfdi.issuer_rfc} · CFDI {money(l.cfdi.total_minor, l.cfdi.currency)} · documenta </span><span className="font-medium tabular-nums">{money(l.amount_minor, currency)}</span></span>
+            <span className="min-w-0"><span className="font-medium">{cfdiLabel(l.cfdi)}</span> <span className="text-muted-foreground">· {l.cfdi.issuer_name ?? l.cfdi.issuer_rfc} · CFDI {money(l.cfdi.total_minor, l.cfdi.currency)}{Number(l.cfdi.retained_minor ?? 0) > 0 ? ` (neto, con ${money(l.cfdi.retained_minor!, l.cfdi.currency)} retenidos)` : ""} · documenta </span><span className="font-medium tabular-nums">{money(l.amount_minor, currency)}</span></span>
             <span className="flex shrink-0 items-center gap-1.5"><Button size="sm" variant="ghost" aria-label="Descargar XML del CFDI" onClick={() => void download(l.cfdi.id, "xml")}><Download />XML</Button><Button size="sm" variant="ghost" aria-label="Descargar PDF del CFDI" onClick={() => void download(l.cfdi.id, "pdf")}><Download />PDF</Button><StatusBadge {...(SAT_STATUS[l.cfdi.sat_status] ?? { label: l.cfdi.sat_status, tone: "neutral" as const })} />{canManage && <Button size="icon" variant="ghost" aria-label="Desligar CFDI" onClick={() => setUnlinking(l)}><Unlink /></Button>}</span>
           </li>))}</ul>)}
       <p className={`text-sm ${links.length > 0 && diff !== 0 ? "text-amber-700 dark:text-amber-400" : "text-muted-foreground"}`}>
