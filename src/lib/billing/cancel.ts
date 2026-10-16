@@ -16,6 +16,9 @@ export function assertCancelable(d: { direction: string; cfdi_type: string; prov
 /** Aplica el estado que reporta el proveedor. Al confirmarse la cancelación, las ventas ligadas dejan de contarlo como documentado. */
 export async function applyInvoiceState(tx: Tx, organizationId: string, membershipId: string | null, cfdiId: string, state: InvoiceState): Promise<string> {
   const d = await tx.cfdi_documents.findFirstOrThrow({ where: { id: cfdiId, organization_id: organizationId } });
+  // El SAT tarda en reflejar una cancelación recién pedida: «Vigente» dentro de la primera media hora no es un rechazo del receptor, solo falta que el SAT se actualice.
+  const FRESH_MS = 30 * 60_000;
+  if (state === "VIGENTE" && d.sat_status === "CANCELANDO" && d.cancel_requested_at && Date.now() - d.cancel_requested_at.getTime() < FRESH_MS) { await tx.cfdi_documents.update({ where: { id: d.id }, data: { sat_status_checked_at: new Date() } }); return d.sat_status; }
   if (state === "UNKNOWN" || d.sat_status === state) { await tx.cfdi_documents.update({ where: { id: d.id }, data: { sat_status_checked_at: new Date() } }); return d.sat_status; }
   await tx.cfdi_documents.update({ where: { id: d.id }, data: { sat_status: state, sat_status_checked_at: new Date(), updated_at: new Date(), ...(state === "CANCELADO" ? { cancelled_at: new Date() } : {}), ...(state === "VIGENTE" ? { cancel_reason_code: null, cancel_replacement_uuid: null, cancel_requested_at: null, cancel_requested_by: null } : {}) } });
   if (state === "CANCELADO") {

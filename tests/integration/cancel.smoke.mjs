@@ -41,6 +41,9 @@ try {
   r = await axel.call(`/sales/${sale}`); check("al cancelarse, la venta ya no cuenta ese CFDI como documentado", r.body.invoicing_status !== "INVOICED" && Number(r.body.documented_minor) === 0, JSON.stringify({ s: r.body.invoicing_status, d: r.body.documented_minor }));
   r = await axel.call(`/cfdi/${c2}`); check("el CFDI queda cancelado con fecha", r.body.sat_status === "CANCELADO" && !!r.body.cancelled_at);
   check("un CFDI cancelado no se vuelve a cancelar (409)", (await axel.call(`/cfdi/${c2}/cancel`, "POST", { reason_code: "02", confirm: true })).status === 409);
+  { const dd = await db(); await dd.query("update cfdi_documents set cancel_requested_at = now() where id=$1", [c1]); await dd.end(); }
+  run(c1, "VIGENTE"); r = await axel.call(`/cfdi/${c1}`); check("un «Vigente» recién pedida la cancelación no cuenta como rechazo (el SAT aún no se actualiza)", r.body.sat_status === "CANCELANDO", r.body.sat_status);
+  { const dd = await db(); await dd.query("update cfdi_documents set cancel_requested_at = now() - interval '2 hours' where id=$1", [c1]); await dd.end(); }
   run(c1, "VIGENTE"); r = await axel.call(`/cfdi/${c1}`); check("si el SAT rechaza, vuelve a vigente y limpia la solicitud", r.body.sat_status === "VIGENTE" && r.body.cancel_reason_code === null);
 } finally {
   const d = await db();
