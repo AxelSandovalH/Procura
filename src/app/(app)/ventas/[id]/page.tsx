@@ -20,7 +20,7 @@ import { COLLECTION_STATUS, INVOICING_STATUS, PAYMENT_METHOD } from "@/lib/ui/st
 interface SaleDetail {
   id: string; folio: string; sold_at: string; description: string; currency: string; subtotal_minor: number | string; discount_minor: number | string; tax_minor: number | string; total_minor: number | string;
   payment_method: string | null; notes: string | null; voided_at: string | null; void_reason: string | null; invoicing_flag: string | null; customer: { id: string; name: string; tax_id: string | null; tax_regime_code: string | null; zip_code: string | null; cfdi_use_code: string | null; email: string | null } | null;
-  fiscal_issue: { status: string; error: string | null; provider_invoice_id: string | null } | null;
+  withheld_minor?: number | string; fiscal_issue: { status: string; error: string | null; provider_invoice_id: string | null } | null;
   collection_status: string; invoicing_status: string; pending_to_collect_minor: number | string; documented_minor: number | string; pending_to_document_minor: number | string; difference_minor: number | string | null;
   lines: { id: string; line_number: number; sat_product_code?: string | null; sat_unit_code?: string | null; description: string; quantity: string; unit_price_minor: number | string; discount_minor: number | string; tax_rate: string; tax_minor: number | string; total_minor: number | string }[];
   payments: PaymentRow[]; cfdi: CfdiLinkRow[];
@@ -74,6 +74,9 @@ export default function SalePage({ params }: { params: Promise<{ id: string }> }
               {Number(s.discount_minor) > 0 && <div className="flex justify-between"><dt className="text-muted-foreground">Descuentos</dt><dd className="tabular-nums">−{money(s.discount_minor, s.currency)}</dd></div>}
               <div className="flex justify-between"><dt className="text-muted-foreground">Impuestos</dt><dd className="tabular-nums">{money(s.tax_minor, s.currency)}</dd></div>
               <div className="flex justify-between border-t pt-1 font-semibold"><dt>Total</dt><dd className="tabular-nums">{money(s.total_minor, s.currency)}</dd></div>
+              {Number(s.withheld_minor ?? 0) > 0 && <>
+                <div className="flex justify-between"><dt className="text-muted-foreground">− Retenido por el cliente (ISR e IVA)</dt><dd className="tabular-nums">{money(s.withheld_minor, s.currency)}</dd></div>
+                <div className="flex justify-between font-semibold"><dt>Neto que recibes</dt><dd className="tabular-nums">{money(Number(s.total_minor) - Number(s.withheld_minor), s.currency)}</dd></div></>}
             </dl>
             {s.notes && <p className="mt-3 px-4 text-sm text-muted-foreground">Notas: {s.notes}</p>}
           </CardContent></Card>
@@ -83,6 +86,9 @@ export default function SalePage({ params }: { params: Promise<{ id: string }> }
         <div className="min-w-0 space-y-6">
           <Card><CardHeader><CardTitle>Resumen</CardTitle></CardHeader><CardContent><dl className="space-y-2 text-sm">
             <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Total</dt><dd className="tabular-nums">{money(s.total_minor, s.currency)}</dd></div>
+            {Number(s.withheld_minor ?? 0) > 0 && <>
+              <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Retenido por el cliente</dt><dd className="tabular-nums">−{money(s.withheld_minor, s.currency)}</dd></div>
+              <div className="flex justify-between gap-3 font-medium"><dt>Neto que recibes</dt><dd className="tabular-nums">{money(Number(s.total_minor) - Number(s.withheld_minor), s.currency)}</dd></div></>}
             <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Pendiente de cobro</dt><dd className="tabular-nums">{money(s.pending_to_collect_minor, s.currency)}</dd></div>
             <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Documentado (CFDI)</dt><dd className="tabular-nums">{money(s.documented_minor, s.currency)}</dd></div>
             <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Por documentar</dt><dd className="tabular-nums">{money(s.pending_to_document_minor, s.currency)}</dd></div>
