@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Landmark, Plus, Upload } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
+import { SaleFromDeposit } from "@/components/app/sale-from-deposit";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { apiErr } from "@/components/app/finance-sections";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ export default function BancoPage() {
   const session = useSession(); const qc = useQueryClient();
   const canWrite = session.can("payment.manage");
   const [accountId, setAccountId] = useState<string | null>(null); const [tab, setTab] = useState<(typeof TABS)[number][0]>("UNMATCHED");
-  const [newAcct, setNewAcct] = useState(false); const [importing, setImporting] = useState(false); const [toExpense, setToExpense] = useState<Txn | null>(null);
+  const [newAcct, setNewAcct] = useState(false); const [importing, setImporting] = useState(false); const [toExpense, setToExpense] = useState<Txn | null>(null); const [toSale, setToSale] = useState<Txn | null>(null);
   const [error, setError] = useState<string | null>(null);
   const accounts = useQuery({ queryKey: ["bank-accounts"], queryFn: () => api<{ data: Account[] }>("/bank/accounts"), enabled: session.can("finance.read") });
   const list = accounts.data?.data ?? []; const current = list.find((a) => a.id === accountId) ?? list[0] ?? null;
@@ -65,7 +66,7 @@ export default function BancoPage() {
                       <Button size="sm" className="mt-1" onClick={() => void act(`/bank/transactions/${t.id}/reconcile`, s.kind === "payment" ? { payment_id: s.payment_id } : s.kind === "expense" ? { expense_id: s.id } : { sale_id: s.id })}>Conciliar</Button>
                     </div>))}
                   {t.suggestions.length === 0 && <p className="text-xs text-muted-foreground">Sin coincidencias exactas de importe. Si pagaste un gasto en otra moneda, aparece aquí con su tipo de cambio implícito.</p>}
-                  <div className="flex flex-wrap gap-1">{t.amount_minor < 0 && <Button size="sm" variant="outline" onClick={() => setToExpense(t)}>Crear gasto</Button>}<Button size="sm" variant="ghost" onClick={() => void act(`/bank/transactions/${t.id}/ignore`, { ignored: true })}>Ignorar</Button></div>
+                  <div className="flex flex-wrap gap-1">{t.amount_minor < 0 && <Button size="sm" variant="outline" onClick={() => setToExpense(t)}>Crear gasto</Button>}{t.amount_minor > 0 && session.can("sale.manage") && <Button size="sm" variant="outline" onClick={() => setToSale(t)}>Crear venta</Button>}<Button size="sm" variant="ghost" onClick={() => void act(`/bank/transactions/${t.id}/ignore`, { ignored: true })}>Ignorar</Button></div>
                 </>)}
                 {t.status === "MATCHED" && <div className="flex items-center gap-2"><span className="text-emerald-700">Conciliado</span>{canWrite && <Button size="sm" variant="ghost" onClick={() => void act(`/bank/transactions/${t.id}/unmatch`, {})}>Deshacer</Button>}</div>}
                 {t.status === "IGNORED" && canWrite && <Button size="sm" variant="ghost" onClick={() => void act(`/bank/transactions/${t.id}/ignore`, { ignored: false })}>Devolver a por conciliar</Button>}
@@ -74,6 +75,7 @@ export default function BancoPage() {
       </>)}
       <NewAccount open={newAcct} onOpenChange={setNewAcct} onDone={async (id) => { await refresh(); setAccountId(id); }} />
       {current && <ImportDialog open={importing} onOpenChange={setImporting} account={current} onDone={refresh} />}
+      <SaleFromDeposit txn={toSale} onClose={() => setToSale(null)} onDone={refresh} />
       <ActionDialog open={!!toExpense} onOpenChange={(o) => !o && setToExpense(null)} title="Crear gasto desde el cargo" description={toExpense ? `${money(Math.abs(toExpense.amount_minor), toExpense.currency)} · ${dateShort(toExpense.posted_at)}. Se crea ya pagado y conciliado.` : ""} fieldLabel="Descripción del gasto" required confirmLabel="Crear gasto"
         onConfirm={async (desc) => { await api(`/bank/transactions/${toExpense!.id}/expense`, { body: { description: desc } }); await refresh(); setToExpense(null); }} />
     </>

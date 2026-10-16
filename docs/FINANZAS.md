@@ -100,3 +100,7 @@ En **Banco → Importar movimientos** se puede subir el **PDF** del estado de cu
 ## Conciliación con gastos en otra moneda
 
 Para un cargo de una cuenta en pesos, además de las coincidencias exactas de importe, Banco ofrece los **gastos pendientes en otra moneda** (p. ej. USD pagados con tarjeta en pesos). El importe no coincide porque lo fija el banco, así que se puntúan por fecha (el cargo suele llegar hasta 30 días después; 5 días antes como máximo) y por nombre, y se muestra el **tipo de cambio implícito** (cargo ÷ importe del gasto; en cuentas en pesos se descartan los fuera de 10–40). Al conciliar, el gasto queda pagado completo **en su propia moneda** y la nota del pago guarda lo que cargó el banco y el tipo de cambio.
+
+## Crear una venta o ingreso desde un abono del banco
+
+En **Banco → Por conciliar**, un abono sin venta registrada (un pago de Stripe, un anticipo, un SPEI de un cliente) tiene el botón **Crear venta**: se captura la descripción, el cliente (opcional; un nombre nuevo lo crea) y si el abono ya incluye IVA de 16 %, 8 % o no lleva. Se crea la venta por el importe del abono (subtotal + IVA suman exacto), ya cobrada con la fecha del banco, y el movimiento queda conciliado. Endpoint: `POST /api/v1/bank/transactions/{id}/sale` (`sale.manage` + `payment.manage`). Solo abonos; un abono ya conciliado no se puede usar dos veces. Deshacer la conciliación no borra la venta: se anula desde Ventas.

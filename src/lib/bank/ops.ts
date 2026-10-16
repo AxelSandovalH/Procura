@@ -4,6 +4,7 @@ import { audit } from "@/lib/audit";
 import { addPayment } from "@/lib/finance/ops";
 import { assertExpensesManagedHere } from "@/lib/billing/expenses";
 import type { Candidate } from "@/lib/bank/match";
+import { splitTotal } from "@/lib/sales/import";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -108,4 +109,23 @@ export async function expenseFromCharge(tx: Tx, organizationId: string, membersh
   const { payment } = await addPayment(tx, organizationId, membershipId, "expense", e.id, { paid_at: t.posted_at, amount_minor: Number(abs), notes: `Conciliado con el banco: ${t.description}`.slice(0, 300) });
   await link(tx, organizationId, membershipId, t.id, payment.id, "new_expense", t.description);
   return e;
+}
+
+/** Un abono sin venta registrada: crea la venta (o ingreso) por el importe del abono, ya cobrada con la fecha del banco, y la concilia con el movimiento. */
+export async function saleFromDeposit(tx: Tx, organizationId: string, membershipId: string | null, txnId: string, input: { description: string; customer_id?: string | null; tax_percent: 0 | 8 | 16 }) {
+  const { t, acct, abs, outflow } = await openTxn(tx, organizationId, txnId);
+  if (outflow) throw Problem.badRequest("Solo un abono puede convertirse en venta.");
+  if (input.customer_id && !(await tx.customers.findFirst({ where: { id: input.customer_id, organization_id: organizationId, archived_at: null }, select: { id: true } }))) throw Problem.badRequest("El cliente no existe en tu organización");
+  const total = Number(abs), s = splitTotal(total, input.tax_percent);
+  const [{ value }] = await tx.$queryRaw<{ value: bigint }[]>`select app.next_sequence(${organizationId}::uuid, 'sale') as value`;
+  const method = /SPEI|TRANSFER/i.test(t.description) ? "TRANSFER" : "OTHER";
+  const sale = await tx.sales.create({ data: {
+    organization_id: organizationId, folio: `VTA-${value.toString().padStart(5, "0")}`, sold_at: t.posted_at, customer_id: input.customer_id ?? null, description: input.description, currency: acct.currency,
+    subtotal_minor: BigInt(s.base), discount_minor: BigInt(0), tax_minor: BigInt(s.tax), total_minor: abs, payment_method: method, notes: `Creada desde un abono del banco: ${t.description}`.slice(0, 500), created_by_membership_id: membershipId,
+  } });
+  await tx.sale_lines.create({ data: { organization_id: organizationId, sale_id: sale.id, line_number: 1, description: input.description, quantity: 1, unit_price_minor: BigInt(s.base), discount_minor: BigInt(0), tax_rate: input.tax_percent / 100, tax_minor: BigInt(s.tax), total_minor: abs } });
+  await audit(tx, { actorType: "USER", membershipId, organizationId, action: "sale.created", resourceType: "sale", resourceId: sale.id, resourceLabel: sale.folio, metadata: { total_minor: abs.toString(), currency: acct.currency, from_bank_transaction: t.id } });
+  const { payment } = await addPayment(tx, organizationId, membershipId, "sale", sale.id, { paid_at: t.posted_at, amount_minor: total, method, notes: `Conciliado con el banco: ${t.description}`.slice(0, 300) });
+  await link(tx, organizationId, membershipId, t.id, payment.id, "new_sale", t.description);
+  return sale;
 }
