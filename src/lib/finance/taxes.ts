@@ -22,7 +22,7 @@ const round = (x: number) => Math.round(x + 1e-9);
 export interface SalePaymentIn { saleId: string; folio: string; description: string; paidAt: string; amountMinor: number; subtotalMinor: number; discountMinor: number; taxMinor: number; totalMinor: number; withheldMinor: number }
 export interface ExpensePaymentOut { expenseId: string; description: string; supplier: string | null; paidAt: string; amountMinor: number; expenseAmountMinor: number; method: string | null; ivaMinor: number; hasCfdi: boolean; pdfOnly: boolean }
 
-export interface IncomeLine { saleId: string; folio: string; description: string; paidAt: string; baseMinor: number; ivaMinor: number; isrWithheldMinor: number; ivaWithheldMinor: number }
+export interface IncomeLine { saleId: string; folio: string; description: string; paidAt: string; firstPaidAt: string; payments: number; baseMinor: number; ivaMinor: number; isrWithheldMinor: number; ivaWithheldMinor: number }
 export interface ExpenseLine { expenseId: string; description: string; supplier: string | null; paidAt: string; amountMinor: number; ivaCreditMinor: number; reason: "ACREDITABLE" | "SIN_XML" | "EFECTIVO" | "SIN_IVA"; note: string }
 export interface MonthlyTaxes {
   income: { lines: IncomeLine[]; baseMinor: number };
@@ -39,10 +39,15 @@ function share(p: SalePaymentIn) { const net = p.totalMinor - p.withheldMinor; r
 export function splitWithheld(baseMinor: number, withheldMinor: number) { const isr = Math.min(withheldMinor, round(baseMinor * RET_ISR_RATE)); return { isr, iva: withheldMinor - isr }; }
 
 export function computeMonthlyTaxes(sales: SalePaymentIn[], expenses: ExpensePaymentOut[]): MonthlyTaxes {
-  const lines: IncomeLine[] = sales.map((p) => {
+  // Una fila por venta: varios cobros de la misma venta en el mes se suman (la fecha es la del último cobro).
+  const bySale = new Map<string, IncomeLine>();
+  for (const p of [...sales].sort((a, b) => a.paidAt.localeCompare(b.paidAt))) {
     const f = share(p), fullBase = p.subtotalMinor - p.discountMinor, w = splitWithheld(fullBase, p.withheldMinor);
-    return { saleId: p.saleId, folio: p.folio, description: p.description, paidAt: p.paidAt, baseMinor: round(fullBase * f), ivaMinor: round(p.taxMinor * f), isrWithheldMinor: round(w.isr * f), ivaWithheldMinor: round(w.iva * f) };
-  });
+    const prev = bySale.get(p.saleId);
+    bySale.set(p.saleId, { saleId: p.saleId, folio: p.folio, description: p.description, paidAt: p.paidAt, firstPaidAt: prev?.firstPaidAt ?? p.paidAt, payments: (prev?.payments ?? 0) + 1,
+      baseMinor: (prev?.baseMinor ?? 0) + round(fullBase * f), ivaMinor: (prev?.ivaMinor ?? 0) + round(p.taxMinor * f), isrWithheldMinor: (prev?.isrWithheldMinor ?? 0) + round(w.isr * f), ivaWithheldMinor: (prev?.ivaWithheldMinor ?? 0) + round(w.iva * f) });
+  }
+  const lines = [...bySale.values()].sort((a, b) => b.paidAt.localeCompare(a.paidAt));
   const baseMinor = lines.reduce((a, l) => a + l.baseMinor, 0);
   const rate = isrRate(baseMinor), caused = round(baseMinor * rate), isrWith = lines.reduce((a, l) => a + l.isrWithheldMinor, 0);
   const ivaCollected = lines.reduce((a, l) => a + l.ivaMinor, 0), ivaWith = lines.reduce((a, l) => a + l.ivaWithheldMinor, 0);

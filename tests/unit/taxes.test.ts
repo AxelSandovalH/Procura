@@ -40,3 +40,10 @@ import { nextBracket } from "@/lib/finance/taxes";
 describe("siguiente tramo", () => {
   it("dice cuánto falta para subir de tasa", () => { expect(nextBracket(2_400_000)).toEqual({ atMinor: 2_500_001, rate: 0.011, remainingMinor: 100_001 }); expect(nextBracket(300_000_000)).toBeNull(); });
 });
+
+describe("una fila por venta", () => {
+  it("varios cobros de una misma venta se suman en una sola línea", () => {
+    const t = computeMonthlyTaxes([sale({ saleId: "S", amountMinor: 900000, paidAt: "2026-10-15", subtotalMinor: 900000, taxMinor: 144000, totalMinor: 1044000 }), sale({ saleId: "S", amountMinor: 144000, paidAt: "2026-10-16", subtotalMinor: 900000, taxMinor: 144000, totalMinor: 1044000 })], []);
+    expect(t.income.lines).toHaveLength(1); expect(t.income.lines[0]).toMatchObject({ payments: 2, firstPaidAt: "2026-10-15", paidAt: "2026-10-16", baseMinor: 900000, ivaMinor: 144000 }); expect(t.income.baseMinor).toBe(900000);
+  });
+});
