@@ -1,7 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Ban, Download, Link2, Plus, Unlink, Upload } from "lucide-react";
+import { Ban, Download, Plus, Unlink, Upload } from "lucide-react";
 import { StatusBadge } from "@/components/app/status-badge";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { Button } from "@/components/ui/button";
@@ -90,9 +90,10 @@ export function CfdiSection({ base, links, currency, totalMinor, documentedMinor
       setAmount(""); await onChange();
     } catch (e) { await onChange().catch(() => {}); setError(apiErr(e, "No se pudo cargar y ligar el CFDI.")); } finally { setUploading(false); }
   }
-  async function link() {
-    if (!pick) return; setError(null);
-    try { await api(`${base}/cfdi`, { body: { cfdi_id: pick, ...(amount.trim() ? { amount_minor: toMinor(amount) } : {}) } }); setPick(""); setAmount(""); await onChange(); }
+  /** Liga el CFDI elegido (con el importe escrito, si hay; si no, lo que falte documentar). */
+  async function link(id = pick) {
+    if (!id) return; setError(null); setPick(id);
+    try { await api(`${base}/cfdi`, { body: { cfdi_id: id, ...(amount.trim() ? { amount_minor: toMinor(amount) } : {}) } }); setPick(""); setAmount(""); await onChange(); }
     catch (e) { setError(apiErr(e, "No se pudo ligar el CFDI.")); }
   }
   async function download(cfdiId: string, kind: "xml" | "pdf") {
@@ -118,12 +119,12 @@ export function CfdiSection({ base, links, currency, totalMinor, documentedMinor
       </p>
       {canManage && (
         <div className="flex flex-wrap gap-2">
-          <select aria-label="CFDI a ligar" className="h-9 min-w-0 flex-1 rounded-lg border bg-background px-2 text-sm" value={pick} onChange={(e) => setPick(e.target.value)}>
+          <select aria-label="CFDI a ligar" className="h-9 min-w-0 flex-1 rounded-lg border bg-background px-2 text-sm" value={pick} onChange={(e) => { const v = e.target.value; setPick(v); if (v) void link(v); }}>
             <option value="">{avail.length === 0 ? "No hay CFDI disponibles (carga uno en Facturas)" : "Ligar un CFDI…"}</option>
             {avail.map((c) => <option key={c.id} value={c.id}>{cfdiLabel(c)} · {c.issuer_name ?? c.receiver_name ?? "—"} · disponible {money(c.pending_to_allocate_minor, c.currency)}</option>)}
           </select>
-          <Input aria-label="Importe a documentar" className="w-36" inputMode="decimal" placeholder="Importe (opcional)" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <Button variant="outline" onClick={() => void link()} disabled={!pick}><Link2 />Ligar</Button>
+          <Input aria-label="Importe a documentar" className="w-36" inputMode="decimal" placeholder="Importe (opcional)" title="Escríbelo antes de elegir el CFDI si solo documentará una parte" value={amount} onChange={(e) => setAmount(e.target.value)} />
+          
           <input ref={fileRef} type="file" multiple accept=".xml,.pdf,text/xml,application/xml,application/pdf" className="sr-only" aria-label="Archivo XML del CFDI" onChange={(e) => void uploadAndLink(e.target.files)} />
           <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}><Upload />{uploading ? "Cargando…" : "Cargar XML y ligar"}</Button>
         </div>)}
