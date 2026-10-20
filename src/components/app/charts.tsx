@@ -68,6 +68,7 @@ export function Donut({ items, currency, centerLabel, dense = false }: { items: 
 export function HBars({ items, currency, dense = false }: { items: { label: string; total_minor: number }[]; currency: string; dense?: boolean }) {
   const max = Math.max(1, ...items.map((i) => i.total_minor));
   if (items.length === 0) return <p className="py-8 text-center text-sm text-muted-foreground">Sin gastos en el periodo.</p>;
+  if (dense) items = items.slice(0, 5);
   return (
     <ul className={dense ? "space-y-1.5" : "space-y-2.5"}>{items.map((it, i) => (
       <li key={it.label}><div className={`flex items-baseline justify-between gap-3 text-sm ${dense ? "mb-0.5" : "mb-1"}`}><span className="min-w-0 truncate">{it.label}</span><span className="shrink-0 tabular-nums text-muted-foreground">{money(it.total_minor, currency)}</span></div>

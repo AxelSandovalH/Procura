@@ -66,20 +66,17 @@ export default function FinanzasPage() {
   const currencies = Object.keys(q.data?.by_currency ?? {});
   return (
     <>
-      <PageHeader title="Finanzas" description="Resumen operativo del periodo con los datos registrados en Procura." />
-      <div className="mb-4 flex flex-wrap items-end gap-2">
-        <button className="h-9 rounded-lg border px-3 text-sm hover:bg-muted" onClick={() => setRange(monthRange(0))}>Este mes</button>
+      <PageHeader title="Finanzas" description="Resumen operativo del periodo con los datos registrados en Procura." actions={<div className="flex flex-wrap items-center justify-end gap-2"><button className="h-9 rounded-lg border px-3 text-sm hover:bg-muted" onClick={() => setRange(monthRange(0))}>Este mes</button>
         <button className="h-9 rounded-lg border px-3 text-sm hover:bg-muted" onClick={() => setRange(monthRange(-1))}>Mes anterior</button>
         <Input aria-label="Desde" type="date" className="w-40" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} />
-        <Input aria-label="Hasta" type="date" className="w-40" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} />
-      </div>
+        <Input aria-label="Hasta" type="date" className="w-40" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} /></div>} />
       {q.isLoading ? <div className="h-48 animate-pulse rounded-xl bg-muted" /> : q.error ? <p className="text-sm text-destructive">No se pudo cargar el resumen (revisa que el periodo sea válido).</p> : currencies.length === 0 ? (
         <div className="rounded-xl border border-dashed p-12 text-center"><p className="font-medium">Sin movimientos en este periodo</p><p className="mt-1 text-sm text-muted-foreground">Registra ventas y gastos para ver el resumen.</p></div>
       ) : currencies.map((cur) => {
         const d = q.data!.by_currency[cur]!;
         return (
           <section key={cur} className="mb-8 space-y-3" aria-label={`Resumen en ${cur}`}>
-            {currencies.length > 1 && <h2 className="text-lg font-semibold">{cur}</h2>}
+            {currencies.length > 1 && <h2 className="-mb-1 text-sm font-semibold text-muted-foreground">{cur}</h2>}
             {charts.data?.by_currency[cur] && (() => { const c = charts.data!.by_currency[cur]!; const t = describe(c, cur); return (
               <div className="grid gap-3 lg:grid-cols-2">
                 <Card className="gap-2 py-3"><CardHeader className="px-4"><CardTitle className="text-base">Registrado · últimos 6 meses</CardTitle></CardHeader><CardContent className="px-4"><MonthlyBars dense data={c.months} currency={cur} series={[{ key: "sales", label: "Ventas", color: "#10b981" }, { key: "expenses", label: "Gastos", color: "#f59e0b" }]} /><Caption>{t.registered}</Caption></CardContent></Card>
