@@ -11,9 +11,9 @@ const monthLabel = (ym: string) => MONTH.format(new Date(`${ym}-01T00:00:00Z`)).
 export interface Series { key: string; label: string; color: string }
 
 /** Barras agrupadas por mes. `data[i][serie.key]` está en centavos. */
-export function MonthlyBars({ data, series, currency }: { data: ({ month: string } & Record<string, number | string>)[]; series: Series[]; currency: string }) {
+export function MonthlyBars({ data, series, currency, dense = false }: { data: ({ month: string } & Record<string, number | string>)[]; series: Series[]; currency: string; dense?: boolean }) {
   const [hover, setHover] = useState<number | null>(null);
-  const W = 560, H = 220, L = 44, B = 26, T = 10;
+  const W = 560, H = dense ? 150 : 220, L = 44, B = dense ? 22 : 26, T = 10;
   const max = Math.max(1, ...data.flatMap((d) => series.map((s) => Number(d[s.key]))));
   const nice = (() => { const p = 10 ** Math.floor(Math.log10(max)); const f = max / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * p; })();
   const y = (v: number) => T + (H - T - B) * (1 - v / nice);
@@ -40,7 +40,7 @@ export function MonthlyBars({ data, series, currency }: { data: ({ month: string
 }
 
 /** Dona con leyenda; el centro muestra el total. */
-export function Donut({ items, currency, centerLabel }: { items: { label: string; total_minor: number }[]; currency: string; centerLabel: string }) {
+export function Donut({ items, currency, centerLabel, dense = false }: { items: { label: string; total_minor: number }[]; currency: string; centerLabel: string; dense?: boolean }) {
   const [hover, setHover] = useState<number | null>(null);
   const total = items.reduce((s, i) => s + i.total_minor, 0);
   if (total <= 0) return <p className="py-8 text-center text-sm text-muted-foreground">Sin gastos en el periodo.</p>;
@@ -49,14 +49,14 @@ export function Donut({ items, currency, centerLabel }: { items: { label: string
   const shown = hover !== null ? items[hover]! : null;
   return (
     <div className="flex flex-wrap items-center gap-6">
-      <svg viewBox="0 0 140 140" className="size-40 shrink-0 -rotate-90" role="img" aria-label="Gastos por categoría">
+      <svg viewBox="0 0 140 140" className={`${dense ? "size-32" : "size-40"} shrink-0 -rotate-90`} role="img" aria-label="Gastos por categoría">
         {items.map((it, i) => { const len = (it.total_minor / total) * C; return <circle key={it.label} cx="70" cy="70" r={R} fill="none" stroke={PALETTE[i % PALETTE.length]} strokeWidth={hover === i ? 22 : 18} strokeDasharray={`${Math.max(0, len - 1.5)} ${C}`} strokeDashoffset={-offsets[i]!} opacity={hover === null || hover === i ? 1 : 0.4} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} />; })}
         <g className="rotate-90" style={{ transformOrigin: "70px 70px" }}>
           <text x="70" y="66" textAnchor="middle" fontSize="9" fill="currentColor" fillOpacity={0.6}>{shown ? shown.label.slice(0, 16) : centerLabel}</text>
           <text x="70" y="82" textAnchor="middle" fontSize="12" fontWeight="600" fill="currentColor">{compact(shown ? shown.total_minor : total)}</text>
         </g>
       </svg>
-      <ul className="min-w-0 flex-1 space-y-1.5 text-sm">{items.map((it, i) => (
+      <ul className={`min-w-0 flex-1 text-sm ${dense ? "space-y-1" : "space-y-1.5"}`}>{items.map((it, i) => (
         <li key={it.label} className="flex items-center gap-2" onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
           <span className="size-2.5 shrink-0 rounded-sm" style={{ background: PALETTE[i % PALETTE.length] }} /><span className="min-w-0 flex-1 truncate">{it.label}</span>
           <span className="tabular-nums text-muted-foreground">{Math.round((it.total_minor / total) * 100)}%</span><span className="w-24 text-right tabular-nums">{money(it.total_minor, currency)}</span></li>))}</ul>
@@ -65,12 +65,12 @@ export function Donut({ items, currency, centerLabel }: { items: { label: string
 }
 
 /** Barras horizontales ordenadas (p. ej. principales proveedores). */
-export function HBars({ items, currency }: { items: { label: string; total_minor: number }[]; currency: string }) {
+export function HBars({ items, currency, dense = false }: { items: { label: string; total_minor: number }[]; currency: string; dense?: boolean }) {
   const max = Math.max(1, ...items.map((i) => i.total_minor));
   if (items.length === 0) return <p className="py-8 text-center text-sm text-muted-foreground">Sin gastos en el periodo.</p>;
   return (
-    <ul className="space-y-2.5">{items.map((it, i) => (
-      <li key={it.label}><div className="mb-1 flex items-baseline justify-between gap-3 text-sm"><span className="min-w-0 truncate">{it.label}</span><span className="shrink-0 tabular-nums text-muted-foreground">{money(it.total_minor, currency)}</span></div>
+    <ul className={dense ? "space-y-1.5" : "space-y-2.5"}>{items.map((it, i) => (
+      <li key={it.label}><div className={`flex items-baseline justify-between gap-3 text-sm ${dense ? "mb-0.5" : "mb-1"}`}><span className="min-w-0 truncate">{it.label}</span><span className="shrink-0 tabular-nums text-muted-foreground">{money(it.total_minor, currency)}</span></div>
         <div className="h-2.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full" style={{ width: `${Math.max(3, (it.total_minor / max) * 100)}%`, background: PALETTE[i % PALETTE.length] }} /></div></li>))}</ul>
   );
 }
