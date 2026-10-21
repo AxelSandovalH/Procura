@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Procura — video</title>
+<style>
+:root{--bg:#fff;--fg:#0a0a0a;--bd:#e5e5e5;--mut:#f5f5f5;--mfg:#737373;--ok:#047857;--okb:#ecfdf5;--warn:#92400e;--warnb:#fffbeb;--info:#1d4ed8;--infob:#eff6ff;--bad:#b91c1c;--badb:#fef2f2}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;background:transparent;overflow:hidden;font-family:"Inter","Helvetica Neue",Helvetica,Arial,sans-serif;color:#fff;-webkit-font-smoothing:antialiased}
+#stage{position:absolute;inset:0}
+.scene{position:absolute;inset:0;opacity:0;will-change:opacity,transform}
+.head{position:absolute;left:0;right:0;top:78px;text-align:center}
+.eyebrow{font-size:26px;letter-spacing:.22em;text-transform:uppercase;color:#8a8a8f;font-weight:500}
+.title{font-family:"Inter Display","Inter",sans-serif;font-size:92px;font-weight:600;letter-spacing:-.035em;line-height:1.02;margin-top:14px}
+.sub{font-size:30px;color:#a1a1a6;margin:20px auto 0;max-width:1180px;line-height:1.35;font-weight:400}
+.grad{background:linear-gradient(90deg,#fff,#9aa0ff 60%,#7dd3fc);-webkit-background-clip:text;color:transparent}
+/* ventana de la app */
+.win{position:absolute;left:180px;top:385px;width:1560px;height:900px;border-radius:22px;background:var(--bg);color:var(--fg);overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,.12),0 60px 140px rgba(0,0,0,.65),0 0 220px rgba(110,120,255,.18);transform-origin:50% 0}
+.chrome{height:40px;background:#f3f3f3;border-bottom:1px solid var(--bd);display:flex;align-items:center;padding:0 16px;gap:8px}
+.dot{width:12px;height:12px;border-radius:50%;background:#d4d4d4}.chrome .url{margin:0 auto;font-size:13px;color:#8a8a8a;background:#fff;border:1px solid var(--bd);border-radius:8px;padding:4px 80px}
+.app{display:flex;height:860px}
+.side{width:226px;background:#fafafa;border-right:1px solid var(--bd);padding:16px 12px;display:flex;flex-direction:column;gap:2px;flex:none}
+.logo{display:flex;align-items:center;gap:8px;padding:4px 8px 16px;font-weight:600;font-size:19px;letter-spacing:-.02em}
+.logo svg{height:22px;width:auto}
+.mod{display:flex;align-items:center;gap:10px;padding:0 10px;border-radius:9px;font-size:14px;color:#404040;flex:1;max-height:54px}
+.mod svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.mod.on{background:#ececec;color:#0a0a0a;font-weight:600}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{height:56px;border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:14px;color:var(--mfg)}
+.org{display:flex;align-items:center;gap:10px;color:var(--fg);font-weight:500}.av{width:30px;height:30px;border-radius:50%;background:#171717;color:#fff;display:grid;place-items:center;font-size:12px;font-weight:600}
+.tabs{display:flex;gap:4px;padding:10px 28px 0;border-bottom:1px solid var(--bd);font-size:14px}
+.tab{padding:8px 12px;margin-bottom:-1px;border-bottom:2px solid transparent;color:var(--mfg);white-space:nowrap}.tab.on{border-color:#0a0a0a;color:#0a0a0a;font-weight:600}
+.page{padding:24px 28px;flex:1;min-height:0;position:relative;overflow:hidden}
+.ph{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}.ph h2{font-size:26px;font-weight:600;letter-spacing:-.02em}.ph p{font-size:14px;color:var(--mfg);margin-top:4px}
+.btn{height:36px;padding:0 14px;border-radius:9px;border:1px solid var(--bd);background:#fff;font-size:13.5px;font-weight:500;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;color:#0a0a0a}.btn.p{background:#171717;color:#fff;border-color:#171717}.btn.sm{height:30px;padding:0 11px;font-size:13px}
+.card{border:1px solid var(--bd);border-radius:14px;background:#fff}
+.badge{display:inline-flex;height:21px;align-items:center;border-radius:99px;padding:0 9px;font-size:12px;font-weight:500;white-space:nowrap}
+.b-ok{background:var(--okb);color:var(--ok)}.b-warn{background:var(--warnb);color:var(--warn)}.b-info{background:var(--infob);color:var(--info)}.b-mut{background:var(--mut);color:var(--mfg)}.b-bad{background:var(--badb);color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-size:14px}th{font-weight:500;color:var(--mfg);text-align:left;padding:11px 14px;border-bottom:1px solid var(--bd);white-space:nowrap;font-size:13px}td{padding:12px 14px;border-bottom:1px solid #eee;vertical-align:top}tr:last-child td{border-bottom:0}
+.r{text-align:right}.tn{font-variant-numeric:tabular-nums}.mono{font-family:ui-monospace,Menlo,monospace}.mf{color:var(--mfg)}.xs{font-size:12px}
+.best{background:#ecfdf5;transition:none}
+.pill{border:1px solid var(--bd);border-radius:9px;padding:4px 9px;font-size:12px;display:inline-flex;gap:7px;align-items:center}
+.toast{position:absolute;right:28px;bottom:26px;background:#171717;color:#fff;border-radius:14px;padding:14px 18px;font-size:14.5px;display:flex;gap:12px;align-items:center;box-shadow:0 18px 50px rgba(0,0,0,.35)}
+.check{width:22px;height:22px;border-radius:50%;background:#10b981;display:grid;place-items:center}.check svg{width:13px;height:13px;stroke:#fff;stroke-width:3;fill:none}
+.callout{position:absolute;background:#171717;color:#fff;border-radius:14px;padding:12px 16px;font-size:15px;font-weight:500;box-shadow:0 18px 50px rgba(0,0,0,.35)}
+/* finanzas */
+.stat{border:1px solid var(--bd);border-radius:12px;padding:14px 16px}.stat .t{font-size:13px;color:var(--mfg)}.stat .v{font-size:26px;font-weight:600;margin-top:4px;letter-spacing:-.02em}.stat .h{font-size:12px;color:var(--mfg);margin-top:3px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.cardh{font-size:15px;font-weight:600;padding:14px 16px 0}.cardb{padding:10px 16px 14px}
+.leg{display:flex;gap:14px;font-size:12px;color:var(--mfg);margin-bottom:6px}.leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
+.cap{font-size:12px;color:var(--mfg);margin-top:6px;line-height:1.35}
+/* ticket */
+.ticket{position:absolute;width:420px;background:#fffef8;color:#222;border-radius:6px;padding:34px 30px 40px;font-family:ui-monospace,Menlo,monospace;font-size:15px;box-shadow:0 30px 80px rgba(0,0,0,.6);line-height:1.55}
+.ticket hr{border:0;border-top:1px dashed #bbb;margin:12px 0}.ticket .row{display:flex;justify-content:space-between}
+.scan{position:absolute;left:-10px;right:-10px;height:3px;background:linear-gradient(90deg,transparent,#7dd3fc,transparent);box-shadow:0 0 28px 8px rgba(125,211,252,.55)}
+.dlg{position:absolute;width:640px;background:#fff;color:var(--fg);border-radius:18px;padding:26px;box-shadow:0 40px 120px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.06)}
+.dlg h3{font-size:20px;font-weight:600;letter-spacing:-.01em}.dlg .d{font-size:13.5px;color:var(--mfg);margin:6px 0 16px;line-height:1.4}
+.fld{margin-bottom:11px}.fld label{display:block;font-size:12.5px;font-weight:500;margin-bottom:5px}.inp{height:38px;border:1px solid #d4d4d4;border-radius:9px;padding:0 12px;display:flex;align-items:center;font-size:14.5px;background:#fff}
+.inp.fill{border-color:#10b981;box-shadow:0 0 0 3px rgba(16,185,129,.16)}
+/* intro/outro */
+.center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.bigword{font-family:"Inter Display","Inter",sans-serif;font-size:170px;font-weight:600;letter-spacing:-.045em;line-height:1}
+.chipgrid{display:grid;grid-template-columns:repeat(3,300px);gap:16px;margin-top:56px}
+.chip{display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:20px 22px;font-size:25px;font-weight:500;text-align:left;backdrop-filter:blur(14px)}
+.chip svg{width:28px;height:28px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+</style></head>
+<body><div id="stage"></div>
+<script>
+// ---------- utilidades ----------
+const $=(h)=>{const d=document.createElement('div');d.innerHTML=h.trim();return d.firstElementChild};
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x)), ease=(x)=>{x=clamp(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2}, easeOut=(x)=>1-Math.pow(1-clamp(x),3);
+const seg=(t,a,b)=>clamp((t-a)/(b-a));
+const mxn=(v,d=0)=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',minimumFractionDigits:d,maximumFractionDigits:d}).format(v);
+const num=(v)=>new Intl.NumberFormat('es-MX').format(Math.round(v));
+const LOGO=`<svg viewBox="342 281 342 462" fill="currentColor"><path d="M387.00 419.45L387.00 742.79L454.00 698.46L454.00 585.50L512.50 585.50L512.50 636.83L639.03 553.16L512.50 469.24L512.50 519.75L454.00 519.75L454.00 464.01ZM342.07 364.98L468.75 281.29L468.75 331.25L555.50 331.25A126.6 126.6 0 0 1 653.74 537.71L597.56 500.51A60.3 60.3 0 0 0 555.50 397.00L468.75 397.00L468.75 448.36Z"/></svg>`;
+const IC={
+ cart:'<path d="M3 3h2l2.4 12.2a2 2 0 0 0 2 1.6h7.7a2 2 0 0 0 2-1.5L21 8H6"/><circle cx="10" cy="21" r="1"/><circle cx="18" cy="21" r="1"/>',
+ up:'<path d="M22 7l-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>',
+ file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/>',
+ bank:'<path d="M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2l8 5H4z"/>',
+ chart:'<path d="M3 3v18h18"/><path d="M19 9l-5 5-4-4-3 3"/>',
+ people:'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+ card:'<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>',
+ book:'<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+ gear:'<circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M1 12h3M20 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'};
+const svgi=(k)=>`<svg viewBox="0 0 24 24">${IC[k]}</svg>`;
+const MODS=[['cart','Compras'],['up','Ventas'],['file','Facturas'],['bank','Conciliación bancaria'],['chart','Finanzas'],['people','Relaciones'],['card','Suscripción'],['book','Catálogo'],['gear','Administración']];
+const badge=(t,k)=>`<span class="badge b-${k}">${t}</span>`;
+function shell(active,tabs,tabOn,page){
+  return `<div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i><span class="url">procura-theta.vercel.app</span></div>
+  <div class="app"><div class="side"><div class="logo">${LOGO}Procura</div>${MODS.map(([i,l])=>`<div class="mod ${l===active?'on':''}">${svgi(i)}${l}</div>`).join('')}</div>
+  <div class="main"><div class="top"><span class="org"><span class="av">MS</span>Marea Studio, S.A. de C.V.</span><span>Notificaciones · Mi cuenta</span></div>
+  ${tabs?`<div class="tabs">${tabs.map(t=>`<span class="tab ${t===tabOn?'on':''}">${t}</span>`).join('')}</div>`:''}
+  <div class="page">${page}</div></div></div>`;
+}
+function scene(headHTML,winHTML,extra=''){
+  const s=$(`<div class="scene">${headHTML}<div class="win">${winHTML}</div>${extra}</div>`);document.getElementById('stage').appendChild(s);return s;
+}
+const head=(e,t,s)=>`<div class="head"><div class="eyebrow">${e}</div><div class="title">${t}</div><div class="sub">${s}</div></div>`;
+
+// ---------- datos de la demo (ficticios) ----------
+const CONCEPTS=[['Laptop 14″ 16 GB / 512 GB',6,'pieza'],['Monitor 27″ QHD',6,'pieza'],['Docking station USB-C',6,'pieza']];
+const QUOTES=[
+ {s:'TecnoMex',n:'COT-0127',p:[18490,5290,2150],d:5,v:'30 oct 2026'},
+ {s:'CompuNorte',n:'COT-0128',p:[17950,5490,1980],d:8,v:'02 nov 2026'},
+ {s:'OfiPlus',n:'COT-0129',p:[19200,4980,2260],d:3,v:'28 oct 2026'}];
+QUOTES.forEach(q=>{q.sub=q.p.reduce((a,p,i)=>a+p*CONCEPTS[i][1],0);q.iva=Math.round(q.sub*.16);q.tot=q.sub+q.iva});
+const BEST=CONCEPTS.map((_,i)=>Math.min(...QUOTES.map(q=>q.p[i])));
+const MONTHS=['may','jun','jul','ago','sep','oct'];
+const SALES=[412,468,455,521,498,563].map(x=>x*1000),EXPS=[301,322,340,356,371,389].map(x=>x*1000),COLL=[380,431,440,489,470,508].map(x=>x*1000),PAID=[290,305,331,340,362,371].map(x=>x*1000);
+const CATS=[['Proveedores',148000],['Servicios profesionales',86000],['Renta y oficina',54000],['Software y nube',41000],['Papelería',22000],['Otros',38000]];
+const SUPS=[['CompuNorte',92000],['Renta Corporativo Reforma',54000],['Vercel / Supabase',31000],['Contadores Asociados',28000],['TecnoMex',24000]];
+const PAL=['#10b981','#6366f1','#f59e0b','#ec4899','#06b6d4','#94a3b8'];
+
+// ---------- escenas ----------
+const S={};
+// 0 intro
+S.intro=$(`<div class="scene"><div class="center"><div id="lm" style="width:150px;color:#fff">${LOGO}</div><div class="bigword" id="lw" style="margin-top:34px">Procura</div><div id="ls" style="font-size:34px;color:#a1a1a6;margin-top:26px;letter-spacing:.01em">Compras, finanzas y facturación.</div></div></div>`);
+// 1 statement
+S.stmt=$(`<div class="scene"><div class="center"><div class="bigword" style="font-size:200px"><span id="w1">Compra.</span> <span id="w2" style="color:#9aa0ff">Factura.</span> <span id="w3" style="color:#7dd3fc">Concilia.</span></div><div id="w4" style="font-size:54px;font-weight:500;letter-spacing:-.02em;margin-top:44px;color:#d4d4d8">Todo en un solo lugar.</div></div></div>`);
+document.getElementById('stage').append(S.intro,S.stmt);
+
+// 2 cotizaciones
+(function(){
+ const th=QUOTES.map(q=>`<th class="r" style="min-width:230px"><div style="color:#0a0a0a;font-weight:600;font-size:15px">${q.s}</div><div class="mono xs mf">${q.n}</div></th>`).join('');
+ const rows=CONCEPTS.map((c,i)=>`<tr><td><div style="font-weight:500">${c[0]}</div><div class="xs mf">${c[1]} ${c[2]}s</div></td>${QUOTES.map((q,j)=>`<td class="r tn q${i}${j}"><div class="pv">${mxn(q.p[i])}</div><div class="xs mf">${c[1]} pz · ${mxn(q.p[i]*c[1])}</div></td>`).join('')}</tr>`).join('');
+ const page=`<div class="ph"><div><h2>Equipo de cómputo para oficina</h2><p>REQ-0042 · Marea Studio · Entrega requerida 15 nov 2026</p></div><div>${badge('Esperando ofertas','info')}</div></div>
+ <div class="card" style="padding:16px 0 4px"><div style="display:flex;justify-content:space-between;padding:0 16px 10px"><b style="font-size:17px">Cotizaciones</b><span class="btn sm">Solicitar cotización</span></div>
+ <div style="display:flex;gap:8px;padding:0 16px 12px">${QUOTES.map(q=>`<span class="pill"><span class="mono">RFQ-${q.n.slice(-4)}</span>${q.s}${badge('Enviada','info')}</span>`).join('')}</div>
+ <table><thead><tr><th style="min-width:250px">Concepto</th>${th}</tr></thead><tbody>${rows}
+ <tr style="border-top:2px solid #e5e5e5"><td class="mf">Impuestos (IVA 16%)</td>${QUOTES.map(q=>`<td class="r tn">${mxn(q.iva)}</td>`).join('')}</tr>
+ <tr><td style="font-weight:600">Total</td>${QUOTES.map((q,j)=>`<td class="r tn tot${j}" style="font-size:19px;font-weight:600">${mxn(q.tot)}</td>`).join('')}</tr>
+ <tr><td class="mf">Entrega</td>${QUOTES.map(q=>`<td class="r">${q.d} días</td>`).join('')}</tr>
+ <tr><td class="mf">Vigencia</td>${QUOTES.map(q=>`<td class="r">${q.v}</td>`).join('')}</tr>
+ <tr><td></td>${QUOTES.map((q,j)=>`<td class="r"><span class="btn sm ${j===1?'p':''} buy${j}">✓ Comprar esta</span> <span class="btn sm">✕ Rechazar</span></td>`).join('')}</tr></tbody></table>
+ <p class="xs mf" style="padding:10px 16px 12px">Al elegir una cotización se crea la orden con esas líneas y precios. Los precios más bajos por concepto se resaltan; la decisión es tuya.</p></div>
+ <div class="toast" id="tq" style="opacity:0"><span class="check"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span><span><b>Orden OC-0042 creada</b><br><span style="opacity:.7;font-size:13px">CompuNorte · ${mxn(QUOTES[1].tot)}</span></span></div>`;
+ S.cot=scene(head('Compras','Cotiza. Compara. <span class="grad">Decide.</span>','Las ofertas de tus proveedores lado a lado, con el mejor precio de cada concepto resaltado.'),shell('Compras',['Gastos','Comprar','Requisiciones','Aprobaciones','Cotizaciones','Órdenes'],'Requisiciones',page),
+ `<div class="callout" id="cq" style="left:1000px;top:1010px;opacity:0">Diferencia entre la más barata y la más cara: <b>${mxn(QUOTES[2].sub-QUOTES[1].sub)}</b> + IVA</div>`);
+})();
+
+// 3 facturas
+(function(){
+ const R=[['A-1042','14 oct 2026','Papelería El Sol, S.A.','Factura de egreso recibida',1284.5,'Vigente','ok'],['F-88231','13 oct 2026','CompuNorte, S.A. de C.V.','Factura de egreso recibida',152520*1.16,'Vigente','ok'],['2201','12 oct 2026','Renta Corporativo Reforma','Factura de egreso recibida',62640,'Vigente','ok'],['VS-7731','10 oct 2026','Vercel Inc.','Factura de egreso recibida',3480,'Vigente','ok'],['B-5509','09 oct 2026','Contadores Asociados','Factura de egreso recibida',32480,'Vigente','ok'],['T-3318','08 oct 2026','TecnoMex, S.A.','Factura de egreso recibida',27840,'Vigente','ok'],['0417','07 oct 2026','Servicios Gráficos del Valle','Factura de egreso recibida',9860,'Vigente','ok']];
+ const uu=i=>['7C1E4A52','B93D0F6A','2F8A91D4','D40C77E1','51AB3C09','E6270D8B','9A4F12C7'][i]+'-4b1e-9c3a-5d2f-8e7a1c0b9d3'+i;
+ const rows=R.map((r,i)=>`<tr class="fr" data-i="${i}"><td style="font-weight:500">${r[0]}<div class="mono xs mf">${uu(i)}</div></td><td>${r[1]}</td><td>${r[2]}</td><td class="mf">${r[3]}</td><td class="r tn">${mxn(r[4],2)}</td><td class="r tn">${mxn(r[4],2)}</td><td>${badge(r[5],r[6])}</td></tr>`).join('');
+ const page=`<div class="ph"><div><h2>Facturas</h2><p>Comprobantes emitidos y recibidos, ligados a sus ventas y gastos.</p></div><div style="display:flex;gap:8px"><span class="btn">Cargar XML</span><span class="btn p">Emitir factura</span></div></div>
+ <div class="card" style="padding:16px 18px;margin-bottom:14px;display:flex;align-items:center;gap:26px"><div style="flex:1"><div style="font-weight:600;font-size:16px">Descarga masiva del SAT</div><div class="xs mf" style="margin-top:4px">Sincronización activada · reglas de Recibidos y Emitidos · tus CFDI se importan sin duplicados.</div></div>
+  <div style="text-align:right"><div class="tn" style="font-size:38px;font-weight:600;letter-spacing:-.03em" id="satn">0</div><div class="xs mf">CFDI recuperados del SAT</div></div><div style="text-align:right"><div class="tn" style="font-size:38px;font-weight:600;letter-spacing:-.03em;color:#047857">0</div><div class="xs mf">duplicados</div></div></div>
+ <div class="card" style="overflow:hidden"><table><thead><tr><th>Folio</th><th>Fecha</th><th>Emisor</th><th>Tipo</th><th class="r">Total</th><th class="r">Por ligar</th><th>SAT</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+ S.fac=scene(head('Facturas','Tus facturas <span class="grad">llegan solas.</span>','Descarga masiva del SAT, emisión de CFDI y cada comprobante ligado a su venta o a su gasto.'),shell('Facturas',['Emitidas','Recibidas','Descarga masiva del SAT'],'Recibidas',page));
+})();
+
+// 4 gastos / OCR
+(function(){
+ const list=[['14 oct','Papelería El Sol','Papelería','$1,284.50'],['13 oct','CompuNorte','Proveedores','$176,923.20'],['12 oct','Renta Corporativo Reforma','Renta','$62,640.00'],['10 oct','Vercel','Software y nube','$3,480.00'],['08 oct','Contadores Asociados','Servicios profesionales','$32,480.00']];
+ const page=`<div class="ph"><div><h2>Gastos</h2><p>Lo que gastas, con su comprobante y su estado de pago.</p></div><div style="display:flex;gap:8px"><span class="btn">Escanear ticket</span><span class="btn p">Registrar gasto</span></div></div>
+ <div class="card" style="overflow:hidden"><table><thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th class="r">Importe</th><th>Pago</th><th>Factura</th></tr></thead><tbody>${list.map(r=>`<tr><td>${r[0]}</td><td style="font-weight:500">${r[1]}</td><td class="mf">${r[2]}</td><td class="r tn">${r[3]}</td><td>${badge('Pagado','ok')}</td><td>${badge('Con CFDI','ok')}</td></tr>`).join('')}</tbody></table></div>`;
+ const tk=`<div class="ticket" id="tk" style="left:170px;top:520px;transform:rotate(-4deg)"><div style="text-align:center;font-weight:700;font-size:19px">PAPELERÍA EL SOL</div><div style="text-align:center">RFC PSO140822KA3<br>Av. Insurgentes Sur 1840, CDMX</div><hr><div class="row"><span>Fecha</span><span>14/10/2026</span></div><div class="row"><span>Ticket</span><span>0058231</span></div><hr><div class="row"><span>Papel bond c/5000</span><span>$612.00</span></div><div class="row"><span>Tóner HP 85A x2</span><span>$388.00</span></div><div class="row"><span>Carpetas (12)</span><span>$110.00</span></div><hr><div class="row"><span>SUBTOTAL</span><span>$1,107.76</span></div><div class="row"><span>IVA 16%</span><span>$176.74</span></div><div class="row" style="font-weight:700;font-size:19px"><span>TOTAL</span><span>$1,284.50</span></div><hr><div style="text-align:center">PAGO CON TARJETA · GRACIAS<div class="scan" id="scan" style="top:0"></div></div></div>`;
+ const F=[['Fecha','14 oct 2026'],['Total','$1,284.50  MXN'],['Comercio','Papelería El Sol'],['Categoría','Papelería'],['Método de pago','Tarjeta']];
+ const dlg=`<div class="dlg" id="dl" style="left:880px;top:430px"><h3>Escanear ticket o recibo</h3><div class="d">Leemos fecha, total, moneda y comercio; tú revisas y confirmas antes de guardar.</div>
+ ${F.map((f,i)=>`<div class="fld"><label>${f[0]}</label><div class="inp" id="f${i}"><span class="fv" style="opacity:0">${f[1]}</span></div></div>`).join('')}
+ <div id="dupok" class="xs" style="color:#047857;margin:10px 0 14px;opacity:0">✓ Sin posibles duplicados · La foto se guarda como evidencia del gasto</div>
+ <div style="display:flex;justify-content:flex-end;gap:8px"><span class="btn">Cancelar</span><span class="btn p">Guardar gasto</span></div></div>`;
+ S.gas=scene(head('Gastos','Una foto. <span class="grad">Un gasto.</span>','Lee la fecha, el total y el comercio de tu ticket o recibo. Tú solo confirmas.'),shell('Compras',['Gastos','Comprar','Requisiciones','Aprobaciones','Cotizaciones','Órdenes'],'Gastos',page),tk+dlg);
+ S.gas.querySelector('.win').style.filter='brightness(.55)';
+})();
+
+// 5 banco
+(function(){
+ const T=[['13 oct','SPEI ENVIADO COMPUNORTE FACT F-88231',-176923.2,'Pago COMPUNORTE · F-88231','mismo importe · misma fecha · coincide «compunorte»',100],['12 oct','PAGO TARJETA PAPELERIA EL SOL',-1284.5,'Papelería El Sol (gasto)','mismo importe · 2 días de diferencia · coincide «sol»',86],['11 oct','SPEI RECIBIDO CLIENTE ESTUDIO NORTE',84100,'Venta V-0231 · Estudio Norte','mismo importe · misma fecha · coincide «estudio»',100],['09 oct','CARGO RENTA REFORMA OCT',-62640,'Renta Corporativo Reforma (gasto)','mismo importe · 3 días de diferencia · coincide «renta»',91]];
+ const rows=T.map((t,i)=>`<li class="bt" data-i="${i}" style="display:grid;grid-template-columns:90px minmax(0,1fr) 150px 520px;gap:14px;padding:14px 16px;border-bottom:1px solid #eee;align-items:start;list-style:none">
+  <span class="mf">${t[0]}</span><span>${t[1]}</span><span class="r tn" style="font-weight:600;text-align:right;color:${t[2]>0?'#047857':'#0a0a0a'}">${mxn(t[2],2)}</span>
+  <div><div class="sug" style="border:1px solid var(--bd);background:#fafafa;border-radius:11px;padding:10px 12px"><div>${t[3]}</div><div class="xs mf" style="margin-top:2px">${t[4]} · ${t[5]}%</div><span class="btn sm p cb" style="margin-top:8px">Conciliar</span></div><div class="done" style="display:none;align-items:center;gap:8px;color:#047857;font-weight:600"><span class="check"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span>Conciliado</div></div></li>`).join('');
+ const page=`<div class="ph"><div><h2>Banco</h2><p>Importa el estado de cuenta y confirma cada movimiento contra un gasto, venta o pago registrado.</p></div><div style="display:flex;gap:8px"><span class="btn">⬆ Importar movimientos</span><span class="btn p">+ Nueva cuenta</span></div></div>
+ <div style="display:flex;gap:8px;margin-bottom:12px"><span class="pill" style="border-color:#0a0a0a;background:#f5f5f5;font-weight:600;font-size:13.5px;padding:7px 12px">BBVA empresarial ·4821 <span class="mf" style="font-weight:400" id="pend">(4 por conciliar)</span></span></div>
+ <div class="tabs" style="padding:0;margin-bottom:12px"><span class="tab on">Por conciliar</span><span class="tab">Conciliados</span><span class="tab">Ignorados</span></div>
+ <div class="card" style="overflow:hidden"><ul style="padding:0">${rows}</ul></div>`;
+ S.ban=scene(head('Conciliación bancaria','Concilia en <span class="grad">un clic.</span>','Sube tu estado de cuenta y Procura sugiere con qué gasto, venta o pago coincide cada movimiento.'),shell('Conciliación bancaria',null,null,page));
+})();
+
+// 6 finanzas
+(function(){
+ const W=620,H=170,L=44,T=8,B=24,gw=(W-L)/6;
+ function bars(a,b,ca,cb,id){const max=600000,y=v=>T+(H-T-B)*(1-v/max);let s=`<svg viewBox="0 0 ${W} ${H}" width="100%">`;
+  [0,.25,.5,.75,1].forEach(t=>{s+=`<line x1="${L}" x2="${W}" y1="${y(max*t)}" y2="${y(max*t)}" stroke="#000" stroke-opacity="${t?0.08:0.25}"/><text x="${L-6}" y="${y(max*t)+3}" text-anchor="end" font-size="10" fill="#737373">${num(max*t/1000)} mil</text>`});
+  for(let i=0;i<6;i++){const cx=L+gw*i+gw/2;[[a[i],ca,-1],[b[i],cb,0]].forEach(([v,c,k])=>{const h=y(0)-y(v);s+=`<rect class="${id}" data-h="${h}" data-b="${y(0)}" x="${cx+(k?2:-26)}" y="${y(0)-h}" width="24" height="${h}" rx="3" fill="${c}"/>`});s+=`<text x="${cx}" y="${H-7}" text-anchor="middle" font-size="11" fill="#737373">${MONTHS[i]}</text>`}
+  return s+'</svg>'}
+ const catTot=CATS.reduce((a,c)=>a+c[1],0),R=52,C=2*Math.PI*R;let off=0;
+ const donut=`<svg viewBox="0 0 140 140" width="150" height="150" style="transform:rotate(-90deg)">${CATS.map((c,i)=>{const len=c[1]/catTot*C;const e=`<circle class="dn" data-len="${len-1.5}" data-off="${-off}" cx="70" cy="70" r="${R}" fill="none" stroke="${PAL[i]}" stroke-width="18" stroke-dasharray="0 ${C}" stroke-dashoffset="${-off}"/>`;off+=len;return e}).join('')}</svg>`;
+ const maxS=SUPS[0][1];
+ const page=`<div class="ph" style="margin-bottom:12px"><div><h2>Finanzas</h2><p>Resumen operativo del periodo con los datos registrados en Procura.</p></div><div style="display:flex;gap:8px"><span class="btn on">Este mes</span><span class="btn">Mes anterior</span></div></div>
+ <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px">
+  <div class="stat"><div class="t">Ventas registradas</div><div class="v tn" data-c="563000">$0</div><div class="h">37 registros · en el periodo</div></div>
+  <div class="stat"><div class="t">Cobros recibidos</div><div class="v tn" data-c="508000">$0</div><div class="h">31 registros · en el periodo</div></div>
+  <div class="stat"><div class="t">Gastos registrados</div><div class="v tn" data-c="389000">$0</div><div class="h">64 registros · en el periodo</div></div>
+  <div class="stat"><div class="t">Ventas por cobrar</div><div class="v tn" style="color:#b45309" data-c="212400">$0</div><div class="h">saldo vivo</div></div></div>
+ <div class="g2"><div class="card"><div class="cardh">Registrado · últimos 6 meses</div><div class="cardb"><div class="leg"><span><i style="background:#10b981"></i>Ventas</span><span><i style="background:#f59e0b"></i>Gastos</span></div>${bars(SALES,EXPS,'#10b981','#f59e0b','b1')}</div></div>
+ <div class="card"><div class="cardh">Dinero que entró y salió</div><div class="cardb"><div class="leg"><span><i style="background:#6366f1"></i>Cobros</span><span><i style="background:#ec4899"></i>Pagos</span></div>${bars(COLL,PAID,'#6366f1','#ec4899','b2')}</div></div>
+ <div class="card"><div class="cardh">Gastos por categoría</div><div class="cardb" style="display:flex;gap:22px;align-items:center">${donut}<ul style="list-style:none;flex:1;font-size:13px">${CATS.map((c,i)=>`<li style="display:flex;gap:8px;align-items:center;margin:3px 0"><i style="width:10px;height:10px;border-radius:3px;background:${PAL[i]}"></i><span style="flex:1">${c[0]}</span><span class="mf">${Math.round(c[1]/catTot*100)}%</span><span class="tn" style="width:90px;text-align:right">${mxn(c[1])}</span></li>`).join('')}</ul></div></div>
+ <div class="card"><div class="cardh">Gasto documentado</div><div class="cardb"><div style="display:flex;align-items:flex-end;gap:8px"><span class="tn" style="font-size:44px;font-weight:600;letter-spacing:-.03em" id="cov">0%</span><span class="mf" style="padding-bottom:8px;font-size:13px">del gasto ya tiene CFDI</span></div>
+ <div style="display:flex;height:12px;border-radius:99px;overflow:hidden;background:#f0f0f0;margin:10px 0"><div id="covb" style="background:#10b981;width:0"></div><div style="background:#fbbf24;flex:1"></div></div>
+ <ul style="list-style:none;font-size:13px">${SUPS.slice(0,3).map(s=>`<li style="margin:6px 0"><div style="display:flex;justify-content:space-between"><span>${s[0]}</span><span class="mf tn">${mxn(s[1])}</span></div><div style="height:8px;background:#f0f0f0;border-radius:9px;margin-top:3px"><div class="hb" data-w="${s[1]/maxS*100}" style="height:100%;border-radius:9px;background:${PAL[SUPS.indexOf(s)]};width:0"></div></div></li>`).join('')}</ul></div></div></div>`;
+ S.fin=scene(head('Finanzas','Todo tu negocio, <span class="grad">en una vista.</span>','Ventas, cobros, gastos y qué parte de lo gastado ya está documentada con factura.'),shell('Finanzas',['Resumen','Impuestos','Exportaciones'],'Resumen',page));
+})();
+
+// 7 outro
+S.out=$(`<div class="scene"><div class="center"><div style="width:90px;color:#fff">${LOGO}</div><div class="bigword" style="font-size:128px;margin-top:22px">Procura</div><div style="font-size:44px;font-weight:500;letter-spacing:-.02em;margin-top:20px;color:#e4e4e7">Control total de tus compras y tu dinero.</div>
+<div class="chipgrid">${MODS.map(([i,l])=>`<div class="chip">${svgi(i)}${l}</div>`).join('')}</div>
+<div id="cta" style="margin-top:56px;font-size:34px;color:#9aa0ff;font-weight:500;letter-spacing:.01em">procura-theta.vercel.app</div></div></div>`);
+document.getElementById('stage').appendChild(S.out);
+
+// ---------- línea de tiempo ----------
+const D={intro:[0,4],stmt:[4,9.5],cot:[9.5,19.5],fac:[19.5,28],gas:[28,37],ban:[37,46],fin:[46,56],out:[56,63]};
+function scrollPage(s,y){Array.from(s.querySelector('.page').children).filter(c=>!c.classList.contains('toast')).forEach(c=>c.style.transform=`translateY(${-y}px)`)}
+function fade(el,t,a,b,{rise=40,inD=.8,outD=.6}={}){const lt=t-a,dur=b-a;const i=ease(lt/inD),o=1-ease((lt-(dur-outD))/outD);const op=clamp(Math.min(i,o));el.style.opacity=op;el.style.transform=`translateY(${(1-i)*rise}px)`;return lt}
+function winCam(s,lt,dur){const w=s.querySelector('.win');const p=lt/dur;const rx=18*(1-easeOut(lt/1.4));w.style.transform=`perspective(2600px) rotateX(${rx}deg) translateY(${-p*30}px) scale(${1+p*.035})`;const h=s.querySelector('.head');}
+window.seek=function(t){
+ for(const k in S)S[k].style.opacity=0;
+ // intro
+ {const [a,b]=D.intro,lt=t-a;if(t>=a&&t<b){S.intro.style.opacity=clamp(Math.min(lt/.6,(b-t)/.6));const lm=S.intro.querySelector('#lm');lm.style.transform=`scale(${.85+.15*easeOut(lt/1.6)})`;lm.style.opacity=easeOut(lt/1.0);const lw=S.intro.querySelector('#lw');lw.style.opacity=easeOut((lt-.5)/1);lw.style.transform=`translateY(${(1-easeOut((lt-.5)/1.1))*26}px)`;const ls=S.intro.querySelector('#ls');ls.style.opacity=easeOut((lt-1.5)/1)}}
+ // statement
+ {const [a,b]=D.stmt,lt=t-a;if(t>=a&&t<b){S.stmt.style.opacity=clamp(Math.min(lt/.4,(b-t)/.6));['w1','w2','w3','w4'].forEach((id,i)=>{const e=S.stmt.querySelector('#'+id);const p=easeOut((lt-.3-i*.85)/.7);e.style.opacity=p;e.style.transform=`translateY(${(1-p)*30}px)`;e.style.display=id==='w4'?'block':'inline-block'})}}
+ // cotizaciones
+ {const [a,b]=D.cot;if(t>=a&&t<b){const lt=fade(S.cot,t,a,b);winCam(S.cot,lt,b-a);
+  const hl=ease((lt-2.6)/.6);for(let i=0;i<3;i++)for(let j=0;j<3;j++){const td=S.cot.querySelector('.q'+i+j);const isb=QUOTES[j].p[i]===BEST[i];td.style.background=isb?`rgba(16,185,129,${.12*hl})`:'';td.querySelector('.pv').style.fontWeight=isb&&hl>.5?'700':'400'}
+  const co=S.cot.querySelector('#cq');co.style.opacity=ease((lt-3.4)/.5)*(1-ease((lt-5.4)/.4));co.style.left='1010px';co.style.top='520px';scrollPage(S.cot,215*ease((lt-5.6)/1));
+  const bb=S.cot.querySelector('.buy1');bb.style.transform=lt>7.6&&lt<7.8?'scale(.92)':'';bb.style.background=lt>7.6?'#047857':'';
+  const tq=S.cot.querySelector('#tq');tq.style.opacity=ease((lt-7.9)/.4);tq.style.transform=`translateY(${(1-easeOut((lt-7.9)/.6))*20}px)`}}
+ // facturas
+ {const [a,b]=D.fac;if(t>=a&&t<b){const lt=fade(S.fac,t,a,b);winCam(S.fac,lt,b-a);
+  S.fac.querySelector('#satn').textContent=num(128*easeOut((lt-1.2)/2.6));
+  S.fac.querySelectorAll('.fr').forEach((r,i)=>{const p=easeOut((lt-1.4-i*.35)/.5);r.style.opacity=p;r.style.transform=`translateX(${(1-p)*-30}px)`;r.style.background=p>0&&p<1?'#f0fdf4':''})}}
+ // gastos
+ {const [a,b]=D.gas;if(t>=a&&t<b){const lt=fade(S.gas,t,a,b,{rise:20});winCam(S.gas,lt,b-a);
+  const tk=S.gas.querySelector('#tk');const tp=easeOut((lt-.2)/.9);tk.style.opacity=tp;tk.style.transform=`rotate(-4deg) translateY(${(1-tp)*90}px)`;
+  const sc=S.gas.querySelector('#scan');sc.style.top=(((lt-1.2)/1.8)%1)*100+'%';sc.style.opacity=(lt>1.2&&lt<3.3)?1:0;
+  const dl=S.gas.querySelector('#dl');const dp=easeOut((lt-2.8)/.7);dl.style.opacity=dp;dl.style.transform=`translateY(${(1-dp)*40}px) scale(${.96+.04*dp})`;
+  for(let i=0;i<5;i++){const p=easeOut((lt-3.5-i*.6)/.4);const inp=S.gas.querySelector('#f'+i);inp.querySelector('.fv').style.opacity=p;inp.classList.toggle('fill',p>.3)}
+  S.gas.querySelector('#dupok').style.opacity=easeOut((lt-6.8)/.5)}}
+ // banco
+ {const [a,b]=D.ban;if(t>=a&&t<b){const lt=fade(S.ban,t,a,b);winCam(S.ban,lt,b-a);
+  let pend=4;S.ban.querySelectorAll('.bt').forEach((r,i)=>{const c=lt>2.4+i*1.5;if(c)pend--;r.querySelector('.sug').style.display=c?'none':'block';r.querySelector('.done').style.display=c?'flex':'none';r.style.background=c&&lt<2.4+i*1.5+.5?'#f0fdf4':'';const rp=easeOut((lt-.8-i*.18)/.5);r.style.opacity=rp});
+  S.ban.querySelector('#pend').textContent=`(${pend} por conciliar)`}}
+ // finanzas
+ {const [a,b]=D.fin;if(t>=a&&t<b){const lt=fade(S.fin,t,a,b);winCam(S.fin,lt,b-a);
+  scrollPage(S.fin,235*ease((lt-5.4)/1.2));S.fin.querySelectorAll('[data-c]').forEach(e=>e.textContent=mxn(+e.dataset.c*easeOut((lt-1)/1.6)));
+  ['b1','b2'].forEach((id,k)=>S.fin.querySelectorAll('.'+id).forEach((r,i)=>{const p=easeOut((lt-1.2-Math.floor(i/2)*.12-k*.25)/.8);const h=+r.dataset.h*p;r.setAttribute('height',h);r.setAttribute('y',+r.dataset.b-h)}));
+  S.fin.querySelectorAll('.dn').forEach((c,i)=>{c.setAttribute('stroke-dasharray',`${+c.dataset.len*easeOut((lt-1.6-i*.15)/.8)} 999`)});
+  const cp=easeOut((lt-2.6)/1.4);S.fin.querySelector('#cov').textContent=Math.round(87*cp)+'%';S.fin.querySelector('#covb').style.width=87*cp+'%';
+  S.fin.querySelectorAll('.hb').forEach((e,i)=>e.style.width=(+e.dataset.w*easeOut((lt-3-i*.2)/.8))+'%')}}
+ // outro
+ {const [a,b]=D.out,lt=t-a;if(t>=a&&t<b){S.out.style.opacity=clamp(Math.min(lt/.8,(b-t)/1.2));S.out.querySelectorAll('.chip').forEach((c,i)=>{const p=easeOut((lt-1-i*.12)/.6);c.style.opacity=p;c.style.transform=`translateY(${(1-p)*24}px)`});const cta=S.out.querySelector('#cta');cta.style.opacity=easeOut((lt-2.6)/.8)}}
+};
+window.TOTAL=63;seek(0);
+</script></body></html>
