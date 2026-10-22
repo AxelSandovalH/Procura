@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="64 130 384 260" role="img" aria-label="Procura"><g fill="#fff"><g transform="translate(0,-14)">
+<rect x="96" y="170" width="56" height="56" rx="10"/><rect x="160" y="170" width="56" height="56" rx="10"/><rect x="224" y="170" width="56" height="56" rx="10"/>
+<rect x="96" y="234" width="56" height="56" rx="10"/><rect x="160" y="234" width="56" height="56" rx="10"/><rect x="224" y="234" width="56" height="56" rx="10"/>
+<path d="M290 234h58a16 16 0 0 1 12 5.500l36 40.500a16 16 0 0 1 4 10.500V290H290z"/>
+<rect x="88" y="298" width="336" height="16" rx="8"/>
+<path fill-rule="evenodd" d="M148 328a28 28 0 1 0 .01 0zM148 344a12 12 0 1 1-.01 0zM220 328a28 28 0 1 0 .01 0zM220 344a12 12 0 1 1-.01 0zM356 328a28 28 0 1 0 .01 0zM356 344a12 12 0 1 1-.01 0z"/>
+</g></g></svg>
